@@ -1,0 +1,20 @@
+# OPSIONAL dan BELUM DIUJI (lihat docker-compose.yml).
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY tsconfig.base.json ./
+COPY packages ./packages
+WORKDIR /app/apps/web
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY apps/web ./
+ARG API_INTERNAL_URL=http://127.0.0.1:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
+RUN npx next build
+
+FROM node:22-alpine
+WORKDIR /app
+COPY --from=build /app /app
+WORKDIR /app/apps/web
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["npx", "next", "start", "-p", "3000"]

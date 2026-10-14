@@ -1,0 +1,31 @@
+# Dependensi dan hasil build
+node_modules/
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Rahasia dan data lokal
+.env
+.env.local
+storage/
+*.log
+
+# Keluaran yang dibuat ulang dari skrip
+build/
+/Naqdi-Dokumen-Pengajuan.pdf
+
+# Berkas yang bukan bagian proyek
+docs.zip
+
+# Materi pihak ketiga (video tutorial, screenshot produk acuan): hanya untuk riset internal, jangan masuk git.
+# Hanya ringkasan hasil riset yang disimpan.
+research/*
+!research/BACKOFFICE_FEATURES.md
+!research/playlist.txt
+docs/assets/screens/
+
+# Berkas yang dibuat otomatis oleh alat pengembangan
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

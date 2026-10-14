@@ -1,0 +1,91 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/noto-sans-arabic/400.css";
+@import "@fontsource/noto-sans-arabic/500.css";
+@import "@fontsource/noto-sans-arabic/600.css";
+@import "@fontsource/noto-sans-arabic/700.css";
+
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f8fafb;
+  --border: #dde3ea;
+  --text: #17212b;
+  --muted: #5b6b7b;
+  --brand: #0f766e;
+  --brand-strong: #0b5c56;
+  --brand-soft: #d9f1ee;
+  --danger: #b42318;
+  --danger-soft: #fde8e6;
+  --warn-soft: #fff4d6;
+  --sidebar: #12232e;
+  --sidebar-text: #c7d3dc;
+  --sidebar-active: #1c3a47;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1620;
+    --surface: #16212c;
+    --surface-2: #1b2835;
+    --border: #2a3a49;
+    --text: #e6edf3;
+    --muted: #93a4b4;
+    --brand: #2dd4bf;
+    --brand-strong: #5eead4;
+    --brand-soft: #123c39;
+    --danger: #f97066;
+    --danger-soft: #3b1d1b;
+    --warn-soft: #3a2f10;
+    --sidebar: #0a121a;
+    --sidebar-active: #16303c;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-side: var(--sidebar);
+  --color-side-text: var(--sidebar-text);
+  --color-side-active: var(--sidebar-active);
+  --font-sans: "Inter Variable", "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:lang(ar) body {
+  font-family: "Noto Sans Arabic", "Inter Variable", system-ui, sans-serif;
+  line-height: 1.7;
+}
+
+/* Angka, email, dan kode tetap tampil kiri-ke-kanan di dalam teks RTL. */
+.ltr-text {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

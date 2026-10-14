@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "lib": [
+      "ES2023"
+    ],
+    "paths": {
+      "@naqdi/db": [
+        "./packages/db/src/index.ts"
+      ],
+      "@naqdi/db/*": [
+        "./packages/db/src/*"
+      ],
+      "@naqdi/domain": [
+        "./packages/domain/src/index.ts"
+      ],
+      "@naqdi/i18n": [
+        "./packages/i18n/src/index.ts"
+      ],
+      "@naqdi/i18n/*": [
+        "./packages/i18n/src/*"
+      ]
+    }
+  }
+}

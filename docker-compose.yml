@@ -1,0 +1,75 @@
+# OPSIONAL. Naqdi bisa dijalankan tanpa Docker (lihat docs/05-menjalankan-tanpa-docker.md).
+# BELUM DIUJI: mesin pengembangan awal tidak memiliki Docker. Uji dan laporkan bila ada yang perlu diperbaiki.
+#
+# Hanya database (cara paling umum untuk pengembangan):
+#   docker compose up -d
+#   npm run setup && npm run dev
+#
+# Seluruh aplikasi di kontainer:
+#   docker compose --profile app up -d --build
+#
+# Redis hanya perlu bila QUEUE_DRIVER=redis:
+#   docker compose --profile redis up -d
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_HOST: "%"
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    ports:
+      # Ubah MYSQL_HOST_PORT bila 3306 sudah dipakai MySQL lain di mesin Anda.
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - naqdi_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    profiles: ["redis"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      # Di dalam jaringan Compose, host database bernama "mysql" (hanya berlaku di kontainer).
+      DATABASE_URL: mysql://root:@mysql:3306/naqdi
+      API_HOST: 0.0.0.0
+      API_PORT: "4000"
+      JWT_SECRET: ${JWT_SECRET:?isi JWT_SECRET di .env atau lingkungan}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "4000:4000"
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        # Tertanam saat build (rewrites Next.js). Di Compose, API dijangkau lewat nama layanan.
+        API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  naqdi_mysql:

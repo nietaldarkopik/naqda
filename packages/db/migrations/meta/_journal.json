@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1791956673575,
+      "tag": "0000_clumsy_mathemanic",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1791958072121,
+      "tag": "0001_uneven_beast",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1791967346743,
+      "tag": "0002_open_shinko_yamashiro",
+      "breakpoints": true
+    }
+  ]
+}

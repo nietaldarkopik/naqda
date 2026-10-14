@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "noEmit": true, "types": ["node"] },
+  "include": ["apps/api/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "*.ts"],
+  "exclude": ["node_modules", "apps/web", "research", "build"]
+}
