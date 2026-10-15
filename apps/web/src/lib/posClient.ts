@@ -54,6 +54,61 @@ export const setDeviceToken = (token: string | null) => {
 };
 export const setSessionToken = (token: string | null) => {
   sessionToken = token;
+  if (!token) clearSavedSession();
+};
+
+// ---- pemulihan sesi saat halaman dimuat ulang
+// Token sesi tetap di memori sebagai sumber utama. Salinannya disimpan di sessionStorage (hilang saat tab/aplikasi ditutup,
+// tidak dibagi antar tab) HANYA agar muat ulang halaman, mis. saat offline, tidak mengeluarkan kasir yang sedang berjualan.
+// Dihapus saat keluar, sesi berakhir, atau perangkat dicabut. Kedaluwarsa tetap mengikuti token (12 jam secara bawaan).
+const SESSION_KEY = "naqdi.pos.session";
+
+export interface SavedSession {
+  session: PosSession;
+  shift: ShiftView | null;
+}
+
+const tokenExpiry = (token: string): number | null => {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveSession = (session: PosSession, shift: ShiftView | null): void => {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ session, shift } satisfies SavedSession));
+  } catch {
+    /* penyimpanan diblokir: muat ulang akan meminta PIN */
+  }
+};
+
+export const clearSavedSession = (): void => {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* abaikan */
+  }
+};
+
+/** Sesi tersimpan bila tokennya masih berlaku (sisa > 1 menit); kalau tidak dibuang. */
+export const loadSavedSession = (): SavedSession | null => {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedSession;
+    const exp = tokenExpiry(saved.session.accessToken);
+    if (exp === null || exp - Date.now() < 60_000) {
+      clearSavedSession();
+      return null;
+    }
+    return saved;
+  } catch {
+    clearSavedSession();
+    return null;
+  }
 };
 export const setPosLostHandlers = (device: (() => void) | null, session: (() => void) | null) => {
   onDeviceLost = device;

@@ -132,24 +132,27 @@ const sellOnce = async (i) => {
   return receipt;
 };
 let firstReceipt = "";
-for (let i = 0; i < SALES; i++) {
+for (let i = 0; i < SALES - 1; i++) {
   const r = await sellOnce(i);
   if (i === 0) firstReceipt = r;
 }
 check("struk sementara memuat rujukan OFF-", /OFF-\d{6}-\d{4}/.test(firstReceipt), firstReceipt.slice(0, 60));
 const pending = Number(await page.getByTestId("sync-badge").getAttribute("data-pending"));
-check(`${SALES} penjualan menunggu sinkron di antrean`, pending === SALES, `pending=${pending}`);
+check(`${SALES - 1} penjualan menunggu sinkron di antrean`, pending === SALES - 1, `pending=${pending}`);
 await page.getByTestId("sync-badge").click();
 await page.getByTestId("sync-pending").first().waitFor();
-check("daftar antrean menampilkan semua penjualan", (await page.getByTestId("sync-pending").count()) === SALES);
+check("daftar antrean menampilkan semua penjualan", (await page.getByTestId("sync-pending").count()) === SALES - 1);
 await page.screenshot({ path: `${out}/04-queue.png` });
 await page.keyboard.press("Escape");
 
-// muat ulang halaman saat offline: aplikasi tetap terbuka dari cache dan antrean tidak hilang
+// muat ulang halaman saat offline: kasir TIDAK dikeluarkan (sesi dipulihkan), katalog dari cache, antrean utuh
 await page.reload({ waitUntil: "domcontentloaded" });
-await page.getByText(/Masuk kasir|Tidak bisa terhubung|Pilih nama Anda/).first().waitFor({ timeout: 15000 });
-check("muat ulang saat offline: aplikasi kasir tetap terbuka (dari cache)", true);
+await page.getByRole("button", { name: new RegExp(`Kopi ${run}`) }).first().waitFor({ timeout: 15000 });
+check("muat ulang saat offline: langsung kembali ke layar kasir tanpa PIN (sesi dipulihkan)", true);
+check("setelah muat ulang masih offline dengan antrean sebelumnya", (await page.getByTestId("sync-badge").getAttribute("data-online")) === "false" && Number(await page.getByTestId("sync-badge").getAttribute("data-pending")) === SALES - 1);
 await page.screenshot({ path: `${out}/05-reload-offline.png` });
+await sellOnce(SALES - 1);
+check("masih bisa menjual setelah muat ulang offline", Number(await page.getByTestId("sync-badge").getAttribute("data-pending")) === SALES);
 const queued = await page.evaluate(
   () =>
     new Promise((resolve) => {
@@ -174,10 +177,6 @@ await page.route("**/api/v1/pos/sync", async (route) => {
   } else await route.continue();
 });
 await ctx.setOffline(false);
-await page.reload({ waitUntil: "networkidle" });
-await page.getByText("Pilih nama Anda").waitFor();
-await signIn();
-await page.waitForFunction(() => document.querySelector('[data-testid="sync-badge"]')?.getAttribute("data-online") === "true");
 // jawaban yang hilang membuat status sempat offline; "online" memicu pengecekan ulang lalu pengiriman ulang
 for (let i = 0; i < 40; i++) {
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
@@ -192,6 +191,17 @@ await page.getByTestId("sync-badge").click();
 await page.getByTestId("sync-done").first().waitFor();
 check("riwayat sinkron memetakan OFF-… ke nomor struk resmi", /OFF-\d{6}-\d{4}\s*→\s*#\d+/.test((await page.getByTestId("sync-done").first().textContent()).replace(/\s+/g, " ")));
 await page.screenshot({ path: `${out}/06-synced.png` });
+await page.keyboard.press("Escape");
+
+// keluar menghapus salinan sesi; muat ulang lalu meminta PIN lagi
+const stored = () => page.evaluate(() => sessionStorage.getItem("naqdi.pos.session"));
+check("sesi tersimpan saat kasir masuk", (await stored()) !== null);
+await page.getByRole("button", { name: "Keluar", exact: true }).click();
+await page.getByText("Pilih nama Anda").waitFor();
+check("keluar menghapus salinan sesi", (await stored()) === null);
+await page.reload({ waitUntil: "networkidle" });
+await page.getByText("Pilih nama Anda").waitFor();
+check("setelah keluar, muat ulang meminta PIN lagi", true);
 
 // ================================================================ bukti di database
 const since = startedAt.toISOString().slice(0, 19).replace("T", " "); // kolom waktu disimpan UTC

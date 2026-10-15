@@ -9,9 +9,11 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { formatMinor, parseMajor } from "@/lib/money";
 import {
   getDeviceToken,
+  loadSavedSession,
   posApi,
   PosError,
   setDeviceToken,
+  saveSession,
   setPosLostHandlers,
   setSessionToken,
   type PosBusiness,
@@ -79,9 +81,36 @@ function PosFlow() {
     return () => setPosLostHandlers(null, null);
   }, [toast, t, toActivate, toPin]);
 
+  // Muat ulang halaman: lanjutkan sesi kasir yang masih berlaku (juga saat offline, memakai shift tersimpan).
   useEffect(() => {
-    setStage(getDeviceToken() ? "pin" : "activate");
+    if (!getDeviceToken()) {
+      setStage("activate");
+      return;
+    }
+    const saved = loadSavedSession();
+    if (!saved) {
+      setStage("pin");
+      return;
+    }
+    setSessionToken(saved.session.accessToken);
+    setOutlet({ outlet: saved.session.outlet, business: saved.session.business, deviceName: "" });
+    setSession(saved.session);
+    // Tampilkan kasir langsung dari shift tersimpan, lalu segarkan dari server di latar belakang. Bila server bilang
+    // shift sudah tutup, kembali ke layar buka shift. Galat 401 ditangani handler "sesi berakhir" (kembali ke PIN).
+    setShift(saved.shift);
+    setStage(saved.shift ? "sell" : "shift");
+    posApi<{ shift: ShiftView | null }>("/shifts/current")
+      .then((cur) => {
+        setShift(cur.shift);
+        setStage(cur.shift ? "sell" : "shift");
+      })
+      .catch(() => undefined);
   }, []);
+
+  // Salinan sesi + shift terbaru untuk pemulihan setelah muat ulang.
+  useEffect(() => {
+    if (session) saveSession(session, shift);
+  }, [session, shift]);
 
   const ctx: Ctx | null = session
     ? {
