@@ -12,12 +12,25 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["packages/**/test/**/*.test.ts", "apps/api/test/**/*.test.ts"],
-    // Tes API memakai satu database bersama, jadi file dijalankan berurutan.
-    fileParallelism: false,
-    // Membuat ulang database tes sekali per proses (bukan per berkas).
-    globalSetup: ["apps/api/test/global-setup.ts"],
-    testTimeout: 30_000,
-    hookTimeout: 60_000,
+    projects: [
+      {
+        // Tes murni (aturan bisnis, katalog terjemahan): tidak butuh database.
+        extends: true,
+        test: { name: "unit", include: ["packages/**/test/**/*.test.ts"], testTimeout: 60_000 },
+      },
+      {
+        // Tes API terhadap MySQL sungguhan. Skema dibuat sekali per proses (global-setup.ts);
+        // berkas dijalankan berurutan karena berbagi satu database.
+        extends: true,
+        test: {
+          name: "api",
+          include: ["apps/api/test/**/*.test.ts"],
+          fileParallelism: false,
+          globalSetup: ["apps/api/test/global-setup.ts"],
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+    ],
   },
 });

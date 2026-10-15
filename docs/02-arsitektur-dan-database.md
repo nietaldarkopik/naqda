@@ -148,6 +148,46 @@ atau header klien; SVG dan lainnya ditolak. Disimpan di `STORAGE_DIR/<business_i
 
 **Outlet baru.** `POST /outlets` dengan `assignCatalog` (bawaan `true`) menyediakan seluruh katalog di outlet itu dalam transaksi yang sama.
 
+## 1h. Mesin hitung pesanan, promo, pembayaran, pisah bill, shift (Fase 2, bagian murni)
+
+Semua di `packages/domain` (TypeScript murni, tanpa DB/UI): server dan kasir offline memakai kode yang sama. Diuji 116 tes unit,
+termasuk sapuan 144.576 kombinasi pengaturan dan harga untuk mesin hitung.
+
+**Urutan hitung (`computeOrder`)** dan pengaturan per outlet:
+1. Harga baris = harga satuan (sudah termasuk modifier) x jumlah.
+2. Diskon baris (persen/nominal), lalu diskon promo otomatis (`applyPromos`), lalu diskon pesanan. Hasilnya B (harga setelah diskon).
+3. Dari B diturunkan N (nilai barang sebelum pajak dan service charge). Service charge G = g x N; pajak barang = t x N;
+   pajak atas service charge = t x G (bila `taxOnGratuity`).
+4. Komponen yang "sudah termasuk" di harga menu dipisahkan dari B; yang tidak termasuk ditambahkan di atas B (`addedOnTop`).
+5. Pembulatan akhir ke kelipatan `roundingStep` (terdekat/ke atas/ke bawah), dicatat terpisah sebagai `rounding`.
+
+| Pengaturan | Bawaan | Arti |
+|---|---|---|
+| `pricesIncludeTax` | tidak (sudah ada di `outlets`) | pajak dipisahkan dari harga menu |
+| `pricesIncludeGratuity` | tidak | service charge dipisahkan dari harga menu |
+| `taxOnGratuity` | ya | pajak juga dikenakan atas service charge |
+| `roundingStep`, `roundingMode` | 0 (mati), terdekat | pembulatan total; rupiah biasanya 100 |
+
+Contoh (B = Rp100.000, service 5%, pajak 10% atas harga dan service): total eksklusif = Rp115.500; bila harga sudah termasuk pajak dan service
+(menu Rp115.500) pelanggan membayar tepat Rp115.500 dan komponennya dipisahkan. Sifat yang selalu benar dan diuji: total = N + G + pajak, bagian di
+dalam harga menu = B, tidak ada komponen negatif, harga lebih tinggi tidak pernah menghasilkan total lebih rendah, selisih pembulatan komponen
+tertanam paling banyak 2 satuan terkecil.
+
+> **ASUMSI YANG BELUM DIKONFIRMASI** dengan akuntan/toko: (a) diskon dipotong sebelum service charge dan pajak; (b) pajak dikenakan atas service
+> charge; (c) service charge dihitung dari nilai barang sebelum pajak; (d) pembulatan di akhir. Semuanya sudah bisa diatur kecuali urutan dasar (a) dan (c).
+> Ubah hanya setelah dikonfirmasi; jangan memproses uang sungguhan sebelum itu.
+
+**Promo (`applyPromos`).** Satu unit hanya menerima satu promo (berurutan sesuai daftar). Diskon persen: bila syarat jumlah terpenuhi, **semua** unit yang
+memenuhi syarat didiskon ("beli minimal N"); dengan `multiple`, hanya kelompok penuh. Diskon nominal: sekali, atau per kelipatan. Beli X gratis Y:
+unit hadiah **termurah** yang digratiskan, dibatasi stok hadiah di keranjang; bila hadiah juga memenuhi syarat (beli 2 gratis 1 item sama),
+unit gratis tidak dihitung sebagai syarat. Jadwal (tanggal, jam, hari) dihitung di **zona waktu outlet**, termasuk jendela lewat tengah malam;
+tipe penjualan dan outlet menyaring promo. Aturan ini adalah penafsiran saya atas deskripsi produk acuan dan perlu disetujui pemilik toko.
+
+**Pembayaran (`settle`).** Pisah bayar banyak metode; kembalian hanya dari tunai; non-tunai tidak boleh melebihi sisa; tunai untuk tagihan yang sudah
+lunas ditolak; pembayaran sebagian diizinkan. **Pisah bill (`splitLines`)**: diskon nominal dibagi sebanding dengan jumlah tepat (sisa ke bagian
+tertinggal), diskon persen ikut, promo dihitung ulang setelah dipisah. **Kas shift**: diharapkan = modal + tunai bersih - refund tunai + kas masuk - kas keluar.
+**PIN**: 4-6 digit, PIN lemah (0000, 1234, 1212) ditolak, penguncian setelah 5 kesalahan (30 detik, berlipat dua, maksimal 30 menit).
+
 ## 1b. Perangkat keras yang didukung
 
 Standar: **ESC/POS** (printer thermal). Semua perangkat di bawah dicapai lewat antarmuka `Hardware`

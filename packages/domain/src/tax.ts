@@ -41,7 +41,7 @@ const assertRates = (ratesBp: readonly number[]) => {
 };
 
 /** Membagi `total` ke tarif secara proporsional; sisa pembulatan diberikan ke tarif terakhir agar jumlahnya tepat. */
-const allocate = (total: Minor, ratesBp: readonly number[]): Minor[] => {
+export const allocateByRates = (total: Minor, ratesBp: readonly number[]): Minor[] => {
   const sum = ratesBp.reduce((a, b) => a + b, 0);
   if (ratesBp.length === 0) return [];
   if (sum === 0) return ratesBp.map(() => 0);
@@ -71,5 +71,5 @@ export const applyTaxes = (amount: Minor, ratesBp: readonly number[], pricesIncl
     net = amount;
     tax = mulDivRound(amount, combined, 10_000);
   }
-  return { net, tax, gross: net + tax, perTax: allocate(tax, ratesBp) };
+  return { net, tax, gross: net + tax, perTax: allocateByRates(tax, ratesBp) };
 };

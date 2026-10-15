@@ -54,14 +54,21 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 - Mode pajak diatur per outlet; belum ada nilai bawaan tingkat bisnis (outlet baru mulai dari "pajak ditambahkan").
 - Penampil audit hanya membaca (tanpa ekspor, tanpa kebijakan retensi).
 
-## Fase 2. Kasir inti (4–5 sesi)
-- Login PIN dan pendaftaran perangkat.
-- Layar penjualan: Favorit, Library, Custom, keranjang, dialog item.
-- Mesin hitung total (`packages/domain`) dengan tes lengkap.
-- Pembayaran tunai dan metode simulasi, struk, kirim struk ke outbox.
-- Simpan bill, Daftar Bill, pisah bill, pisah bayar.
-- Shift: mulai, kas masuk/keluar, akhiri, histori.
-- **Selesai bila**: satu hari penjualan bisa disimulasikan dari buka sampai tutup shift.
+## Fase 2. Kasir inti (4–5 sesi) — SEDANG BERJALAN (14–15 Okt 2026)
+
+**Selesai dan teruji (bagian murni, tanpa database; 116 tes unit):**
+- Mesin hitung total (`computeOrder`): diskon berlapis, service charge, pajak eksklusif/inklusif, pajak atas service, pembulatan; semua per pengaturan outlet.
+- Mesin promo (`applyPromos`): diskon per item, beli X gratis Y, jadwal di zona waktu outlet, satu unit satu promo.
+- Penyelesaian pembayaran (`settle`), pisah bill (`splitLines`), rekonsiliasi kas shift, kebijakan PIN dan penguncian.
+- Aturan lengkap dan asumsi yang belum dikonfirmasi: doc 02 bagian 1h.
+
+**Belum dikerjakan (butuh database yang berjalan untuk dibuktikan):**
+- Pengaturan outlet baru di database (`pricesIncludeGratuity`, `taxOnGratuity`, `roundingStep`, `roundingMode`) beserta formulirnya.
+- Skema dan API: perangkat dan login PIN, pesanan/bill, pembayaran, nomor struk berurutan tanpa celah, shift dan kas masuk/keluar, struk.
+- Tampilan kasir tablet (Favorit/Library/Custom, keranjang, dialog item, bayar, daftar bill, pisah bill, shift).
+- Pengisian "outbox" struk (email/SMS) dan cetak.
+
+**Selesai bila**: satu hari penjualan bisa disimulasikan dari buka sampai tutup shift (belum tercapai).
 
 ## Fase 3. Meja dan aktivitas (2–3 sesi)
 - Table group, table map (Back Office), denah di kasir, mulai bill dari meja.
