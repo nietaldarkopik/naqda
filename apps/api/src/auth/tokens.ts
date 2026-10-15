@@ -28,8 +28,8 @@ export const verifyAccessToken = async (token: string, secret: string): Promise<
   try {
     const { payload } = await jwtVerify(token, encoder.encode(secret), { algorithms: ["HS256"] });
     const { sub, bid, rid, acc, prv, kind } = payload as Record<string, unknown>;
-    // Token kasir (POS) tidak boleh dipakai di API Back Office.
-    if (kind === "pos") return null;
+    // Token kasir (POS) dan token pengelola platform tidak boleh dipakai di API Back Office.
+    if (kind === "pos" || kind === "platform") return null;
     if (typeof sub !== "string" || typeof bid !== "string" || typeof rid !== "string") return null;
     if (!(accessTypes as readonly unknown[]).includes(acc)) return null;
     if (!Array.isArray(prv)) return null;
@@ -75,6 +75,37 @@ export const verifyPosToken = async (token: string, secret: string): Promise<Pos
     if (typeof sub !== "string" || typeof bid !== "string" || typeof rid !== "string" || typeof out !== "string" || typeof dev !== "string") return null;
     if (!Array.isArray(prv)) return null;
     return { userId: sub, businessId: bid, roleId: rid, outletId: out, deviceId: dev, privileges: prv.filter(isPrivilege) };
+  } catch {
+    return null;
+  }
+};
+
+export interface PlatformAuthContext {
+  adminId: string;
+  role: "owner" | "support";
+}
+
+/**
+ * Token pengelola platform: ditandai `kind: "platform"`, ditandatangani dengan kunci TURUNAN yang berbeda dari token toko,
+ * sehingga token toko tidak mungkin lolos sebagai pengelola walau bidangnya dipalsukan. Berumur pendek, tanpa pembaruan:
+ * habis berarti masuk lagi.
+ */
+const platformKey = (secret: string) => encoder.encode(`${secret}::platform`);
+
+export const signPlatformToken = async (ctx: PlatformAuthContext, secret: string, ttlSeconds: number): Promise<string> =>
+  new SignJWT({ kind: "platform", role: ctx.role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(ctx.adminId)
+    .setIssuedAt()
+    .setExpirationTime(`${ttlSeconds}s`)
+    .sign(platformKey(secret));
+
+export const verifyPlatformToken = async (token: string, secret: string): Promise<PlatformAuthContext | null> => {
+  try {
+    const { payload } = await jwtVerify(token, platformKey(secret), { algorithms: ["HS256"] });
+    const { sub, kind, role } = payload as Record<string, unknown>;
+    if (kind !== "platform" || typeof sub !== "string" || (role !== "owner" && role !== "support")) return null;
+    return { adminId: sub, role };
   } catch {
     return null;
   }

@@ -46,6 +46,136 @@
     "noAccount": "No account yet?",
     "registerFree": "Sign up free"
   },
+  "platform": {
+    "extendNotAllowed": "A trial can only be extended for a business that is on trial, past due, or cancelled. Reactivate it first if it is suspended.",
+    "reasonNeedsSuspend": "A reason is only used when suspending."
+  },
+  "platformUi": {
+    "title": "Naqdi Platform",
+    "loading": "Loading…",
+    "navOverview": "Overview",
+    "navBusinesses": "Businesses",
+    "navAudit": "Audit",
+    "roleOwner": "Owner",
+    "roleSupport": "Support",
+    "logout": "Sign out",
+    "loginTitle": "Administrator sign-in",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "invalidLogin": "Wrong email or password.",
+    "tooMany": "Too many attempts. Try again in a few minutes.",
+    "network": "Cannot reach the server.",
+    "total": "Total businesses",
+    "signups7": "Sign-ups, 7 days",
+    "signups30": "Sign-ups, 30 days",
+    "byStatus": "By status",
+    "byPlan": "By plan",
+    "byCountry": "By country",
+    "byCurrency": "By currency",
+    "expiringSoon": "Trials ending soon (3 days)",
+    "none": "None.",
+    "daysLeft": "{count} days left",
+    "status": {
+      "trial": "Trial",
+      "active": "Active",
+      "past_due": "Past due",
+      "suspended": "Suspended",
+      "cancelled": "Cancelled"
+    },
+    "level": {
+      "full": "Full access",
+      "grace": "Grace period",
+      "locked": "Locked"
+    },
+    "createBusiness": "Create business",
+    "createdTitle": "Business {name} created",
+    "passwordOnce": "Admin password (shown ONCE)",
+    "close": "Close",
+    "searchBusiness": "Search business name or email",
+    "filterStatus": "Status",
+    "allStatuses": "All statuses",
+    "expiringOnly": "Trial ends in ≤ 3 days",
+    "col": {
+      "business": "Business",
+      "owner": "Owner",
+      "status": "Status",
+      "plan": "Plan",
+      "usage": "Outlets · devices · staff",
+      "orders30": "Orders, 30 days",
+      "ends": "Ends"
+    },
+    "cancel": "Cancel",
+    "create": "Create",
+    "f": {
+      "name": "Business name",
+      "adminEmail": "Admin email",
+      "country": "Country",
+      "currency": "Currency",
+      "timezone": "Time zone",
+      "plan": "Plan",
+      "mode": "Start as",
+      "modeTrial": "Trial",
+      "modeActive": "Active (managed manually)",
+      "trialDays": "Trial length (days)",
+      "adminName": "Admin name",
+      "adminPassword": "Admin password",
+      "adminPasswordHint": "Empty = generated and shown once."
+    },
+    "readOnly": "Your role is view-only; changes need the owner role.",
+    "trialEnds": "Trial ends",
+    "periodEnds": "Period ends",
+    "createdAt": "Signed up",
+    "terms": "Terms accepted",
+    "lastOrder": "Last order",
+    "suspendInfo": "Suspension",
+    "usage": "Usage",
+    "u": {
+      "outlets": "Outlets",
+      "devices": "Till devices",
+      "employees": "Employees"
+    },
+    "customLimits": "Using custom limits (overriding the plan).",
+    "note": "Note",
+    "noteHint": "Recorded in the audit trail for the changes below.",
+    "a": {
+      "trial": "Trial",
+      "extendDays": "Add days",
+      "extend": "Extend",
+      "status": "Status",
+      "reason": "Suspension reason",
+      "apply": "Apply",
+      "plan": "Plan and limits",
+      "maxOutlets": "Max outlets",
+      "maxDevices": "Max devices",
+      "maxEmployees": "Max staff",
+      "applyLimits": "Apply custom limits",
+      "limitsHint": "Leave all empty to use the plan limits. Usage already above a limit is not removed.",
+      "subscription": "Subscription",
+      "interval": "Interval"
+    },
+    "interval": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "history": "Action history",
+    "system": "System",
+    "saved": "Saved",
+    "audit": {
+      "when": "Time",
+      "admin": "Administrator",
+      "action": "Action",
+      "business": "Business",
+      "detail": "Detail"
+    },
+    "action": {
+      "signup": "Self sign-up",
+      "business": {
+        "create": "Business created",
+        "update": "Business changed"
+      }
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

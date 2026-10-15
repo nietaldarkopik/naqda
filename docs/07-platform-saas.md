@@ -60,7 +60,7 @@ Batas diterapkan **di server** saat menambah outlet, perangkat kasir, dan karyaw
 |---|---|---|
 | **12A** | Status langganan, uji coba, masa tenggang, terkunci; batas paket; spanduk di Back Office; penegakan di API dan kasir | **Selesai dan teruji** |
 | **12B** | **Pendaftaran mandiri**: halaman daftar, uji coba 14 hari otomatis, perlindungan penyalahgunaan | **Selesai dan teruji, MATI di produksi** (lihat bagian 9) |
-| **12C** | **Panel pengelola**: akun pengelola terpisah, daftar bisnis dan pemakaian, buat/perpanjang/tangguhkan, ubah paket dan batas, catatan audit pengelola | Berikutnya |
+| **12C** | **Panel pengelola**: akun pengelola terpisah, daftar bisnis dan pemakaian, buat/perpanjang/tangguhkan, ubah paket dan batas, catatan audit pengelola | **Selesai** (panel di `/platform`; akun dibuat lewat `npm run platform:create-admin`; peran owner/support; token terpisah 8 jam) |
 | **12D** | **Penagihan**: pembayaran langganan bulanan/tahunan lewat penyedia, webhook, faktur, jatuh tempo otomatis, pajak per negara | Butuh keputusan penyedia |
 | **12E** | **Operasional skala**: uji beban, pemisahan baca/tulis, pengarsipan data lama, ekspor dan hapus per bisnis, pemantauan per bisnis | Sebelum peluncuran besar |
 | **12F** | Akses bantuan (support) yang tercatat dan atas izin; pengumuman; halaman status | Setelah 12C |

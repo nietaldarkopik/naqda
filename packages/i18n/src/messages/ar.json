@@ -46,6 +46,136 @@
     "noAccount": "ليس لديك حساب؟",
     "registerFree": "سجّل مجانًا"
   },
+  "platform": {
+    "extendNotAllowed": "يمكن تمديد التجربة فقط للنشاط في التجربة أو المتأخر أو الملغى. أعد التفعيل أولًا إن كان موقوفًا.",
+    "reasonNeedsSuspend": "يُستخدم السبب عند الإيقاف فقط."
+  },
+  "platformUi": {
+    "title": "منصة نقدي",
+    "loading": "جارٍ التحميل…",
+    "navOverview": "نظرة عامة",
+    "navBusinesses": "الأنشطة",
+    "navAudit": "التدقيق",
+    "roleOwner": "مالك",
+    "roleSupport": "دعم",
+    "logout": "تسجيل الخروج",
+    "loginTitle": "دخول المسؤول",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signIn": "دخول",
+    "invalidLogin": "البريد أو كلمة المرور غير صحيحة.",
+    "tooMany": "محاولات كثيرة. حاول بعد دقائق.",
+    "network": "تعذر الاتصال بالخادم.",
+    "total": "إجمالي الأنشطة",
+    "signups7": "تسجيلات 7 أيام",
+    "signups30": "تسجيلات 30 يومًا",
+    "byStatus": "حسب الحالة",
+    "byPlan": "حسب الباقة",
+    "byCountry": "حسب الدولة",
+    "byCurrency": "حسب العملة",
+    "expiringSoon": "تجارب تنتهي قريبًا (3 أيام)",
+    "none": "لا يوجد.",
+    "daysLeft": "تبقّى {count} يومًا",
+    "status": {
+      "trial": "تجربة",
+      "active": "نشط",
+      "past_due": "متأخر",
+      "suspended": "موقوف",
+      "cancelled": "ملغى"
+    },
+    "level": {
+      "full": "وصول كامل",
+      "grace": "فترة سماح",
+      "locked": "مقفل"
+    },
+    "createBusiness": "إنشاء نشاط",
+    "createdTitle": "تم إنشاء النشاط {name}",
+    "passwordOnce": "كلمة مرور المسؤول (تظهر مرة واحدة)",
+    "close": "إغلاق",
+    "searchBusiness": "ابحث باسم النشاط أو البريد",
+    "filterStatus": "الحالة",
+    "allStatuses": "كل الحالات",
+    "expiringOnly": "تنتهي التجربة خلال ≤ 3 أيام",
+    "col": {
+      "business": "النشاط",
+      "owner": "المالك",
+      "status": "الحالة",
+      "plan": "الباقة",
+      "usage": "الفروع · الأجهزة · الموظفون",
+      "orders30": "طلبات 30 يومًا",
+      "ends": "ينتهي"
+    },
+    "cancel": "إلغاء",
+    "create": "إنشاء",
+    "f": {
+      "name": "اسم النشاط",
+      "adminEmail": "بريد المسؤول",
+      "country": "الدولة",
+      "currency": "العملة",
+      "timezone": "المنطقة الزمنية",
+      "plan": "الباقة",
+      "mode": "البدء كـ",
+      "modeTrial": "تجربة",
+      "modeActive": "نشط (يُدار يدويًا)",
+      "trialDays": "مدة التجربة (أيام)",
+      "adminName": "اسم المسؤول",
+      "adminPassword": "كلمة مرور المسؤول",
+      "adminPasswordHint": "الفارغ = تُنشأ وتظهر مرة واحدة."
+    },
+    "readOnly": "دورك للعرض فقط؛ التغييرات تتطلب دور المالك.",
+    "trialEnds": "تنتهي التجربة",
+    "periodEnds": "تنتهي الفترة",
+    "createdAt": "تاريخ التسجيل",
+    "terms": "الشروط المقبولة",
+    "lastOrder": "آخر طلب",
+    "suspendInfo": "الإيقاف",
+    "usage": "الاستخدام",
+    "u": {
+      "outlets": "الفروع",
+      "devices": "أجهزة الكاشير",
+      "employees": "الموظفون"
+    },
+    "customLimits": "يستخدم حدودًا مخصصة (تتجاوز الباقة).",
+    "note": "ملاحظة",
+    "noteHint": "تُسجَّل في سجل التدقيق للتغييرات أدناه.",
+    "a": {
+      "trial": "التجربة",
+      "extendDays": "إضافة أيام",
+      "extend": "تمديد",
+      "status": "الحالة",
+      "reason": "سبب الإيقاف",
+      "apply": "تطبيق",
+      "plan": "الباقة والحدود",
+      "maxOutlets": "أقصى فروع",
+      "maxDevices": "أقصى أجهزة",
+      "maxEmployees": "أقصى موظفين",
+      "applyLimits": "تطبيق حدود مخصصة",
+      "limitsHint": "اترك الكل فارغًا لاستخدام حدود الباقة. لا يُحذف الاستخدام الذي تجاوز الحد.",
+      "subscription": "الاشتراك",
+      "interval": "الدورة"
+    },
+    "interval": {
+      "monthly": "شهري",
+      "yearly": "سنوي"
+    },
+    "history": "سجل الإجراءات",
+    "system": "النظام",
+    "saved": "تم الحفظ",
+    "audit": {
+      "when": "الوقت",
+      "admin": "المسؤول",
+      "action": "الإجراء",
+      "business": "النشاط",
+      "detail": "التفاصيل"
+    },
+    "action": {
+      "signup": "تسجيل ذاتي",
+      "business": {
+        "create": "تم إنشاء النشاط",
+        "update": "تم تعديل النشاط"
+      }
+    }
+  },
   "common": {
     "save": "حفظ",
     "cancel": "إلغاء",

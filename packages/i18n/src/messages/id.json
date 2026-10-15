@@ -46,6 +46,136 @@
     "noAccount": "Belum punya akun?",
     "registerFree": "Daftar gratis"
   },
+  "platform": {
+    "extendNotAllowed": "Uji coba hanya bisa diperpanjang untuk bisnis berstatus uji coba, jatuh tempo, atau dibatalkan. Aktifkan kembali dulu bila ditangguhkan.",
+    "reasonNeedsSuspend": "Alasan hanya dipakai saat menangguhkan."
+  },
+  "platformUi": {
+    "title": "Platform Naqdi",
+    "loading": "Memuat…",
+    "navOverview": "Ringkasan",
+    "navBusinesses": "Bisnis",
+    "navAudit": "Audit",
+    "roleOwner": "Owner",
+    "roleSupport": "Support",
+    "logout": "Keluar",
+    "loginTitle": "Masuk pengelola",
+    "email": "Email",
+    "password": "Kata sandi",
+    "signIn": "Masuk",
+    "invalidLogin": "Email atau kata sandi salah.",
+    "tooMany": "Terlalu banyak percobaan. Coba lagi beberapa menit lagi.",
+    "network": "Tidak bisa terhubung ke server.",
+    "total": "Total bisnis",
+    "signups7": "Daftar 7 hari",
+    "signups30": "Daftar 30 hari",
+    "byStatus": "Menurut status",
+    "byPlan": "Menurut paket",
+    "byCountry": "Menurut negara",
+    "byCurrency": "Menurut mata uang",
+    "expiringSoon": "Uji coba segera habis (3 hari)",
+    "none": "Tidak ada.",
+    "daysLeft": "{count} hari lagi",
+    "status": {
+      "trial": "Uji coba",
+      "active": "Aktif",
+      "past_due": "Jatuh tempo",
+      "suspended": "Ditangguhkan",
+      "cancelled": "Dibatalkan"
+    },
+    "level": {
+      "full": "Akses penuh",
+      "grace": "Masa tenggang",
+      "locked": "Terkunci"
+    },
+    "createBusiness": "Buat bisnis",
+    "createdTitle": "Bisnis {name} dibuat",
+    "passwordOnce": "Kata sandi admin (ditampilkan SEKALI)",
+    "close": "Tutup",
+    "searchBusiness": "Cari nama bisnis atau email",
+    "filterStatus": "Status",
+    "allStatuses": "Semua status",
+    "expiringOnly": "Uji coba habis ≤ 3 hari",
+    "col": {
+      "business": "Bisnis",
+      "owner": "Pemilik",
+      "status": "Status",
+      "plan": "Paket",
+      "usage": "Outlet · perangkat · karyawan",
+      "orders30": "Transaksi 30 hari",
+      "ends": "Berakhir"
+    },
+    "cancel": "Batal",
+    "create": "Buat",
+    "f": {
+      "name": "Nama bisnis",
+      "adminEmail": "Email admin",
+      "country": "Negara",
+      "currency": "Mata uang",
+      "timezone": "Zona waktu",
+      "plan": "Paket",
+      "mode": "Mulai sebagai",
+      "modeTrial": "Uji coba",
+      "modeActive": "Aktif (dikelola manual)",
+      "trialDays": "Lama uji coba (hari)",
+      "adminName": "Nama admin",
+      "adminPassword": "Kata sandi admin",
+      "adminPasswordHint": "Kosong = dibuat acak dan ditampilkan sekali."
+    },
+    "readOnly": "Peran Anda hanya bisa melihat; perubahan memerlukan peran owner.",
+    "trialEnds": "Uji coba berakhir",
+    "periodEnds": "Periode berakhir",
+    "createdAt": "Terdaftar",
+    "terms": "Ketentuan disetujui",
+    "lastOrder": "Transaksi terakhir",
+    "suspendInfo": "Penangguhan",
+    "usage": "Pemakaian",
+    "u": {
+      "outlets": "Outlet",
+      "devices": "Perangkat kasir",
+      "employees": "Karyawan"
+    },
+    "customLimits": "Memakai batas khusus (menimpa paket).",
+    "note": "Catatan",
+    "noteHint": "Ikut tercatat di jejak audit untuk perubahan di bawah.",
+    "a": {
+      "trial": "Uji coba",
+      "extendDays": "Tambah hari",
+      "extend": "Perpanjang",
+      "status": "Status",
+      "reason": "Alasan penangguhan",
+      "apply": "Terapkan",
+      "plan": "Paket dan batas",
+      "maxOutlets": "Maks. outlet",
+      "maxDevices": "Maks. perangkat",
+      "maxEmployees": "Maks. karyawan",
+      "applyLimits": "Terapkan batas khusus",
+      "limitsHint": "Kosongkan semua untuk memakai batas paket. Pemakaian yang sudah melewati batas tidak dihapus.",
+      "subscription": "Langganan",
+      "interval": "Siklus"
+    },
+    "interval": {
+      "monthly": "Bulanan",
+      "yearly": "Tahunan"
+    },
+    "history": "Riwayat tindakan",
+    "system": "Sistem",
+    "saved": "Tersimpan",
+    "audit": {
+      "when": "Waktu",
+      "admin": "Pengelola",
+      "action": "Tindakan",
+      "business": "Bisnis",
+      "detail": "Rincian"
+    },
+    "action": {
+      "signup": "Pendaftaran mandiri",
+      "business": {
+        "create": "Bisnis dibuat",
+        "update": "Bisnis diubah"
+      }
+    }
+  },
   "common": {
     "save": "Simpan",
     "cancel": "Batal",

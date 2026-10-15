@@ -364,7 +364,9 @@ langganan bulanan atau tahunan, sekitar 2000 toko per tahun, lintas negara.
 
 **12B selesai dan teruji, tetapi MATI di produksi**: pendaftaran mandiri (halaman daftar, uji coba 14 hari otomatis, batas per IP, kolom jebakan, ketentuan draf). Syarat sebelum dibuka untuk publik ada di `docs/07-platform-saas.md` bagian 9 (terutama verifikasi email dan dokumen hukum).
 
-**Belum**: panel pengelola (12C), penagihan langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
+**12C selesai**: panel pengelola di `/platform` (ringkasan, daftar dan cari bisnis, buat bisnis, perpanjang uji coba, tangguhkan, ubah paket dan batas khusus, langganan, jejak audit; peran owner dan support hanya-lihat).
+
+**Belum**: penagihan langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
 
 ## Urutan ringkas
 

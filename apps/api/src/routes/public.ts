@@ -7,6 +7,7 @@ import { WindowLimiter } from "../auth/window";
 import type { Config } from "../config";
 import { AppError } from "../errors";
 import { clientIp, validate } from "../http";
+import { recordPlatformEvent } from "../platform/audit";
 
 type Db = DbHandle["db"];
 
@@ -65,7 +66,7 @@ export const publicRoutes = (db: Db, config: Config) => {
 
     const now = new Date();
     try {
-      await createBusiness(db, {
+      const made = await createBusiness(db, {
         name: b.businessName,
         currency: b.currency,
         defaultLocale: b.locale,
@@ -81,6 +82,7 @@ export const publicRoutes = (db: Db, config: Config) => {
         adminPassword: b.password,
         bcryptCost: config.bcryptCost,
       });
+      await recordPlatformEvent(db, null, "signup", made.businessId, { plan: "basic", country: b.country ?? null, currency: b.currency, locale: b.locale, termsVersion: TERMS_VERSION });
     } catch (e) {
       // Dua pendaftaran serentak dengan email sama: yang kalah mendapat pesan yang sama dengan pengecekan di atas.
       if (/Duplicate entry|ER_DUP_ENTRY/.test(e instanceof Error ? `${e.message} ${(e as { cause?: Error }).cause?.message ?? ""}` : "")) {

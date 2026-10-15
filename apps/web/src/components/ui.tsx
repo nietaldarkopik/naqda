@@ -80,8 +80,8 @@ export function Badge({ tone = "neutral", children }: { tone?: "neutral" | "good
   return <span className={cx("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", tones[tone])}>{children}</span>;
 }
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("rounded-lg border border-line bg-surface", className)}>{children}</div>;
+export function Card({ className, children, "data-testid": testId }: { className?: string; children: ReactNode; "data-testid"?: string }) {
+  return <div className={cx("rounded-lg border border-line bg-surface", className)} data-testid={testId}>{children}</div>;
 }
 
 export function Modal({
