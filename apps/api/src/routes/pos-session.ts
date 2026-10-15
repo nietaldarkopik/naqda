@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -8,6 +8,9 @@ import {
   cashMovements,
   categories,
   counters,
+  customers,
+  feedback,
+  loyaltyRewards,
   itemModifierSets,
   itemOutlets,
   itemVariantPrices,
@@ -20,6 +23,7 @@ import {
   orderItemModifiers,
   orderItems,
   orders,
+  outlets,
   payments,
   refundItems,
   refunds,
@@ -33,7 +37,7 @@ import {
   users,
   type DbHandle,
 } from "@naqdi/db";
-import { PaymentError, RefundError, SplitError, cashDifference, computeRefund, expectedCash, settle, splitLines, splitRefund, type OrderLineInput, type Privilege } from "@naqdi/domain";
+import { PaymentError, RefundError, RewardError, itemRewardDiscounts, localMoment, totalRewardDiscount, SplitError, cashDifference, computeRefund, expectedCash, settle, splitLines, splitRefund, type OrderLineInput, type Privilege } from "@naqdi/domain";
 import type { PosAuthContext } from "../auth/tokens";
 import type { LoginLimiter } from "../auth/limiter";
 import type { Config } from "../config";
@@ -42,6 +46,7 @@ import { iso, validate } from "../http";
 import { requireDevice, requirePos, requirePosPrivilege, type PosEnv } from "../pos/context";
 import { privilegesOfRole, verifyPin } from "../pos/pin";
 import { deductForOrder, restockForRefund } from "../inventory/sales";
+import { CodeRejected, enrollCustomer, findCustomer, getProgram, issueCode, loadRewardContext, programActive, recordCodeAttempt, rewardDef, rewardsOf, reverseLoyalty, settleLoyalty } from "../loyalty/service";
 import {
   cartSchema,
   fromDiscountInput,
@@ -184,6 +189,80 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     });
   });
 
+  // ------------------------------------------------------------------ pelanggan dan loyalty
+  const customerView = (c: typeof customers.$inferSelect) => ({ id: c.id, name: c.name, phone: c.phone, email: c.email, member: Boolean(c.memberSince), points: c.points });
+  const localToday = async (outletId: string) => {
+    const [o] = await db.select({ tz: outlets.timezone }).from(outlets).where(eq(outlets.id, outletId)).limit(1);
+    return localMoment(new Date(), o?.tz ?? "UTC").date;
+  };
+
+  session.get("/customers", validate("query", z.object({ q: z.string().trim().max(60).optional() })), async (c) => {
+    const pos = c.get("pos");
+    const q = c.req.valid("query").q;
+    const term = q ? `%${q.replace(/[%_\\]/g, "\\$&")}%` : null;
+    const rows = await db
+      .select()
+      .from(customers)
+      .where(and(eq(customers.businessId, pos.businessId), isNull(customers.deletedAt), term ? or(like(customers.name, term), like(customers.phone, term), like(customers.email, term)) : undefined))
+      .orderBy(asc(customers.name))
+      .limit(20);
+    return c.json({ items: rows.map(customerView) });
+  });
+
+  const optional = (max: number) => z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
+  session.post("/customers", validate("json", z.object({ name: z.string().trim().min(1).max(191), phone: optional(32), email: optional(191), enroll: z.boolean().default(false) })), async (c) => {
+    const pos = c.get("pos");
+    const body = c.req.valid("json");
+    const id = newId();
+    try {
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        await tx.insert(customers).values({ id, businessId: pos.businessId, name: body.name, phone: body.phone, email: body.email });
+        if (body.enroll) await enrollCustomer(tx, pos.businessId, id, await localToday(pos.outletId), pos.userId);
+      });
+    } catch (e) {
+      if (duplicateKey(e)) throw new AppError("conflict", { fields: { phone: "loyalty.duplicateCustomer" } });
+      throw e;
+    }
+    return c.json({ customer: customerView((await findCustomer(db, pos.businessId, id))!) }, 201);
+  });
+
+  session.post("/customers/:id/enroll", validate("param", idParam), async (c) => {
+    const pos = c.get("pos");
+    const { id } = c.req.valid("param");
+    const result = await db.transaction(async (t) => enrollCustomer(t as unknown as Db, pos.businessId, id, await localToday(pos.outletId), pos.userId));
+    return c.json({ customer: customerView(result) });
+  });
+
+  // Program dan reward yang bisa ditukar sekarang (kosong bila program mati atau di luar masa berlaku).
+  session.get("/loyalty", async (c) => {
+    const pos = c.get("pos");
+    const program = await getProgram(db, pos.businessId);
+    if (!programActive(program, await localToday(pos.outletId))) return c.json({ enabled: false, requireCode: false, rewards: [] });
+    const rewards = (await rewardsOf(db, pos.businessId)).filter((r) => r.status === "active");
+    return c.json({ enabled: true, requireCode: program.requireCode, rewards: rewards.map((r) => ({ id: r.id, name: r.name, pointsCost: r.pointsCost, kind: r.kind, valueKind: r.valueKind, value: r.value, maxDiscount: r.maxDiscount, minPurchase: r.minPurchase })) });
+  });
+
+  session.post("/loyalty/code", validate("json", z.object({ customerId: z.string().uuid(), rewardId: z.string().uuid() })), async (c) => {
+    const pos = c.get("pos");
+    const { customerId, rewardId } = c.req.valid("json");
+    const rc = await loadRewardContext(db, pos.businessId, customerId, rewardId, await localToday(pos.outletId));
+    const res = await issueCode(db, pos.businessId, rc.customer, rc.reward, !config.isProduction);
+    return c.json(res, 201);
+  });
+
+  session.post("/feedback", validate("json", z.object({ orderId: z.string().uuid().nullish(), customerId: z.string().uuid().nullish(), rating: z.enum(["good", "bad"]), comment: z.string().trim().max(1000).nullish() })), async (c) => {
+    const pos = c.get("pos");
+    const body = c.req.valid("json");
+    if (body.orderId) {
+      const [o] = await db.select({ id: orders.id }).from(orders).where(and(eq(orders.id, body.orderId), eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId))).limit(1);
+      if (!o) throw new AppError("validation", { fields: { orderId: "errors.notFound" } });
+    }
+    if (body.customerId && !(await findCustomer(db, pos.businessId, body.customerId))) throw new AppError("validation", { fields: { customerId: "errors.notFound" } });
+    await db.insert(feedback).values({ id: newId(), businessId: pos.businessId, outletId: pos.outletId, orderId: body.orderId ?? null, customerId: body.customerId ?? null, rating: body.rating, comment: body.comment ?? null, createdBy: pos.userId });
+    return c.json({ ok: true }, 201);
+  });
+
   // ------------------------------------------------------------------ katalog
   session.get("/catalog", async (c) => {
     const pos = c.get("pos");
@@ -264,8 +343,50 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
   const priceCart = async (cart: z.infer<typeof cartSchema>, ctx: OutletContext, canDiscount: boolean) => {
     await loadSalesType(db, ctx.businessId, cart.salesTypeId);
     const [resolved, rates, promoDefs] = await Promise.all([resolveCart(db, ctx, cart, canDiscount), loadRates(db, ctx, cart.salesTypeId), loadPromos(db, ctx)]);
-    const priced = priceLines(resolved.lines, resolved.orderDiscount, ctx, rates, promoDefs, cart.salesTypeId);
-    return { ...resolved, priced, rates, promoDefs };
+    let lines = resolved.lines;
+    let orderDiscount = resolved.orderDiscount;
+    let reward: { id: string; name: string; pointsCost: number } | null = null;
+    let customer: { id: string; name: string } | null = null;
+    let preLineDiscount = 0;
+    let rewardKind: string | null = null;
+
+    if (cart.customerId) {
+      const c = await findCustomer(db, ctx.businessId, cart.customerId);
+      if (!c) throw new AppError("validation", { fields: { customerId: "errors.notFound" } });
+      customer = { id: c.id, name: c.name };
+    }
+    if (cart.rewardId) {
+      if (!cart.customerId) throw new AppError("validation", { fields: { rewardId: "loyalty.needCustomer" } });
+      if (orderDiscount) throw new AppError("validation", { fields: { rewardId: "pos.rewardWithDiscount" } });
+      const rc = await loadRewardContext(db, ctx.businessId, cart.customerId, cart.rewardId, localMoment(new Date(), ctx.timezone).date);
+      const def = rewardDef(rc.reward);
+      try {
+        // Nilai setelah diskon baris dan promo: dasar minimum belanja dan reward persen.
+        const pre = priceLines(lines, null, ctx, rates, promoDefs, cart.salesTypeId).totals;
+        const afterLines = pre.subtotal - pre.lineDiscountTotal - pre.promoDiscountTotal;
+        preLineDiscount = pre.lineDiscountTotal;
+        rewardKind = def.kind;
+        if (def.kind === "item_discount") {
+          if (afterLines < def.minPurchase) throw new RewardError("min_purchase", "minimum");
+          const found = itemRewardDiscounts(def, lines.map((l) => ({ key: l.key, itemId: l.itemId, categoryId: l.categoryId, unitPrice: l.unitPrice, quantity: l.quantity, hasDiscount: Boolean(l.discount) })));
+          lines = lines.map((l) => {
+            const d = found.get(l.key);
+            return d ? { ...l, discount: d.kind === "percent" ? { kind: "percent" as const, value: d.bp, discountId: null } : { kind: "amount" as const, value: d.amount, discountId: null } } : l;
+          });
+        } else {
+          orderDiscount = { kind: "amount", value: totalRewardDiscount(def, afterLines), discountId: null };
+        }
+      } catch (e) {
+        if (e instanceof RewardError) throw new AppError("validation", { fields: { rewardId: e.code === "min_purchase" ? "loyalty.minPurchase" : "loyalty.notApplicable" } });
+        throw e;
+      }
+      reward = { id: rc.reward.id, name: rc.reward.name, pointsCost: rc.reward.pointsCost };
+    }
+
+    const priced = priceLines(lines, orderDiscount, ctx, rates, promoDefs, cart.salesTypeId);
+    if (reward) priced.snapshot.reward = { ...reward, discount: rewardKind === "item_discount" ? priced.totals.lineDiscountTotal - preLineDiscount : priced.totals.orderDiscount };
+    if (customer) priced.snapshot.customer = customer;
+    return { lines, orderDiscount, priced, rates, promoDefs, reward };
   };
 
   // Pratinjau harga untuk keranjang yang belum disimpan.
@@ -339,12 +460,19 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     const lines = await d.select().from(orderItems).where(eq(orderItems.orderId, o.id)).orderBy(asc(orderItems.position));
     const mods = lines.length ? await d.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, lines.map((l) => l.id))) : [];
     const pays = await d.select().from(payments).where(eq(payments.orderId, o.id)).orderBy(asc(payments.createdAt));
+    const cust = o.customerId ? await findCustomer(d, o.businessId, o.customerId) : null;
+    const customerView = cust ? { id: cust.id, name: cust.name, points: cust.points, member: Boolean(cust.memberSince) } : null;
     return {
       id: o.id,
       status: o.status,
       receiptNumber: o.receiptNumber,
       salesTypeId: o.salesTypeId,
       tableId: o.tableId,
+      customerId: o.customerId,
+      customer: customerView,
+      rewardId: o.rewardId,
+      pointsEarned: o.pointsEarned,
+      pointsRedeemed: o.pointsRedeemed,
       refundedTotal: o.refundedTotal,
       label: o.label,
       note: o.note,
@@ -411,6 +539,8 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         deviceId: pos.deviceId,
         salesTypeId: cart.salesTypeId,
         tableId: table?.id ?? null,
+        customerId: cart.customerId ?? null,
+        rewardId: r.reward?.id ?? null,
         label: cart.label ?? null,
         note: cart.note ?? null,
         pax: cart.pax ?? null,
@@ -483,6 +613,8 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           .set({
             salesTypeId: cart.salesTypeId,
             tableId: table?.id ?? null,
+            customerId: cart.customerId ?? null,
+            rewardId: r.reward?.id ?? null,
             label: cart.label ?? null,
             note: cart.note ?? null,
             pax: cart.pax ?? null,
@@ -642,6 +774,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           await tx.insert(refundItems).values({ id: newId(), refundId, orderItemId: l.lineId, quantity: l.quantity, amount: l.amount });
           await tx.update(orderItems).set({ refundedQuantity: sql`${orderItems.refundedQuantity} + ${l.quantity}` }).where(eq(orderItems.id, l.lineId));
         }
+        await reverseLoyalty(tx, order, result.total, pos.userId);
         if (body.restock) await restockForRefund(tx, { businessId: pos.businessId, outletId: pos.outletId, userId: pos.userId }, refundId, result.lines.map((l) => ({ orderItemId: l.lineId, quantity: l.quantity })));
         await tx.update(orders).set({ refundedTotal: sql`${orders.refundedTotal} + ${result.total}` }).where(eq(orders.id, id));
         await logActivity(tx, pos, id, "refund", { total: result.total, method: body.method, reason: body.reason, lines: result.lines.length }, approvedBy);
@@ -661,6 +794,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       "json",
       z.object({
         stockOverride: z.boolean().optional(),
+        rewardCode: z.string().trim().max(12).nullish(),
         payments: z
           .array(z.object({ method: z.enum(methods), amount: z.number().int().min(1).max(1_000_000_000_000), reference: z.string().trim().max(120).nullish() }))
           .max(10),
@@ -671,6 +805,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       const { id } = c.req.valid("param");
       const input = c.req.valid("json").payments;
       const stockOverride = c.req.valid("json").stockOverride === true;
+      const rewardCode = c.req.valid("json").rewardCode ?? null;
       const shift = await requireShift(db, pos.userId, pos.outletId);
 
       await db.transaction(async (t) => {
@@ -720,6 +855,14 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           });
         }
         await deductForOrder(tx, { businessId: pos.businessId, outletId: pos.outletId, userId: pos.userId }, id, stockOverride);
+        const loyalty = await settleLoyalty(tx, { ...order, paidAt: new Date() }, rewardCode, pos.userId);
+        if (loyalty.earned > 0 || loyalty.redeemed > 0) await tx.update(orders).set({ pointsEarned: loyalty.earned, pointsRedeemed: loyalty.redeemed }).where(eq(orders.id, id));
+      }).catch(async (e) => {
+        if (e instanceof CodeRejected) {
+          await recordCodeAttempt(db, e);
+          throw new AppError("conflict", { messageKey: e.key });
+        }
+        throw e;
       });
       const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
       return c.json({ order: await presentOrder(db, row!) });

@@ -27,6 +27,9 @@ import { activityRoutes } from "./routes/activities";
 import { reportRoutes } from "./routes/reports";
 import { ingredientRoutes } from "./routes/ingredients";
 import { inventoryRoutes } from "./routes/inventory";
+import { customerRoutes } from "./routes/customers";
+import { loyaltyRoutes } from "./routes/loyalty";
+import { feedbackRoutes } from "./routes/feedback";
 import { posRoutes } from "./routes/pos-session";
 
 export interface AppDeps {
@@ -102,6 +105,9 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   secured.route("/ingredients", ingredientRoutes());
   secured.route("/suppliers", supplierRoutes());
   secured.route("/inventory", inventoryRoutes());
+  secured.route("/customers", customerRoutes());
+  secured.route("/loyalty", loyaltyRoutes());
+  secured.route("/feedback", feedbackRoutes());
   v1.route("/", secured);
 
   app.route("/api/v1", v1);

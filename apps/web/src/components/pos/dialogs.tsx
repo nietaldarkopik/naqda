@@ -17,6 +17,7 @@ import {
   type ShiftView,
 } from "@/lib/posClient";
 import type { Ctx } from "./PosApp";
+import { FeedbackPanel } from "./dialogs3";
 
 const errText = (e: unknown, fallback: string) => (e instanceof PosError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : fallback);
 
@@ -682,6 +683,7 @@ export function ReceiptDialog({ ctx, order, onClose, onRefund }: { ctx: Ctx; ord
         </div>
       ) : null}
 
+      {paid ? <FeedbackPanel order={order} /> : null}
       <div className="print-area mx-auto w-full max-w-xs space-y-2 font-mono text-xs" data-testid="receipt">
         <div className="text-center">
           <div className="text-sm font-bold">{ctx.session.business.name}</div>
@@ -721,6 +723,14 @@ export function ReceiptDialog({ ctx, order, onClose, onRefund }: { ctx: Ctx; ord
         ))}
         {order.totals.change > 0 ? <R label={t("change")} value={ctx.fmt(order.totals.change)} /> : null}
         {order.refundedTotal > 0 ? <R label={t("refunded")} value={`-${ctx.fmt(order.refundedTotal)}`} /> : null}
+        {order.customer ? (
+          <div className="border-t border-dashed border-line pt-2" data-testid="receipt-loyalty">
+            <div>{order.customer.name}</div>
+            {order.pointsRedeemed > 0 ? <R label={t("pointsRedeemed")} value={`-${order.pointsRedeemed}`} /> : null}
+            {order.pointsEarned > 0 ? <R label={t("pointsEarned")} value={`+${order.pointsEarned}`} /> : null}
+            {order.customer.member ? <R label={t("pointsBalance")} value={String(order.customer.points)} /> : null}
+          </div>
+        ) : null}
         {!paid ? <Badge tone="warn">{t("notPaid")}</Badge> : null}
       </div>
     </Modal>

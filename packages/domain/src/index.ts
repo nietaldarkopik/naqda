@@ -7,6 +7,7 @@ export * from "./order";
 export * from "./refund";
 export * from "./report";
 export * from "./stock";
+export * from "./loyalty";
 export * from "./promo";
 export * from "./payment";
 export * from "./split";

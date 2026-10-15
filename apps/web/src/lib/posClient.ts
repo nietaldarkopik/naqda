@@ -159,6 +159,8 @@ export type CartLine =
 export interface Cart {
   salesTypeId: string;
   tableId?: string | null;
+  customerId?: string | null;
+  rewardId?: string | null;
   lines: CartLine[];
   orderDiscount?: DiscountPick | null;
   label?: string | null;
@@ -217,6 +219,11 @@ export interface OrderView {
   receiptNumber: number | null;
   salesTypeId: string;
   tableId: string | null;
+  customerId: string | null;
+  customer: { id: string; name: string; points: number; member: boolean } | null;
+  rewardId: string | null;
+  pointsEarned: number;
+  pointsRedeemed: number;
   refundedTotal: number;
   label: string | null;
   note: string | null;
@@ -264,6 +271,8 @@ export interface ShiftView {
 export const cartFromOrder = (o: OrderView): Cart => ({
   salesTypeId: o.salesTypeId,
   tableId: o.tableId,
+  customerId: o.customerId,
+  rewardId: o.rewardId,
   label: o.label,
   note: o.note,
   orderDiscount: o.orderDiscount?.discountId ? { discountId: o.orderDiscount.discountId, value: o.orderDiscount.value } : null,
@@ -274,3 +283,27 @@ export const cartFromOrder = (o: OrderView): Cart => ({
       : { kind: "item", variantId: l.variantId!, quantity: l.quantity, modifierOptionIds: l.modifiers.flatMap((m) => (m.optionId ? [m.optionId] : [])), note: l.note, discount };
   }),
 });
+
+export interface PosCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  member: boolean;
+  points: number;
+}
+export interface PosReward {
+  id: string;
+  name: string;
+  pointsCost: number;
+  kind: "percent_total" | "amount_total" | "item_discount";
+  valueKind: "percent" | "amount";
+  value: number;
+  maxDiscount: number | null;
+  minPurchase: number;
+}
+export interface PosLoyalty {
+  enabled: boolean;
+  requireCode: boolean;
+  rewards: PosReward[];
+}

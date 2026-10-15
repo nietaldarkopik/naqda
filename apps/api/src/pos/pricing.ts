@@ -209,6 +209,9 @@ export const cartLineSchema = z.discriminatedUnion("kind", [
 export const cartSchema = z.object({
   salesTypeId: z.string().uuid(),
   tableId: z.string().uuid().nullish(),
+  /** Pelanggan (member bisa mendapat poin) dan reward yang ditukar pada pesanan ini. */
+  customerId: z.string().uuid().nullish(),
+  rewardId: z.string().uuid().nullish(),
   lines: z.array(cartLineSchema).max(200),
   orderDiscount: discountPick.nullish(),
   label: z.string().trim().max(80).nullish(),

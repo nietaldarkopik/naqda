@@ -15,12 +15,16 @@ import {
   type DiscountPick,
   type FloorMap,
   type OrderView,
+  type PosCustomer,
+  type PosLoyalty,
+  type PosReward,
   type PriceResult,
   type ShiftView,
 } from "@/lib/posClient";
 import type { Ctx } from "./PosApp";
 import { BillsDialog, DiscountDialog, ItemDialog, PayDialog, ReceiptDialog, ShiftDialog, SplitDialog } from "./dialogs";
 import { ApprovalDialog, RefundDialog, TablesDialog, type ApprovalInput } from "./dialogs2";
+import { CustomerDialog, RewardDialog } from "./dialogs3";
 
 const sameLine = (a: CartLine, b: CartLine): boolean => {
   if (a.kind !== b.kind || a.note || b.note || a.discount || b.discount) return false;
@@ -63,6 +67,11 @@ export function Sell({
   const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
   const [floor, setFloor] = useState<FloorMap | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [rewardOpen, setRewardOpen] = useState(false);
+  const [loyalty, setLoyalty] = useState<PosLoyalty>({ enabled: false, requireCode: false, rewards: [] });
+  const [rewardCode, setRewardCode] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<OrderView | null>(null);
   const [stockShort, setStockShort] = useState<{ short: { name: string; needed: number; available: number }[]; canOverride: boolean; payments: { method: string; amount: number; reference?: string | null }[] } | null>(null);
   const [approval, setApproval] = useState<{ privilege: "pos.void" | "pos.refund"; title: string; run: (input: ApprovalInput) => Promise<string | null>; done: (ok: boolean) => void } | null>(null);
@@ -87,6 +96,11 @@ export function Sell({
       })
       .catch((e) => toast(e instanceof PosError ? e.message : t("network"), "error"));
   }, [toast, t]);
+
+  // Program loyalty (reward yang bisa ditukar) dimuat sekali per sesi kasir.
+  useEffect(() => {
+    posApi<PosLoyalty>("/loyalty").then(setLoyalty).catch(() => undefined);
+  }, []);
 
   // Denah dimuat sekali agar nama meja pada bill tersimpan bisa ditampilkan.
   useEffect(() => {
@@ -152,10 +166,14 @@ export function Sell({
     setSavedKey(JSON.stringify(empty));
     setOrderId(null);
     setPriced(null);
+    setCustomer(null);
+    setRewardCode(null);
   };
 
   const load = (o: OrderView) => {
     const c = cartFromOrder(o);
+    setCustomer(o.customer ? { id: o.customer.id, name: o.customer.name, phone: null, email: null, member: o.customer.member, points: o.customer.points } : null);
+    setRewardCode(null);
     setCart(c);
     setSavedKey(JSON.stringify(c));
     setOrderId(o.id);
@@ -341,7 +359,16 @@ export function Sell({
             </Select>
             <div className="text-xs text-muted">{orderId ? t("savedBill") : t("newBill")}</div>
           </div>
-          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+            <Button variant="secondary" onClick={() => setCustomerOpen(true)} data-testid="open-customer">
+              {customer ? customer.name : t("customer")}
+              {customer?.member ? <span className="ms-1 text-xs text-brand">{t("pointsLabel", { count: customer.points })}</span> : null}
+            </Button>
+            {customer?.member && loyalty.enabled ? (
+              <Button variant="secondary" onClick={() => setRewardOpen(true)} data-testid="open-reward">
+                {cart.rewardId ? (loyalty.rewards.find((r) => r.id === cart.rewardId)?.name ?? t("reward")) : t("reward")}
+              </Button>
+            ) : null}
             <Button variant="secondary" onClick={() => setTablesOpen(true)} data-testid="open-tables">
               <LayoutGrid size={15} aria-hidden /> {tableName ?? t("tables")}
             </Button>
@@ -476,7 +503,7 @@ export function Sell({
             const saved = dirty || !orderId ? await save() : ({ id: orderId } as OrderView);
             if (!saved) return false;
             try {
-              const res = await posApi<{ order: OrderView }>(`/orders/${saved.id}/pay`, { method: "POST", json: { payments, ...(stockOverride ? { stockOverride: true } : {}) } });
+              const res = await posApi<{ order: OrderView }>(`/orders/${saved.id}/pay`, { method: "POST", json: { payments, ...(stockOverride ? { stockOverride: true } : {}), ...(rewardCode ? { rewardCode } : {}) } });
               setPayOpen(false);
               setReceipt(res.order);
               reset();
@@ -555,6 +582,32 @@ export function Sell({
             setRefunding(null);
             setReceipt(o);
             posApi<{ shift: ShiftView }>("/shifts/current").then((r) => onShift(r.shift)).catch(() => undefined);
+          }}
+        />
+      ) : null}
+      {customerOpen ? (
+        <CustomerDialog
+          loyaltyOn={loyalty.enabled}
+          onClose={() => setCustomerOpen(false)}
+          onPick={(c) => {
+            setCustomer(c);
+            setRewardCode(null);
+            setCart((cur) => ({ ...cur, customerId: c?.id ?? null, rewardId: c && cur.customerId === c.id ? cur.rewardId : null }));
+            setCustomerOpen(false);
+          }}
+        />
+      ) : null}
+      {rewardOpen && customer ? (
+        <RewardDialog
+          ctx={ctx}
+          customer={customer}
+          loyalty={loyalty}
+          currentRewardId={cart.rewardId}
+          onClose={() => setRewardOpen(false)}
+          onPick={(r: PosReward | null, code) => {
+            setCart((cur) => ({ ...cur, rewardId: r?.id ?? null }));
+            setRewardCode(code);
+            setRewardOpen(false);
           }}
         />
       ) : null}

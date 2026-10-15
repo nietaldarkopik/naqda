@@ -3,6 +3,7 @@ import { bigint, boolean, index, int, json, mysqlTable, primaryKey, smallint, ti
 import { dt, idColumn, timestamps } from "./columns";
 import { itemVariants, items, modifierOptions, salesTypes } from "./catalog";
 import { businesses, outlets, users } from "./core";
+import { customers, loyaltyRewards } from "./crm";
 import { uuid } from "../uuid";
 
 const businessRef = () =>
@@ -139,7 +140,11 @@ export const orders = mysqlTable(
     salesTypeId: uuid("sales_type_id").notNull().references(() => salesTypes.id),
     /** Disiapkan untuk fase berikutnya (meja, pelanggan); belum ada tabelnya. */
     tableId: uuid("table_id").references(() => tables.id),
-    customerId: uuid("customer_id"),
+    customerId: uuid("customer_id").references(() => customers.id),
+    /** Reward loyalty yang dipakai pada pesanan ini (poin dipotong saat dibayar). */
+    rewardId: uuid("reward_id").references(() => loyaltyRewards.id),
+    pointsEarned: int("points_earned", { unsigned: true }).notNull().default(0),
+    pointsRedeemed: int("points_redeemed", { unsigned: true }).notNull().default(0),
     pax: smallint("pax", { unsigned: true }),
     label: varchar("label", { length: 80 }),
     note: varchar("note", { length: 500 }),

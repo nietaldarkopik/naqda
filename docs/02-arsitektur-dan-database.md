@@ -210,6 +210,14 @@ tertinggal), diskon persen ikut, promo dihitung ulang setelah dipisah. **Kas shi
 - **Dokumen**: PO (`purchase_orders`/`_lines`, status waiting/partial/completed/cancelled), transfer (in_transit/received/cancelled; biaya dibawa dari asal), penyesuaian (`stock_adjustments`, baris disimpan sebagai JSON). Nomor dokumen berurutan per outlet lewat `counters` (kind po/tr/adj).
 - **Ringkasan inventori** dihitung dari buku besar: awal = jumlah pergerakan sebelum rentang (zona waktu outlet); akhir = awal + semua pergerakan rentang; nilai = jumlah `value`.
 
+## 1j. Pelanggan dan loyalty (Fase 6)
+
+- **Tabel**: `customers` (member = `member_since` terisi; `points` adalah cache dari buku besar; `lifetime_spending`, `visits`), `loyalty_programs` (satu per bisnis), `loyalty_earn_rules`, `loyalty_rewards`, `loyalty_ledger` (hanya menambah, `balance_after`), `loyalty_redemptions` (satu per pesanan), `loyalty_codes` (hash, kedaluwarsa, `attempts`), `sms_outbox`, `feedback`. `orders` mendapat `customer_id`, `reward_id`, `points_earned`, `points_redeemed`.
+- **Poin** dihitung dari `orders.net` (penjualan bersih setelah diskon, sebelum pajak/service): `lantai(net / spend_amount) x spend_points`, atau per unit menurut aturan item/kategori. Fungsi murni di `packages/domain/src/loyalty.ts`.
+- **Reward** ditentukan server saat `/pos/price` dan simpan bill: reward total menjadi diskon pesanan nominal (dihitung dari nilai setelah diskon baris dan promo, dibatasi `max_discount`); reward item menjadi diskon baris pada baris yang cocok (tanpa diskon baris lain). Snapshot reward disimpan di `orders.pricing_snapshot`.
+- **Saat bayar** (`loyalty/service.ts` -> `settleLoyalty`, di transaksi bayar): kunci baris pelanggan; bila ada reward: verifikasi program aktif, member, poin cukup, dan kode (bila diwajibkan), potong poin; lalu beri poin untuk pesanan dan perbarui total belanja dan kunjungan.
+- **Refund** (`reverseLoyalty`): poin dikurangi sebanding nilai refund kumulatif (`reversalPoints`), total belanja dikurangi.
+
 ## 1b. Perangkat keras yang didukung
 
 Standar: **ESC/POS** (printer thermal). Semua perangkat di bawah dicapai lewat antarmuka `Hardware`

@@ -1,0 +1,1 @@
+ALTER TABLE `loyalty_codes` ADD `attempts` int unsigned DEFAULT 0 NOT NULL;

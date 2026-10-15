@@ -148,10 +148,28 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: tes alur stok (jual, refund, PO, transfer, adjustment) lulus semua. Tercapai.
 
-## Fase 6. Pelanggan dan loyalty (2–3 sesi)
-- Customer list, tambah pelanggan di kasir, feedback.
-- Loyalty program (wizard), poin, reward, redeem di kasir, kode validasi (via log).
-- **Selesai bila**: pelanggan baru mendaftar, mengumpulkan poin, lalu menukar reward.
+## Fase 6. Pelanggan dan loyalty — SELESAI 15 Okt 2026 (dengan batas di bawah)
+
+**Berjalan dan teruji** (340 tes otomatis: 156 unit + 184 API; 103 pemeriksaan browser di `tools/verify_phase2..6.mjs`):
+- **Pelanggan**: daftar dengan ringkasan (bukan member, member, reward ditukar), cari nama/telepon/email, tambah/ubah/hapus, ekspor CSV, riwayat poin per pelanggan, penyesuaian poin manual (tidak boleh membuat saldo negatif). Telepon dan email unik per bisnis di antara pelanggan yang belum dihapus (nomor bisa dipakai lagi setelah hapus).
+- **Program loyalty** (satu per bisnis): poin dari **total belanja** (tiap kelipatan Rp X = Y poin, dari penjualan bersih setelah diskon, kelipatan penuh saja) atau dari **item/kategori** (aturan item didahulukan); **bonus member baru** (sekali per pelanggan, tidak bisa diulang dengan keluar-masuk member); **kuota member**; **masa berlaku** (tanggal setempat); aktif/mati.
+- **Reward**: potongan persen dari total (dengan batas maksimum), nominal dari total, atau diskon item/kategori (persen untuk semua baris cocok, nominal untuk satu unit); minimum belanja; poin yang dipakai. Server menghitung potongan (kasir tidak mengirim angka), dan reward tidak digabung dengan diskon pesanan manual.
+- **Kasir**: pilih atau daftarkan pelanggan (dengan opsi jadi member), pilih reward (yang tidak cukup poin dinonaktifkan), poin tampil di struk (ditukar, didapat, saldo), dan feedback baik/buruk dengan komentar dari struk.
+- **Penukaran** terjadi saat **dibayar** di dalam transaksi yang sama: poin dipotong, penukaran dicatat, lalu poin baru diberikan; bila poin tidak cukup lagi saat bayar, seluruh pembayaran ditolak dan bill tetap terbuka.
+- **Kode validasi** (opsional): kode 6 angka berlaku 10 menit, sekali pakai, hanya hash yang disimpan; lima kali salah menghanguskan kode (percobaan salah tetap tercatat walau pembayaran dibatalkan).
+- **Refund** mengurangi poin pesanan itu secara sebanding dan mengurangi total belanja; refund penuh membatalkan tepat semua poin yang didapat.
+- **Buku besar poin** (`loyalty_ledger`, hanya menambah) dengan invarian diuji: saldo = jumlah buku besar, dan setiap baris mencatat saldo yang benar.
+- **Masukan pelanggan** di Back Office: ringkasan baik/buruk, filter outlet/penilaian/tanggal, balasan.
+
+**Catatan dan batas** (jangan dianggap ada):
+- **SMS tidak terkirim**: belum ada penyedia SMS. Kode validasi hanya dicatat di `sms_outbox` (status `logged`) dan, di luar produksi, ditampilkan kepada kasir (`devCode`). **Di produksi fitur "butuh kode validasi" belum bisa dipakai sampai penyedia SMS dipasang.**
+- Poin **tidak kedaluwarsa** dan tidak ada tingkat member (tier). Tidak ada impor pelanggan, penggabungan pelanggan ganda, atau "reset program".
+- Poin yang sudah ditukar **tidak dikembalikan** saat pesanan itu di-refund. Refund bisa membuat saldo poin negatif bila poinnya sudah dipakai.
+- Reward total mengikuti mode gabung diskon outlet; pada mode "salah satu" potongan hanya berlaku untuk baris tanpa diskon (potongan yang terpasang ditampilkan di keranjang).
+- Poin dihitung dari pesanan yang dibayar dengan pelanggan terpilih; pesanan lama tidak dihitung ulang bila program diubah.
+- Masukan pelanggan dicatat oleh kasir (belum ada tautan atau email yang diisi pelanggan sendiri).
+
+**Selesai bila**: pelanggan baru mendaftar, mengumpulkan poin, lalu menukar reward. Tercapai (lihat `tools/verify_phase6.mjs`).
 
 ## Fase 7. Pengaturan dan hak akses (2–3 sesi)
 - Role dan privilege penuh, PIN access, kuota slot.
