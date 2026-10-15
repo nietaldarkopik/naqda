@@ -102,13 +102,22 @@ export function Modal({
 }) {
   const t = useTranslations("common");
   const ref = useRef<HTMLDivElement>(null);
+  // `onClose` biasanya fungsi baru di setiap render induk. Disimpan di ref agar efek di bawah TIDAK berjalan ulang tiap
+  // ketikan (yang dulu memindahkan fokus ke tombol X dan mengganggu pengetikan).
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input,select,button")?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open]);
+  // Fokus awal hanya saat dialog dibuka: kolom isian pertama di badan dialog (bukan tombol X di header).
+  useEffect(() => {
+    if (!open) return;
+    const body = ref.current?.querySelector<HTMLElement>("[data-modal-body]");
+    (body?.querySelector<HTMLElement>("input:not([type=hidden]),select,textarea") ?? body?.querySelector<HTMLElement>("button") ?? ref.current?.querySelector<HTMLElement>("button"))?.focus();
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-10" onMouseDown={onClose}>
@@ -126,7 +135,9 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        <div className="space-y-4 px-5 py-4">{children}</div>
+        <div className="space-y-4 px-5 py-4" data-modal-body>
+          {children}
+        </div>
         {footer ? <div className="flex justify-end gap-2 border-t border-line px-5 py-3.5">{footer}</div> : null}
       </div>
     </div>
