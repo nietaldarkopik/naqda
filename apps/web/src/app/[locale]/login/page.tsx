@@ -5,7 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Logo } from "@/components/Logo";
 import { Button, Card, Field, Input } from "@/components/ui";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -90,6 +90,12 @@ export default function LoginPage() {
             </Button>
           </form>
         </Card>
+        <p className="text-center text-sm text-muted">
+          {t("login.noAccount")}{" "}
+          <Link href="/register" className="font-medium text-brand underline" data-testid="login-register-link">
+            {t("login.registerFree")}
+          </Link>
+        </p>
       </div>
     </div>
   );

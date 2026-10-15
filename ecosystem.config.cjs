@@ -14,7 +14,9 @@ module.exports = {
       cwd: root,
       script: path.join(root, "node_modules", "tsx", "dist", "cli.mjs"),
       args: "apps/api/src/server.ts",
-      env: { NODE_ENV: "production" },
+      // TRUST_PROXY_HOPS: jumlah proxy tepercaya di depan API (Apache + Next = 2); dipakai untuk alamat IP klien pada pembatas laju.
+      // SIGNUP_ENABLED: pendaftaran mandiri mati di produksi sampai dinyalakan (jangan sebelum ada verifikasi email dan dokumen hukum).
+      env: { NODE_ENV: "production", TRUST_PROXY_HOPS: process.env.TRUST_PROXY_HOPS || "2", SIGNUP_ENABLED: process.env.SIGNUP_ENABLED || "false" },
       max_restarts: 10,
       min_uptime: "10s",
     },

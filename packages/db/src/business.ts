@@ -51,28 +51,33 @@ export const createBusiness = async (db: Db, input: CreateBusinessInput) => {
   const password = input.adminPassword ?? randomBytes(12).toString("base64url");
   if (password.length < 8) throw new RangeError("kata sandi admin minimal 8 karakter");
 
-  const { businessId, roleIds } = await createBusinessWithRoles(db, {
-    name: input.name,
-    currency: input.currency,
-    defaultLocale: input.defaultLocale ?? "id",
-    ...(input.plan !== undefined ? { plan: input.plan } : {}),
-    ...(input.status !== undefined ? { status: input.status } : {}),
-    ...(input.trialEndsAt !== undefined ? { trialEndsAt: input.trialEndsAt } : {}),
-    ...(input.country !== undefined ? { country: input.country } : {}),
-    ...(input.termsAcceptedAt !== undefined ? { termsAcceptedAt: input.termsAcceptedAt } : {}),
-    ...(input.termsVersion !== undefined ? { termsVersion: input.termsVersion } : {}),
+  const passwordHash = await hashPassword(password, input.bcryptCost ?? 10);
+  // Satu transaksi: bila email ganda atau gagal di tengah, tidak ada bisnis setengah jadi yang tertinggal.
+  return db.transaction(async (t) => {
+    const tx = t as unknown as Db;
+    const { businessId, roleIds } = await createBusinessWithRoles(tx, {
+      name: input.name,
+      currency: input.currency,
+      defaultLocale: input.defaultLocale ?? "id",
+      ...(input.plan !== undefined ? { plan: input.plan } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.trialEndsAt !== undefined ? { trialEndsAt: input.trialEndsAt } : {}),
+      ...(input.country !== undefined ? { country: input.country } : {}),
+      ...(input.termsAcceptedAt !== undefined ? { termsAcceptedAt: input.termsAcceptedAt } : {}),
+      ...(input.termsVersion !== undefined ? { termsVersion: input.termsVersion } : {}),
+    });
+    const outletId = newId();
+    await tx.insert(outlets).values({ id: outletId, businessId, name: input.outletName ?? input.name, timezone });
+    const userId = newId();
+    await tx.insert(users).values({
+      id: userId,
+      businessId,
+      name: input.adminName ?? "Administrator",
+      email,
+      roleId: roleIds.administrator!,
+      passwordHash,
+    });
+    await tx.insert(userOutlets).values({ userId, outletId });
+    return { businessId, outletId, userId, email, password, generatedPassword: input.adminPassword === undefined };
   });
-  const outletId = newId();
-  await db.insert(outlets).values({ id: outletId, businessId, name: input.outletName ?? input.name, timezone });
-  const userId = newId();
-  await db.insert(users).values({
-    id: userId,
-    businessId,
-    name: input.adminName ?? "Administrator",
-    email,
-    roleId: roleIds.administrator!,
-    passwordHash: await hashPassword(password, input.bcryptCost ?? 10),
-  });
-  await db.insert(userOutlets).values({ userId, outletId });
-  return { businessId, outletId, userId, email, password, generatedPassword: input.adminPassword === undefined };
 };

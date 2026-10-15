@@ -16,6 +16,10 @@ const envSchema = z.object({
   POS_TOKEN_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(12),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_DIR: z.string().default("./storage"),
+  /** Jumlah proxy tepercaya di depan API yang menambahkan alamat ke X-Forwarded-For (dev: Next = 1; Apache + Next = 2). 0 = abaikan header. */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+  /** Pendaftaran mandiri. Bawaan: aktif di dev/tes, MATI di produksi sampai pemilik menyalakannya (butuh verifikasi email sebelum dibuka ke publik). */
+  SIGNUP_ENABLED: z.enum(["true", "false"]).optional(),
 });
 
 export interface Config {
@@ -31,6 +35,8 @@ export interface Config {
   posTokenTtlSeconds: number;
   isProduction: boolean;
   storageDir: string;
+  trustProxyHops: number;
+  signupEnabled: boolean;
 }
 
 const rootDir = fileURLToPath(new URL("../../../", import.meta.url));
@@ -63,6 +69,8 @@ export const parseConfig = (env: Record<string, string | undefined>): Config => 
     bcryptCost: e.BCRYPT_COST,
     posTokenTtlSeconds: e.POS_TOKEN_TTL_HOURS * 3600,
     isProduction: e.NODE_ENV === "production",
+    trustProxyHops: e.TRUST_PROXY_HOPS,
+    signupEnabled: e.SIGNUP_ENABLED ? e.SIGNUP_ENABLED === "true" : e.NODE_ENV !== "production",
   };
 };
 

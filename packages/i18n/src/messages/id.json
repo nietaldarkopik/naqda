@@ -13,6 +13,39 @@
     "locked": "Langganan tidak aktif. Back Office hanya bisa dibaca dan kasir tidak bisa membuat penjualan baru. Perpanjang langganan atau hubungi pengelola.",
     "limitReached": "Batas paket tercapai. Tingkatkan paket untuk menambah lagi."
   },
+  "signup": {
+    "disabled": "Pendaftaran belum dibuka.",
+    "emailTaken": "Email ini sudah terdaftar. Masuk, atau pakai email lain.",
+    "currencyUnsupported": "Mata uang tidak didukung",
+    "timezoneInvalid": "Zona waktu tidak dikenal",
+    "termsRequired": "Setujui ketentuan layanan dan kebijakan privasi untuk mendaftar."
+  },
+  "register": {
+    "title": "Daftar gratis",
+    "trialNote": "Coba gratis {days} hari",
+    "businessName": "Nama usaha",
+    "ownerName": "Nama Anda",
+    "passwordHint": "Minimal 10 karakter.",
+    "country": "Negara",
+    "currency": "Mata uang",
+    "currencyHint": "Tidak bisa diubah setelah ada data penjualan atau harga.",
+    "timezone": "Zona waktu",
+    "terms": "Saya menyetujui <terms>ketentuan layanan</terms> dan <privacy>kebijakan privasi</privacy>.",
+    "submit": "Mulai uji coba {days} hari",
+    "haveAccount": "Sudah punya akun?"
+  },
+  "legal": {
+    "termsTitle": "Ketentuan layanan",
+    "privacyTitle": "Kebijakan privasi",
+    "draft": "DRAF: dokumen ini masih pengisi sementara dan BELUM ditinjau konsultan hukum. Jangan dipakai untuk peluncuran publik.",
+    "termsBody": "Isi ketentuan layanan akan dimuat di sini: ruang lingkup layanan, uji coba dan langganan, penagihan dan pengembalian dana, penggunaan yang dilarang, tanggung jawab, penghentian, dan hukum yang berlaku.",
+    "privacyBody": "Isi kebijakan privasi akan dimuat di sini: data apa yang dikumpulkan, dasar dan tujuan pemrosesan, penyimpanan dan lokasi data, berbagi dengan pihak ketiga, hak pemilik data (akses, hapus, unduh), retensi, dan kontak penanggung jawab data.",
+    "back": "Kembali ke pendaftaran"
+  },
+  "login": {
+    "noAccount": "Belum punya akun?",
+    "registerFree": "Daftar gratis"
+  },
   "common": {
     "save": "Simpan",
     "cancel": "Batal",

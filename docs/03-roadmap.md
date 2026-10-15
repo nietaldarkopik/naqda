@@ -351,7 +351,7 @@ integrasi pembayaran digital sengaja **belum dikerjakan**; yang berlaku sekarang
 Catatan: fase 10 dan 11 hanya efisien bila aturan di doc 02 bagian 1a dipatuhi sejak fase 0
 (API token, paket `domain`/`sync`/`hardware` bebas dari React dan browser).
 
-## Fase 12. Platform SaaS (pendaftaran mandiri, uji coba, langganan) — 12A SELESAI 16 Okt 2026
+## Fase 12. Platform SaaS (pendaftaran mandiri, uji coba, langganan) — 12A dan 12B SELESAI 16 Okt 2026
 
 Rencana lengkap, keputusan bisnis, kapasitas, dan pertanyaan terbuka ada di **`docs/07-platform-saas.md`**. Ringkasnya: pendaftaran mandiri, uji coba gratis 14 hari,
 langganan bulanan atau tahunan, sekitar 2000 toko per tahun, lintas negara.
@@ -362,7 +362,9 @@ langganan bulanan atau tahunan, sekitar 2000 toko per tahun, lintas negara.
 - Spanduk status langganan di Back Office (sisa uji coba, tenggang, terkunci) dan kolom baru di `businesses` (migrasi 0014); bisnis yang sudah ada otomatis `unlimited` dan aktif.
 - `npm run db:create-business -- --plan basic --trial-days 14` untuk membuat bisnis uji coba dari terminal.
 
-**Belum**: pendaftaran mandiri (12B; butuh pengirim email untuk verifikasi), panel pengelola (12C), penagihan langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
+**12B selesai dan teruji, tetapi MATI di produksi**: pendaftaran mandiri (halaman daftar, uji coba 14 hari otomatis, batas per IP, kolom jebakan, ketentuan draf). Syarat sebelum dibuka untuk publik ada di `docs/07-platform-saas.md` bagian 9 (terutama verifikasi email dan dokumen hukum).
+
+**Belum**: panel pengelola (12C), penagihan langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
 
 ## Urutan ringkas
 

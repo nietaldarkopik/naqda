@@ -49,7 +49,7 @@ export const posAuthRoutes = (db: Db, config: Config, limiter: LoginLimiter) => 
   const q = authQueries(db);
 
   app.post("/devices/activate", validate("json", z.object({ code: z.string().trim().min(4).max(32) })), async (c) => {
-    const key = `activate|${clientIp(c)}`;
+    const key = `activate|${clientIp(c, config.trustProxyHops)}`;
     if (limiter.isBlocked(key)) throw new AppError("rate_limited");
     const hash = sha256(normalizeCode(c.req.valid("json").code));
 

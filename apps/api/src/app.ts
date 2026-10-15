@@ -36,6 +36,7 @@ import { feedbackRoutes } from "./routes/feedback";
 import { roleRoutes } from "./routes/roles";
 import { settingsRoutes } from "./routes/settings";
 import { posRoutes } from "./routes/pos-session";
+import { publicRoutes } from "./routes/public";
 
 const rootStatDir = process.cwd();
 
@@ -99,6 +100,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   v1.route("/auth", authRoutes(db, config, limiter));
   v1.route("/files", fileRoutes(storage));
   v1.route("/pos", posRoutes(db, config, limiter));
+  v1.route("/public", publicRoutes(db, config));
 
   const secured = new Hono<AppEnv>();
   secured.use("*", authenticate(config.jwtSecret));

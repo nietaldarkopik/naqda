@@ -75,7 +75,15 @@ export const requireAnyPrivilege =
     await next();
   };
 
-export const clientIp = (c: Context): string =>
-  c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "local";
+/**
+ * Alamat klien dari X-Forwarded-For. Header ini mudah dipalsukan di bagian KIRI (diisi klien); proxy tepercaya menambahkan alamat
+ * di KANAN. Karena itu yang dipakai adalah entri ke-`hops` dari kanan (jumlah proxy tepercaya), bukan entri pertama. hops 0 = abaikan header.
+ */
+export const clientIp = (c: Context, hops = 1): string => {
+  if (hops <= 0) return "local";
+  const list = (c.req.header("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (list.length === 0) return c.req.header("x-real-ip") || "local";
+  return list[Math.max(0, list.length - hops)] ?? "local";
+};
 
 export const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);

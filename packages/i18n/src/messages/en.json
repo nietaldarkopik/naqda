@@ -13,6 +13,39 @@
     "locked": "The subscription is not active. The Back Office is read-only and the till cannot create new sales. Renew the subscription or contact the administrator.",
     "limitReached": "Plan limit reached. Upgrade the plan to add more."
   },
+  "signup": {
+    "disabled": "Sign-up is not open yet.",
+    "emailTaken": "This email is already registered. Sign in, or use another email.",
+    "currencyUnsupported": "Currency is not supported",
+    "timezoneInvalid": "Unknown time zone",
+    "termsRequired": "Accept the terms of service and privacy policy to sign up."
+  },
+  "register": {
+    "title": "Sign up free",
+    "trialNote": "Try free for {days} days",
+    "businessName": "Business name",
+    "ownerName": "Your name",
+    "passwordHint": "At least 10 characters.",
+    "country": "Country",
+    "currency": "Currency",
+    "currencyHint": "Cannot be changed once sales or prices exist.",
+    "timezone": "Time zone",
+    "terms": "I agree to the <terms>terms of service</terms> and <privacy>privacy policy</privacy>.",
+    "submit": "Start {days}-day trial",
+    "haveAccount": "Already have an account?"
+  },
+  "legal": {
+    "termsTitle": "Terms of service",
+    "privacyTitle": "Privacy policy",
+    "draft": "DRAFT: this document is a placeholder and has NOT been reviewed by legal counsel. Do not use it for a public launch.",
+    "termsBody": "The terms of service will go here: scope of the service, trial and subscription, billing and refunds, prohibited use, liability, termination, and governing law.",
+    "privacyBody": "The privacy policy will go here: what data is collected, the basis and purpose of processing, storage and data location, sharing with third parties, data subject rights (access, erasure, download), retention, and the data controller contact.",
+    "back": "Back to sign-up"
+  },
+  "login": {
+    "noAccount": "No account yet?",
+    "registerFree": "Sign up free"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

@@ -101,7 +101,7 @@ export const authRoutes = (db: DbHandle["db"], config: Config, limiter: LoginLim
     validate("json", z.object({ email: z.string().trim().min(1).max(191), password: z.string().min(1).max(200) })),
     async (c) => {
       const { email, password } = c.req.valid("json");
-      const key = `${clientIp(c)}|${email.toLowerCase()}`;
+      const key = `${clientIp(c, config.trustProxyHops)}|${email.toLowerCase()}`;
       if (limiter.isBlocked(key)) throw new AppError("rate_limited");
 
       const found = await q.findLoginUser(email);

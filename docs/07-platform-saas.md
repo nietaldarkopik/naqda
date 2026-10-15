@@ -59,7 +59,7 @@ Batas diterapkan **di server** saat menambah outlet, perangkat kasir, dan karyaw
 | Tahap | Isi | Status |
 |---|---|---|
 | **12A** | Status langganan, uji coba, masa tenggang, terkunci; batas paket; spanduk di Back Office; penegakan di API dan kasir | **Selesai dan teruji** |
-| **12B** | **Pendaftaran mandiri**: halaman daftar, uji coba 14 hari otomatis, perlindungan penyalahgunaan | Berikutnya |
+| **12B** | **Pendaftaran mandiri**: halaman daftar, uji coba 14 hari otomatis, perlindungan penyalahgunaan | **Selesai dan teruji, MATI di produksi** (lihat bagian 9) |
 | **12C** | **Panel pengelola**: akun pengelola terpisah, daftar bisnis dan pemakaian, buat/perpanjang/tangguhkan, ubah paket dan batas, catatan audit pengelola | Berikutnya |
 | **12D** | **Penagihan**: pembayaran langganan bulanan/tahunan lewat penyedia, webhook, faktur, jatuh tempo otomatis, pajak per negara | Butuh keputusan penyedia |
 | **12E** | **Operasional skala**: uji beban, pemisahan baca/tulis, pengarsipan data lama, ekspor dan hapus per bisnis, pemantauan per bisnis | Sebelum peluncuran besar |
@@ -84,6 +84,18 @@ Batas diterapkan **di server** saat menambah outlet, perangkat kasir, dan karyaw
 - **Satu database = satu titik gagal.** Rencanakan replika, cadangan yang diuji (sudah ada alatnya), dan pemulihan **per bisnis** (belum ada).
 - Migrasi skema berlaku untuk semua bisnis sekaligus: perlu prosedur rilis bertahap.
 - **Konkurensi**: sekali dalam sekitar tujuh kali jalan penuh, tes "pembayaran bersamaan" (5 pembayaran serentak di satu outlet) gagal dan lolos pada pengulangan; penyebabnya belum diketahui (dugaan: kebuntuan atau kehabisan waktu kunci di MySQL). Di skala 2000 toko ini harus dipastikan: ukur, lalu tambahkan percobaan ulang otomatis pada kebuntuan untuk transaksi bayar dan sinkron.
+
+## 9. Pendaftaran mandiri (12B): cara kerja dan syarat peluncuran
+
+Halaman `/{bahasa}/register` (tautan "Daftar gratis" di halaman login) memanggil `POST /api/v1/public/signup`, membuat bisnis (paket `basic`, status `trial`, 14 hari) beserta satu outlet dan satu admin dalam **satu transaksi**, lalu langsung memasukkan pendaftar ke Back Office. Negara mengisi mata uang, zona waktu, dan bahasa secara otomatis (bisa diubah); mata uang terkunci begitu ada data.
+
+Perlindungan yang ada: kata sandi minimal 10 karakter; wajib menyetujui ketentuan (versi dan waktunya disimpan per bisnis); email unik tanpa membedakan huruf besar-kecil, juga aman terhadap pendaftaran serentak; **batas 5 pendaftaran per alamat IP per jam dan 300 total per jam**; kolom jebakan untuk robot. Alamat IP dihitung dari `X-Forwarded-For` dengan jumlah proxy tepercaya (`TRUST_PROXY_HOPS`, Apache + Next = 2), bukan entri pertama yang bisa dipalsukan.
+
+**Pendaftaran MATI di produksi secara bawaan** (`SIGNUP_ENABLED`, bawaan: aktif di dev dan tes, mati di produksi). Menyalakannya: `SIGNUP_ENABLED=true pm2 start ecosystem.config.cjs` lalu `pm2 save`. **Jangan nyalakan untuk publik sebelum:**
+1. **Verifikasi email** tersedia (butuh penyedia email). Tanpa itu siapa pun bisa membuat akun dengan email milik orang lain dan menumpuk uji coba gratis.
+2. **Ketentuan layanan dan kebijakan privasi** sungguhan menggantikan halaman draf di `/legal/terms` dan `/legal/privacy` (sekarang bertanda DRAF dan belum ditinjau hukum).
+3. Pembatas laju dan CAPTCHA ditinjau ulang (pembatas sekarang di memori satu proses; dengan beberapa instance perlu penyimpanan bersama).
+4. Paket, harga, dan alur setelah uji coba (12D) diputuskan, karena pelanggan akan terkunci setelah 14+7 hari tanpa jalan untuk membayar.
 
 ## 8. Yang sudah ada dan bisa dipakai
 
