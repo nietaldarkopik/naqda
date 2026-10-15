@@ -37,6 +37,8 @@ export interface ReceiptData {
   businessName: string;
   outlet: { name: string; address: string | null; phone: string | null };
   receiptNumber: number | null;
+  /** Rujukan struk sementara (penjualan offline yang belum disinkronkan). */
+  provisionalRef?: string | null;
   at: string | Date;
   cashier: string;
   table: string | null;
@@ -86,7 +88,7 @@ export function ReceiptView({ data, settings, fmt }: { data: ReceiptData; settin
           <div key={i}>{line}</div>
         ))}
         <div>
-          {data.receiptNumber ? `#${data.receiptNumber} · ` : ""}
+          {data.receiptNumber ? `#${data.receiptNumber} · ` : data.provisionalRef ? `${data.provisionalRef} · ` : ""}
           {new Date(data.at).toLocaleString(locale)}
         </div>
         {settings.showCashier ? <div>{data.cashier}</div> : null}

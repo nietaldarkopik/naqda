@@ -192,11 +192,58 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: role Cashier tidak bisa membuka Back Office atau refund tanpa izin. Tercapai dan diuji (kasir app-only tidak bisa masuk Back Office, token kasir ditolak di API Back Office, refund tanpa hak butuh PIN atasan).
 
-## Fase 8. Offline, PWA, dan kerapian (3–4 sesi)
-- Service Worker, IndexedDB, antrean sinkron, indikator sync.
-- Responsif tablet, mode layar penuh, uji perangkat nyata.
-- Audit log, rate limit PIN, backup database.
-- **Selesai bila**: kasir bisa menjual 20 transaksi tanpa internet lalu sinkron tanpa duplikat.
+## Fase 8. Offline, PWA, dan kerapian (3–4 sesi) — BAGIAN A (INTI OFFLINE) SELESAI 15 Okt 2026
+
+Dikerjakan bertahap. **Bagian A (inti offline) selesai dan teruji**; bagian B dan C di bawah **belum dikerjakan**.
+
+**Bagian A: berjalan dan teruji** (387 tes otomatis: 165 unit + 222 API; 19 pemeriksaan browser di `tools/verify_phase8.mjs`):
+- **Mesin harga bersama** (`packages/domain/src/cart.ts`): `priceLines`, `resolveCartOffline`, `priceCartOffline` murni, dipakai server **dan** kasir offline. Paritas diuji terhadap `/pos/price` untuk keranjang dengan modifier, service+pajak, promo, diskon baris/pesanan, diskon bebas nilai, dan paket; aturan keranjang (modifier wajib, lingkup diskon) ditegakkan sama.
+- **Protokol sinkron idempoten** (`POST /pos/sync`, `GET /pos/pricing-pack`): id order = `clientId` UUID dari perangkat, sehingga pengiriman ulang atau serentak tidak pernah menggandakan order dan tidak menghilangkan nomor struk. Nomor struk resmi **berurutan tanpa celah** dan baru diberikan saat sinkron (struk offline berstatus "sementara", rujukan `OFF-yymmdd-nnnn`).
+- **Antrean offline** (`packages/sync`, bebas React/browser) di atas `LocalStore` (IndexedDB di web): urutan terjaga, operasi hanya hilang setelah server menjawab, gangguan jaringan di tengah pengiriman tidak menghilangkan penjualan, penolakan permanen berstatus `failed` (bisa dicoba lagi atau dibuang kasir), penolakan sementara (mis. belum ada shift) menunggu otomatis.
+- **PWA**: Service Worker (`public/sw.js`) menyimpan halaman kasir dan aset aplikasi agar bisa dibuka dan **dimuat ulang tanpa internet**; manifest dan ikon. API tidak pernah disimpan di cache Service Worker. Data katalog, tarif, promo, dan pengaturan disalin ke IndexedDB tiap kali online.
+- **UI kasir**: lencana status (Online/Offline + jumlah menunggu), spanduk offline, daftar antrean dengan coba lagi/buang, riwayat "OFF-… → nomor struk resmi", struk sementara. Status online ditentukan dari hasil permintaan nyata (bukan `navigator.onLine`).
+- **Kebijakan selisih harga**: total di tablet (yang sudah dibayar pelanggan) dicatat apa adanya. Server menghitung ulang total dari masukan perangkat dengan kode domain yang sama dan **menolak** bila tidak cocok (`inconsistent_quote`), lalu menandai di jejak aktivitas (`sync_review`, tampil di Back Office > Aktivitas Kasir): selisih terhadap harga server (`price_mismatch`), stok menjadi minus (`stock_negative`), dan jam perangkat salah (`clock_skew`).
+- **Bukti kriteria selesai**: di browser sungguhan, kasir menjual 20 transaksi dengan jaringan diputus, memuat ulang halaman saat offline, lalu online kembali dengan jawaban server pertama sengaja dihilangkan: hasilnya tepat 20 order, 20 pembayaran, nomor struk berurutan.
+
+**Batas Bagian A** (jangan dianggap ada):
+- Offline hanya untuk **penjualan langsung** (bill baru dibayar saat itu juga). Meja, pelanggan/loyalty/reward, simpan bill, pisah bill, daftar bill, refund, batalkan bill, dan buka/tutup shift **butuh online** (tombolnya dinonaktifkan).
+- **Masuk dengan PIN butuh koneksi**: token sesi hanya di memori. Bila halaman dimuat ulang saat offline, aplikasi terbuka tetapi kasir baru bisa masuk lagi setelah online; antrean tetap aman di perangkat. PIN offline (hash tersimpan di perangkat) belum dibuat.
+- **Harga offline dipercaya dari perangkat terdaftar dan kasir berwenang**: server memastikan aritmetika dan id katalog sah, tetapi tidak dapat membuktikan harga katalog saat itu. Perangkat yang dimodifikasi bisa mengarang harga; satu-satunya pagar adalah penandaan `price_mismatch` yang **harus ditinjau pemilik**.
+- Stok tidak dicek saat offline (penjualan offline boleh membuat stok minus, ditandai). Angka stok di katalog offline adalah salinan lama.
+- Service Worker hanya aktif di **produksi** dan butuh **HTTPS** (atau localhost). Cache aset tidak dipangkas otomatis. Manifest memakai `start_url` bahasa bawaan (`/id/pos`).
+- Penyimpanan perangkat yang dihapus (data situs dibersihkan, mode privat) menghapus antrean yang belum sinkron; kasir diperingatkan bila IndexedDB tidak tersedia.
+- Layar offline sudah diperiksa di Arab (RTL) di browser desktop (tata letak, tanpa gulir horizontal). Belum diuji di tablet/ponsel nyata, dan belum di Safari/iOS.
+
+**Bagian B (keamanan operasional): alat dan kode selesai dan teruji; tugas operator dan uji pihak ketiga belum.**
+
+Berjalan dan teruji (393 tes otomatis):
+- **Cadangan**: `npm run backup` (mysqldump `--single-transaction` → `.sql.gz` + SHA-256, menolak cadangan terpotong, pemangkasan `--keep`, opsi `--storage` untuk gambar unggahan). Diuji pada database sungguhan.
+- **Uji pemulihan**: `npm run backup:verify` memulihkan cadangan ke database sementara dan memeriksa checksum, daftar tabel, InnoDB, jumlah baris (mode `--strict` = sama persis dengan sumber), baris yatim, nomor struk ganda, dan riwayat migrasi; database sementara selalu dihapus. Diuji pada cadangan baik **dan** cadangan rusak (terpotong/checksum salah ditolak dengan kode keluar 1).
+- **Log terstruktur**: JSON satu baris per permintaan dengan `X-Request-Id`, tanpa isi permintaan, header, query string, atau IP (diuji). Galat tak tertangani dicatat dengan `stack`.
+- **`/health`** untuk pemantau: 503 bila database mati, plus `diskFreePct`.
+- **Jejak audit karyawan** (buat, ubah **peran/status/outlet**, hapus; kata sandi tidak pernah dicatat, diuji) dan label semua jenis entitas di penampil audit (3 bahasa). Void/refund sudah tercatat di Aktivitas Kasir (fase 3), penyesuaian stok dan perubahan hak akses di jejak audit (fase 5 dan 7).
+
+Belum (dan **bukan tugas kode**):
+- **Penjadwalan** cadangan di server, **salinan di mesin/disk lain**, dan **latihan pemulihan ke produksi**: tanggung jawab operator (panduan di doc 05 bagian 5a).
+- HTTPS/proxy balik **diuji di server sungguhan**; pemantau eksternal dengan peringatan (tidak ada pengiriman peringatan otomatis dari aplikasi).
+- Rate limit PIN per **perangkat/IP** (penguncian per pengguna sudah ada sejak fase 2; PIN salah di perangkat berbeda berbagi penghitung yang sama).
+- Uji beban dan uji keamanan oleh pihak yang tidak menulis kodenya.
+- Jejak audit karyawan dicatat setelah perubahan, tidak dalam satu transaksi dengannya (gagal mencatat = perubahan tetap jalan).
+
+**Bagian C (perangkat): tata letak dan layar penuh selesai dan teruji di emulasi; uji perangkat dan printer nyata belum.**
+
+Berjalan dan teruji (`tools/verify_phase8c.mjs`, 5 profil layar, lebih dari 50 pemeriksaan di Chromium dengan emulasi sentuh):
+- **Responsif**: di bawah 1024 px (ponsel, tablet tegak) katalog memenuhi layar dan keranjang menjadi panel layar penuh yang dibuka dari bilah bawah (jumlah item + total); di 1024 px ke atas tetap dua kolom. Diperiksa di 390×844 (Indonesia dan Arab/RTL), 768×1024, 1024×768, dan 1280×800: tanpa gulir horizontal, jalur jual-bayar-struk lewat sentuhan, panel menutup sendiri setelah bayar.
+- **Sentuhan**: target aksi utama (tombol PIN, bilah keranjang, +/- jumlah, Bayar, tombol header, kategori) setinggi ≥ 44 px di layar sempit; tanpa zoom ketuk-ganda, tanpa tarik-untuk-muat-ulang; area aman (notch/bilah gestur) dihormati (`viewport-fit=cover`, `env(safe-area-inset-*)`); tinggi layar memakai `100dvh`.
+- **Layar penuh**: tombol layar penuh di header (disembunyikan bila browser tidak mendukung), manifest `display_override: fullscreen` (saat dipasang sebagai aplikasi), dan **layar tetap menyala** selama kasir terbuka (Screen Wake Lock).
+
+Batas Bagian C (jangan dianggap ada):
+- **Belum diuji di tablet/ponsel nyata**: yang diuji adalah emulasi Chromium desktop. Perilaku keyboard layar, gestur, kinerja di perangkat murah, dan keandalan penyimpanan offline di Android/iOS belum terbukti.
+- iPhone/iPad Safari: tombol layar penuh tidak muncul (tidak didukung); gunakan "Tambah ke Layar Utama". Wake Lock dan Service Worker di Safari belum diuji.
+- Dialog Back Office dan layar admin **tidak** dioptimalkan untuk ponsel (hanya kasir).
+- **Struk Arab raster dan printer ESC/POS tetap belum ada** (butuh printer nyata; direncanakan fase 9/10). Struk saat ini lewat dialog cetak browser.
+
+**Selesai bila**: kasir bisa menjual 20 transaksi tanpa internet lalu sinkron tanpa duplikat. **Tercapai untuk penjualan langsung** (lihat `tools/verify_phase8.mjs`); fase 8 secara keseluruhan baru bisa dinyatakan selesai setelah **uji di perangkat nyata** (bagian C) dan tugas operator di bagian B.
 
 ## Fase 9 (opsional). Integrasi
 Moka Order-style storefront, integrasi pembayaran sungguhan, GoFood/GrabFood, SMS/email nyata, printer ESC/POS.
@@ -242,13 +289,13 @@ Status per 14 Okt 2026:
 | Transaksi dan foreign key berfungsi (InnoDB dipaksa dan diverifikasi) | Selesai | 1 |
 | Isolasi data antar bisnis, diuji | Selesai | 0–1 |
 | Jejak audit perubahan katalog, outlet, terjemahan, dan penampilnya | Selesai (penampil hanya baca) | 1 |
-| Jejak audit void, refund, adjustment, ubah peran | Belum | 2–7 |
+| Jejak audit void, refund, adjustment, ubah peran | Selesai (void/refund: Aktivitas Kasir fase 3; adjustment dan peran: audit fase 5/7; karyawan: fase 8B) | 2–8 |
 | Kata sandi di-hash, token berumur pendek, pembatasan login | Selesai | 0 |
-| Login PIN kasir dengan penguncian setelah salah berulang, pendaftaran perangkat | Belum | 2 |
-| Cadangan database terjadwal dan **uji pemulihan** | Belum (hanya contoh `mysqldump` di doc 05) | 8 |
+| Login PIN kasir dengan penguncian setelah salah berulang, pendaftaran perangkat | Selesai (diuji sejak fase 2) | 2 |
+| Cadangan database terjadwal dan **uji pemulihan** | Alat selesai dan teruji (`npm run backup`, `backup:verify`); **penjadwalan dan salinan di luar mesin belum dilakukan operator** | 8 |
 | HTTPS dan proxy balik; rahasia produksi di luar repo | Panduan ada, belum diuji di server | 8 |
-| Pemantauan (log terstruktur, pemberitahuan galat, ruang disk) | Belum | 8 |
-| Mode offline dan sinkron tanpa duplikat | Belum | 8 |
+| Pemantauan (log terstruktur, pemberitahuan galat, ruang disk) | Sebagian: log JSON dan `/health` (db, disk) selesai; pemberitahuan galat otomatis belum | 8 |
+| Mode offline dan sinkron tanpa duplikat | Selesai untuk penjualan langsung (fase 8A); transaksi lain tetap butuh online | 8 |
 | Pengaturan harga termasuk pajak per outlet dan fungsi hitung pajak (eksklusif/inklusif) | Selesai, teruji | 1 |
 | Penghitungan pajak/gratuity/pembulatan di keranjang sesuai aturan setempat, diverifikasi dengan akuntan | Belum | 2 |
 | Pembaruan sebagian (PATCH) tidak menimpa data lain | Selesai, ada tes regresi | 1 |

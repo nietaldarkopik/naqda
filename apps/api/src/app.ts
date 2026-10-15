@@ -1,10 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { statfs } from "node:fs/promises";
 import { sql } from "drizzle-orm";
 import type { DbHandle } from "@naqdi/db";
 import type { Config } from "./config";
 import { AppError, errorBody } from "./errors";
+import { logLine, requestLogger } from "./logging";
 import { authenticate, requireBackoffice, type AppEnv } from "./http";
 import { LoginLimiter } from "./auth/limiter";
 import { tenantRepo } from "./repo/tenant";
@@ -34,6 +36,8 @@ import { roleRoutes } from "./routes/roles";
 import { settingsRoutes } from "./routes/settings";
 import { posRoutes } from "./routes/pos-session";
 
+const rootStatDir = process.cwd();
+
 export interface AppDeps {
   handle: DbHandle;
   config: Config;
@@ -45,6 +49,8 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   const { db } = handle;
   const app = new Hono();
 
+  // Log akses JSON (dimatikan saat tes agar keluaran tes tetap bersih).
+  app.use("*", requestLogger(config.nodeEnv !== "test"));
   app.use("*", secureHeaders());
   app.use(
     "*",
@@ -59,16 +65,33 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
 
   app.onError((err, c) => {
     if (err instanceof AppError) return c.json(errorBody(c, err), err.status);
-    console.error("[api] galat tidak tertangani:", err);
+    logLine("error", "unhandled", { requestId: c.get("requestId" as never), path: new URL(c.req.url).pathname, error: err.message, stack: err.stack });
     return c.json(errorBody(c, new AppError("server")), 500);
   });
   app.notFound((c) => c.json(errorBody(c, new AppError("not_found")), 404));
 
   const v1 = new Hono();
 
+  // Untuk pemantau (uptime monitor, load balancer): 200 sehat, 503 bila database tidak menjawab atau penyimpanan tidak bisa
+  // ditulis. `diskFreePct` (volume folder unggahan) dipakai untuk peringatan dini sebelum disk penuh.
   v1.get("/health", async (c) => {
-    await db.execute(sql`SELECT 1`);
-    return c.json({ status: "ok", time: new Date().toISOString() });
+    const checks: Record<string, unknown> = {};
+    const started = performance.now();
+    try {
+      await db.execute(sql`SELECT 1`);
+      checks.db = "ok";
+      checks.dbMs = Math.round(performance.now() - started);
+    } catch {
+      checks.db = "down";
+    }
+    try {
+      const fsInfo = await statfs(config.storageDir).catch(() => statfs(rootStatDir));
+      checks.diskFreePct = Math.round((Number(fsInfo.bavail) / Number(fsInfo.blocks)) * 1000) / 10;
+    } catch {
+      checks.diskFreePct = null;
+    }
+    const healthy = checks.db === "ok";
+    return c.json({ status: healthy ? "ok" : "down", time: new Date().toISOString(), checks }, healthy ? 200 : 503);
   });
 
   const storage = localStorageDriver(config.storageDir);

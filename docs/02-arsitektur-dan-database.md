@@ -553,12 +553,16 @@ Nomor struk, PO, transfer unik per outlet dan berurutan, dibuat di server dalam 
 
 ## 5. Offline kasir
 
-- Kasir memakai Service Worker + IndexedDB untuk katalog, harga, meja, pelanggan ringkas, dan bill terbuka.
-- Transaksi baru dibuat di perangkat dengan **ID klien (UUID)** dan masuk antrean `pending_ops`.
-- Sinkron: kirim antrean berurutan ke `/api/sync`, server idempoten berdasarkan ID klien.
-- Konflik stok diselesaikan di server (stok boleh minus bila aturan stock limit mengizinkan).
-- Indikator "Sync" per bill (seperti di Daftar Bill).
-- v1: boleh dimulai online-only, tetapi model data dan ID harus sudah siap untuk offline.
+Status: **diimplementasikan untuk penjualan langsung** (fase 8A). Batas dan kebijakan lengkap ada di `03-roadmap.md`.
+
+- **Data di perangkat** (IndexedDB; `packages/sync` dan `apps/web/src/lib/offline`): salinan katalog (`/pos/catalog`), paket harga (`/pos/pricing-pack`: pengaturan outlet, tarif pajak dan service per tipe penjualan, promo), dan pengaturan (`/pos/settings`), diperbarui setiap online. Antrean `queue` memuat operasi penjualan; `synced` memuat riwayat singkat.
+- **Harga**: `packages/domain/src/cart.ts` (`priceCartOffline`) memakai `computeOrder` dan `applyPromos` yang sama dengan server, jadi total tablet = total server (diuji paritas).
+- **Operasi** `sale` dikirim ke `POST /pos/sync` (maks. 50 per permintaan). Tiap operasi membawa `clientId` UUID yang menjadi **id order**; server idempoten (`duplicate` bila sudah ada, kunci utama mencegah balapan) dan membalas per operasi `created | duplicate | rejected` (`retryable` untuk penolakan sementara seperti belum ada shift).
+- **Server tidak mempercayai total dari perangkat**: ia menghitung ulang dari masukan (harga satuan, jumlah, diskon, promo, tarif) dengan `computeOrder` dan menolak bila beda dari `total`. Id item/varian/paket/modifier harus milik bisnis; id item dan kategori diambil dari katalog server. Harga katalog server saat ini dibandingkan, dan selisih hanya **ditandai** (`sync_review`), tidak mengubah yang sudah dibayar.
+- **Nomor struk** diberikan server saat sinkron di dalam transaksi (penghitung `counters` per outlet), sehingga tetap berurutan tanpa celah; struk offline memakai rujukan sementara `OFF-yymmdd-nnnn`.
+- **Stok**: penjualan offline mengurangi stok dengan `force` (boleh minus) dan diberi tanda `stock_negative`.
+- **Waktu**: `createdAt` perangkat dipakai sebagai waktu penjualan bila wajar (tidak lebih dari 5 menit ke depan dan tidak lebih dari 30 hari ke belakang); kalau tidak, waktu server dipakai dan diberi tanda `clock_skew`.
+- **Service Worker** (`apps/web/public/sw.js`): hanya menyimpan halaman `/{locale}/pos` (jaringan dulu) dan aset `/_next/static/` (salinan dulu); tidak pernah menyimpan `/api/`.
 
 ## 6. API
 

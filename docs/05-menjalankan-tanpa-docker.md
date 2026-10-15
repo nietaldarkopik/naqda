@@ -86,8 +86,44 @@ Pemeriksaan tipe web terpisah: `cd apps/web && npx tsc --noEmit`.
    Atau buat dua unit systemd dengan perintah yang sama.
 5. Pasang reverse proxy (Caddy atau Nginx) yang menerima HTTPS dan meneruskan semuanya ke web (`:3000`).
    Web meneruskan `/api/v1/*` ke API, sehingga browser hanya bicara ke satu asal dan cookie sesi berfungsi.
-6. Cadangan: jadwalkan `mysqldump --single-transaction naqdi > naqdi-$(date +%F).sql` lewat cron/Task Scheduler,
-   dan uji pemulihannya.
+6. **HTTPS wajib** untuk kasir offline: Service Worker dan penyimpanan offline hanya berfungsi di HTTPS (atau `localhost`).
+   Tanpa HTTPS, tablet yang membuka lewat `http://192.168.x.x` tetap bisa berjualan online, tetapi tidak bisa offline.
+7. **Cadangan dan uji pemulihan** (lihat bagian 5a).
+8. **Pemantauan** (lihat bagian 5b).
+
+### 5a. Cadangan dan uji pemulihan
+
+```bash
+npm run backup                         # -> backups/naqdi-YYYYMMDD-HHMMSS.sql.gz + .sha256
+npm run backup -- --out D:/cadangan --keep 30 --storage   # folder lain, simpan 30, sertakan gambar unggahan
+npm run backup:verify                  # pulihkan cadangan TERBARU ke database sementara dan bandingkan dengan sumber
+npm run backup:verify -- --strict      # jumlah baris harus sama persis (jalankan tepat setelah backup)
+```
+
+- `backup` memakai `mysqldump --single-transaction` (konsisten tanpa mengunci), menolak cadangan yang terpotong (penanda
+  "Dump completed"), menulis checksum SHA-256, dan memangkas yang lama (`--keep`, bawaan 14). Kata sandi dikirim lewat
+  lingkungan proses, bukan argumen. Gagal = kode keluar bukan 0, sehingga bisa dipantau.
+- `backup:verify` memeriksa checksum, memulihkan ke database `<nama>_restorecheck` (dihapus setelahnya; database kerja tidak
+  disentuh), membandingkan daftar tabel, engine InnoDB, dan jumlah baris, memeriksa baris yatim (`order_items`, `payments`
+  tanpa order) dan nomor struk ganda, serta riwayat migrasi.
+- **Jadwalkan keduanya**: `backup` tiap hari/jam, `backup:verify` minimal mingguan. Windows: Task Scheduler menjalankan
+  `npm run backup` di folder proyek. Linux: `0 2 * * * cd /opt/naqdi && npm run backup`.
+- **Simpan salinan di mesin atau disk lain** (`--out`); cadangan di disk yang sama dengan database tidak melindungi dari
+  kerusakan disk. Folder unggahan (`STORAGE_DIR`) ikut dicadangkan dengan `--storage`.
+- Memulihkan ke produksi (manual, setelah menghentikan API): `gunzip -c naqdi-....sql.gz | mysql -u USER -p naqdi`.
+  Latihlah sekali di mesin uji sebelum benar-benar dibutuhkan.
+
+### 5b. Pemantauan
+
+- Log API berformat **JSON satu baris** di stdout (`time`, `level`, `msg`, `requestId`, `method`, `path`, `status`, `ms`).
+  Tidak memuat isi permintaan, header, query string, atau IP. Galat tak tertangani dicatat `level: "error"` dengan `stack`.
+  Dengan pm2: `pm2 logs naqdi-api`; dengan systemd: `journalctl -u naqdi-api -o cat`. Setiap jawaban membawa `X-Request-Id`
+  (id dari klien dipakai bila sah) untuk menelusuri satu permintaan di log.
+- `GET /api/v1/health` untuk pemantau (UptimeRobot, Uptime Kuma, load balancer): `200` bila sehat, **`503` bila database tidak
+  menjawab**. Isinya `checks.db`, `checks.dbMs`, dan `checks.diskFreePct` (sisa ruang volume penyimpanan; **pasang peringatan
+  bila di bawah 15%**).
+- **Belum ada**: pengiriman peringatan otomatis (email/pesan), pengumpulan metrik, dan pelacakan galat pihak ketiga. Pemantau
+  eksternal di atas yang harus menghubungi Anda.
 
 ## 6. Dengan Docker (opsional, belum diuji)
 

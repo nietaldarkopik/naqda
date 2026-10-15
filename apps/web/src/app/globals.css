@@ -64,6 +64,10 @@
 html {
   background: var(--bg);
   color: var(--text);
+  /* Layar sentuh kasir: tanpa zoom ketuk-ganda, tanpa tarik-untuk-muat-ulang, tanpa kilatan sentuh. */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {

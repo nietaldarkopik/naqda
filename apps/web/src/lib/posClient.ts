@@ -16,6 +16,22 @@ export class PosError extends Error {
   }
 }
 
+// ---- konektivitas
+// `navigator.onLine` menipu (true pada Wi-Fi tanpa internet), jadi status ditentukan dari hasil permintaan sebenarnya:
+// gagal menjangkau server = offline; jawaban apa pun (termasuk galat HTTP) = online.
+let online = typeof navigator === "undefined" ? true : navigator.onLine;
+const onlineListeners = new Set<() => void>();
+export const getOnline = (): boolean => online;
+export const subscribeOnline = (fn: () => void): (() => void) => {
+  onlineListeners.add(fn);
+  return () => onlineListeners.delete(fn);
+};
+export const setOnline = (value: boolean): void => {
+  if (value === online) return;
+  online = value;
+  for (const fn of onlineListeners) fn();
+};
+
 const DEVICE_KEY = "naqdi.pos.device";
 let sessionToken: string | null = null;
 let onDeviceLost: (() => void) | null = null;
@@ -58,8 +74,10 @@ export async function posApi<T>(path: string, init: { method?: string; json?: un
   try {
     res = await fetch(`/api/v1/pos${path}`, { method: init.method ?? "GET", headers, body });
   } catch {
+    setOnline(false);
     throw new PosError(0, "network", "network");
   }
+  setOnline(true);
   if (res.ok) return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
   let data: { code?: string; message?: string; fields?: Record<string, string>; extra?: Record<string, unknown> } = {};
   try {
@@ -217,6 +235,8 @@ export interface OrderView {
   id: string;
   status: "open" | "paid" | "void";
   receiptNumber: number | null;
+  /** Rujukan struk sementara untuk penjualan offline yang belum disinkronkan (belum punya nomor struk resmi). */
+  offlineRef?: string;
   salesTypeId: string;
   tableId: string | null;
   customerId: string | null;

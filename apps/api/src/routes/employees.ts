@@ -116,6 +116,7 @@ export const employeeRoutes = (bcryptCost: number) => {
     } catch (error) {
       throw dup(error);
     }
+    await writeAudit(c.get("db"), c.get("auth"), { entityType: "user", entityId: id, action: "create", summary: data.name, changes: { roleId: data.roleId, status: data.status, outletIds: data.outletIds, passwordSet: Boolean(data.password) } });
     return c.json(present((await repo.users.get(id))!), 201);
   });
 
@@ -146,14 +147,25 @@ export const employeeRoutes = (bcryptCost: number) => {
     } catch (error) {
       throw dup(error);
     }
+    // Jejak ubah peran, status, outlet, dan kata sandi (hanya "diganti", tidak pernah nilainya).
+    const { passwordHash: _hash, ...fields } = patch;
+    await writeAudit(c.get("db"), c.get("auth"), {
+      entityType: "user",
+      entityId: id,
+      action: "update",
+      summary: existing.name,
+      changes: { before: { roleId: existing.roleId, status: existing.status }, after: fields, outletIds: outletIds ?? null, passwordChanged: Boolean(newPassword) },
+    });
     return c.json(present((await repo.users.get(id))!));
   });
 
   app.delete("/:id", validate("param", idParam), async (c) => {
     const { id } = c.req.valid("param");
     if (id === c.get("auth").userId) throw new AppError("conflict", { messageKey: "errors.forbidden" });
+    const before = await c.get("repo").users.get(id);
     const ok = await c.get("repo").users.softDelete(id);
     if (!ok) throw new AppError("not_found");
+    await writeAudit(c.get("db"), c.get("auth"), { entityType: "user", entityId: id, action: "delete", summary: before?.name ?? "" });
     return c.body(null, 204);
   });
 

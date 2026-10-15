@@ -473,7 +473,22 @@
       "translation": "Terjemahan",
       "device": "Perangkat",
       "table": "Meja",
-      "table_group": "Grup meja"
+      "table_group": "Grup meja",
+      "customer": "Pelanggan",
+      "ingredient": "Bahan",
+      "loyalty_program": "Program loyalty",
+      "loyalty_reward": "Reward loyalty",
+      "modifier_stock": "Stok modifier",
+      "payment_method": "Metode pembayaran",
+      "production": "Produksi",
+      "purchase_order": "Pembelian (PO)",
+      "recipe": "Resep",
+      "role": "Hak akses",
+      "settings": "Pengaturan",
+      "stock_adjustment": "Penyesuaian stok",
+      "transfer": "Transfer",
+      "user": "Karyawan",
+      "user_pin": "PIN karyawan"
     }
   },
   "pos": {
@@ -525,6 +540,64 @@
       "active": "Aktif",
       "expired": "Kode kedaluwarsa",
       "revoked": "Dicabut"
+    }
+  },
+  "device": {
+    "fullscreen": "Layar penuh",
+    "exitFullscreen": "Keluar layar penuh",
+    "openCart": "Lihat keranjang",
+    "closeCart": "Tutup keranjang",
+    "items": "{count} item"
+  },
+  "offline": {
+    "online": "Online",
+    "offline": "Offline",
+    "pending": "{count} menunggu sinkron",
+    "synced": "Tersinkron",
+    "allSynced": "Semua tersinkron",
+    "failedCount": "{count} gagal",
+    "syncNow": "Sinkron sekarang",
+    "syncing": "Menyinkronkan…",
+    "dialogTitle": "Sinkron offline",
+    "bannerOffline": "Mode offline: penjualan disimpan di perangkat dan dikirim otomatis saat koneksi pulih.",
+    "usingCache": "Memakai data tersimpan dari {time}. Harga dan stok bisa berbeda dari server.",
+    "queueEmpty": "Tidak ada penjualan yang menunggu.",
+    "queueTitle": "Menunggu sinkron",
+    "syncedTitle": "Baru tersinkron",
+    "failedTitle": "Perlu tindakan",
+    "retry": "Coba lagi",
+    "discard": "Buang",
+    "discardConfirm": "Buang penjualan ini? Uang yang sudah diterima tidak akan tercatat di sistem.",
+    "waitingShift": "Menunggu shift terbuka",
+    "receiptTitle": "Struk sementara",
+    "receiptNote": "Belum bernomor resmi. Nomor struk diberikan saat sinkron.",
+    "savedToast": "Disimpan offline ({ref}). Akan dikirim saat online.",
+    "unsupported": "Tidak tersedia offline: lepaskan pelanggan, reward, dan meja, atau tunggu koneksi pulih.",
+    "noData": "Data katalog belum tersimpan di perangkat ini. Hubungkan ke internet sekali untuk mengunduhnya.",
+    "invalidCart": "Keranjang tidak valid untuk mode offline.",
+    "needNetwork": "Butuh koneksi internet.",
+    "notPersistent": "Penyimpanan perangkat tidak tersedia: penjualan offline akan hilang bila halaman ditutup.",
+    "reference": "Rujukan",
+    "total": "Total",
+    "flags": {
+      "price_mismatch": "Harga server berbeda saat sinkron",
+      "stock_negative": "Stok menjadi minus",
+      "clock_skew": "Jam perangkat tidak cocok",
+      "price_unverified": "Harga tidak bisa diverifikasi"
+    },
+    "codes": {
+      "inconsistent_quote": "Total tidak cocok dengan hitungan server",
+      "payment_short": "Pembayaran kurang dari total",
+      "payment_invalid": "Pembayaran tidak valid",
+      "invalid_items": "Item atau paket tidak dikenal",
+      "forbidden": "Kasir tidak berhak menjual",
+      "forbidden_discount": "Kasir tidak berhak memberi diskon",
+      "invalid_user": "Kasir tidak sah di outlet ini",
+      "conflict": "ID transaksi bentrok",
+      "invalid": "Data transaksi tidak valid",
+      "no_shift": "Tidak ada shift terbuka",
+      "server": "Galat server, akan dicoba lagi",
+      "no_result": "Server belum menjawab"
     }
   },
   "cashier": {
@@ -761,7 +834,8 @@
       "paid": "Dibayar",
       "split": "Pisah bill",
       "table_changed": "Pindah meja",
-      "refund": "Refund"
+      "refund": "Refund",
+      "sync_review": "Perlu ditinjau (offline)"
     }
   },
   "reports": {

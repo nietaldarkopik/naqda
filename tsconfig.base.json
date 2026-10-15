@@ -23,6 +23,9 @@
       "@naqdi/domain": [
         "./packages/domain/src/index.ts"
       ],
+      "@naqdi/sync": [
+        "./packages/sync/src/index.ts"
+      ],
       "@naqdi/i18n": [
         "./packages/i18n/src/index.ts"
       ],

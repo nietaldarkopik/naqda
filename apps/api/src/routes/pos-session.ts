@@ -64,6 +64,8 @@ import {
   type ResolvedLine,
   type StoredDiscount,
 } from "../pos/pricing";
+import { logActivity as writeActivity, persistLines, totalsColumns } from "../pos/orders";
+import { syncRoutes } from "../pos/sync";
 import { posAuthRoutes } from "./pos-auth";
 
 type Db = DbHandle["db"];
@@ -120,9 +122,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     }
   };
 
-  const logActivity = async (tx: Db, pos: PosAuthContext, orderId: string | null, kind: string, detail: Record<string, unknown> | null, approvedBy: string | null = null) => {
-    await tx.insert(orderActivities).values({ id: newId(), businessId: pos.businessId, outletId: pos.outletId, orderId, userId: pos.userId, approvedBy, kind, detail });
-  };
+  const logActivity = writeActivity;
 
   const checkTable = async (d: Db, pos: PosAuthContext, tableId: string | null | undefined): Promise<{ id: string; name: string } | null> => {
     if (!tableId) return null;
@@ -412,54 +412,6 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
     const r = await priceCart(c.req.valid("json"), ctx, hasDiscountPrivilege(c));
     return c.json({ totals: r.priced.totals, lines: r.lines.map((l, i) => ({ ...l, ...r.priced.totals.lines[i] })), snapshot: r.priced.snapshot });
-  });
-
-  const persistLines = async (tx: Db, order: { id: string; businessId: string }, lines: ResolvedLine[], priced: PricedOrder) => {
-    const existing = await tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, order.id));
-    if (existing.length) {
-      await tx.delete(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, existing.map((e) => e.id)));
-      await tx.delete(orderItems).where(eq(orderItems.orderId, order.id));
-    }
-    for (const [i, l] of lines.entries()) {
-      const r = priced.totals.lines[i]!;
-      const id = newId();
-      await tx.insert(orderItems).values({
-        id,
-        businessId: order.businessId,
-        orderId: order.id,
-        position: i,
-        itemId: l.itemId,
-        variantId: l.variantId,
-        bundleId: l.bundleId,
-        categoryId: l.categoryId,
-        name: l.name,
-        sku: l.sku,
-        unitPrice: l.unitPrice,
-        basePrice: l.basePrice,
-        cost: l.cost,
-        quantity: l.quantity,
-        discount: l.discount,
-        lineDiscount: r.discount,
-        orderDiscountShare: r.orderDiscountShare,
-        promoDiscount: r.promoDiscount,
-        promoId: r.promoDiscount > 0 ? (priced.promoByLine[l.key] ?? null) : null,
-        note: l.note,
-      });
-      if (l.modifiers.length) {
-        await tx.insert(orderItemModifiers).values(l.modifiers.map((m) => ({ id: newId(), orderItemId: id, optionId: m.optionId, name: m.name, price: m.price })));
-      }
-    }
-  };
-
-  const totalsColumns = (t: PricedOrder["totals"]) => ({
-    subtotal: t.subtotal,
-    discountTotal: t.discountTotal,
-    base: t.base,
-    net: t.net,
-    gratuity: t.gratuity,
-    tax: t.tax,
-    rounding: t.rounding,
-    total: t.total,
   });
 
   const lockOrder = async (tx: Db, businessId: string, outletId: string, id: string): Promise<OrderRow> => {
@@ -1079,6 +1031,8 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       return c.json({ shift: await shiftSummary(db, s!) });
     },
   );
+
+  session.route("/", syncRoutes(db));
 
   app.route("/", session);
   return app;

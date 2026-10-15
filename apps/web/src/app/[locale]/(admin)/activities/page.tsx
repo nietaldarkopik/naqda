@@ -19,8 +19,8 @@ interface Row {
   at: string;
 }
 
-const kinds = ["bill_created", "bill_updated", "item_removed", "bill_voided", "paid", "split", "table_changed", "refund"] as const;
-const tone = (k: string) => (k === "refund" || k === "bill_voided" || k === "item_removed" ? "bad" : k === "paid" ? "good" : "neutral");
+const kinds = ["bill_created", "bill_updated", "item_removed", "bill_voided", "paid", "split", "table_changed", "refund", "sync_review"] as const;
+const tone = (k: string) => (k === "refund" || k === "bill_voided" || k === "item_removed" ? "bad" : k === "sync_review" ? "warn" : k === "paid" ? "good" : "neutral");
 
 export default function ActivitiesPage() {
   const t = useTranslations();

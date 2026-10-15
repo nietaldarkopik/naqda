@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -11,10 +11,18 @@ import "../globals.css";
 
 export const generateStaticParams = () => routing.locales.map((locale) => ({ locale }));
 
+export const viewport: Viewport = { themeColor: "#0f766e", width: "device-width", initialScale: 1, viewportFit: "cover" };
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "app" });
-  return { title: { default: t("name"), template: `%s | ${t("name")}` }, description: t("tagline") };
+  return {
+    title: { default: t("name"), template: `%s | ${t("name")}` },
+    description: t("tagline"),
+    manifest: "/manifest.webmanifest",
+    icons: { icon: "/icon.svg", apple: "/icon.svg" },
+    appleWebApp: { capable: true, title: "Naqdi", statusBarStyle: "default" },
+  };
 }
 
 export default async function LocaleLayout({

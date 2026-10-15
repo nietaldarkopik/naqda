@@ -10,6 +10,8 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "backup": "node scripts/backup.mjs",
+    "backup:verify": "node scripts/restore-check.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:api": "tsx watch apps/api/src/server.ts",
     "dev:web": "npm --prefix apps/web run dev",

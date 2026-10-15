@@ -1,11 +1,17 @@
 "use client";
 
-import { ClipboardList, LayoutGrid, LogOut, Minus, Percent, Plus, Search, Split, Trash2, Wallet, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { ClipboardList, LayoutGrid, LogOut, Maximize, Minimize, Minus, Percent, Plus, Search, ShoppingCart, Split, Trash2, Wallet, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CartError, PaymentError, priceCartOffline, settle, type CartInput, type PricingPack } from "@naqdi/domain";
+import { buildSaleOp } from "@naqdi/sync";
 import { Button, Input, Select, useToast } from "@/components/ui";
+import { getEngine, loadRef, saveRef, useOfflineStatus } from "@/lib/offline/engine";
+import { newUuid, offlineOrderView } from "@/lib/offline/receipt";
+import { useFullscreen, useWakeLock } from "@/lib/useDevice";
 import {
   cartFromOrder,
+  getOnline,
   posApi,
   PosError,
   type Cart,
@@ -26,6 +32,7 @@ import type { Ctx } from "./PosApp";
 import { BillsDialog, DiscountDialog, ItemDialog, PayDialog, ReceiptDialog, ShiftDialog, SplitDialog } from "./dialogs";
 import { ApprovalDialog, RefundDialog, TablesDialog, type ApprovalInput } from "./dialogs2";
 import { CustomerDialog, RewardDialog } from "./dialogs3";
+import { SyncBadge, SyncDialog } from "./SyncStatus";
 
 const sameLine = (a: CartLine, b: CartLine): boolean => {
   if (a.kind !== b.kind || a.note || b.note || a.discount || b.discount) return false;
@@ -48,7 +55,19 @@ export function Sell({
   onLogout: () => void;
 }) {
   const t = useTranslations("cashier");
+  const to = useTranslations("offline");
+  const td = useTranslations("device");
+  const locale = useLocale();
+  const fullscreen = useFullscreen();
+  useWakeLock(true);
+  /** Layar sempit (tablet tegak, ponsel): keranjang menjadi panel layar penuh yang dibuka dari bilah bawah. */
+  const [cartOpen, setCartOpen] = useState(false);
   const toast = useToast();
+  const offline = useOfflineStatus(true);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [pack, setPack] = useState<PricingPack | null>(null);
+  /** Waktu simpan data katalog bila yang dipakai adalah salinan di perangkat (bukan dari server saat ini). */
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [category, setCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -87,22 +106,60 @@ export function Sell({
   const dirty = JSON.stringify(cart) !== savedKey;
   const canDiscount = ctx.can("pos.discount");
 
-  // Katalog dimuat sekali per sesi; tipe penjualan pertama jadi bawaan.
+  // Data acuan (katalog, tarif dan promo, pengaturan) dimuat dari server lalu disalin ke perangkat. Bila server tidak
+  // terjangkau, salinan terakhir dipakai agar penjualan tetap bisa jalan offline.
+  const outletId = ctx.session.outlet.id;
+  const loadReference = useCallback(async (): Promise<Catalog> => {
+    try {
+      const [c, p, s] = await Promise.all([posApi<Catalog>("/catalog"), posApi<PricingPack>("/pricing-pack"), posApi<PosSettings>("/settings")]);
+      setCatalog(c);
+      setPack(p);
+      setSettings(s);
+      setCachedAt(null);
+      void saveRef("catalog", outletId, c);
+      void saveRef("pack", outletId, p);
+      void saveRef("settings", outletId, s);
+      return c;
+    } catch (e) {
+      if (!(e instanceof PosError) || e.code !== "network") throw e;
+      const [c, p, s] = await Promise.all([loadRef<Catalog>("catalog", outletId), loadRef<PricingPack>("pack", outletId), loadRef<PosSettings>("settings", outletId)]);
+      if (!c || !p) throw e;
+      setCatalog(c.data);
+      setPack(p.data);
+      if (s) setSettings(s.data);
+      setCachedAt(c.savedAt);
+      return c.data;
+    }
+  }, [outletId]);
+
+  // Pemuatan pertama; tipe penjualan pertama jadi bawaan.
   useEffect(() => {
-    posApi<Catalog>("/catalog")
+    loadReference()
       .then((c) => {
-        setCatalog(c);
         const first = c.salesTypes[0]?.id ?? "";
         setCart((cur) => (cur.salesTypeId ? cur : { ...cur, salesTypeId: first }));
-        setSavedKey(JSON.stringify({ salesTypeId: first, lines: [] }));
+        setSavedKey((cur) => (JSON.parse(cur).salesTypeId ? cur : JSON.stringify({ salesTypeId: first, lines: [] })));
       })
-      .catch((e) => toast(e instanceof PosError ? e.message : t("network"), "error"));
-  }, [toast, t]);
+      .catch((e) => toast(e instanceof PosError && e.code !== "network" ? e.message : t("network"), "error"));
+  }, [loadReference, toast, t]);
 
-  // Pengaturan (metode bayar aktif, desain struk, checkout) dimuat sekali per sesi kasir.
+  // Segarkan setelah koneksi pulih (bila tadi memakai salinan) dan tiap 10 menit selama online: harga dan stok bisa berubah.
   useEffect(() => {
-    posApi<PosSettings>("/settings").then(setSettings).catch(() => undefined);
-  }, []);
+    if (!offline.online) return;
+    const refresh = () => void loadReference().catch(() => undefined);
+    if (cachedAt) refresh();
+    const id = setInterval(refresh, 10 * 60_000);
+    return () => clearInterval(id);
+  }, [offline.online, cachedAt, loadReference]);
+
+  // Penjualan offline yang baru tersinkron mengubah angka shift (penjualan tunai, jumlah transaksi).
+  useEffect(() => {
+    if (offline.syncedTick === 0) return;
+    posApi<{ shift: ShiftView | null }>("/shifts/current")
+      .then((r) => r.shift && onShift(r.shift))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offline.syncedTick]);
 
   // Program loyalty (reward yang bisa ditukar) dimuat sekali per sesi kasir.
   useEffect(() => {
@@ -114,11 +171,26 @@ export function Sell({
     posApi<FloorMap>("/tables").then(setFloor).catch(() => undefined);
   }, []);
 
-  // Harga SELALU dihitung server; klien hanya menampilkan.
+  // Online: harga dihitung server. Offline: kode domain yang sama dijalankan di perangkat (diuji identik dengan server).
   const seq = useRef(0);
   useEffect(() => {
     if (!cart.salesTypeId || cart.lines.length === 0) {
       setPriced(null);
+      return;
+    }
+    if (!offline.online) {
+      if (!pack || !catalog) {
+        setPriced(null);
+        return;
+      }
+      try {
+        const local = priceCartOffline(pack, catalog, cart as CartInput, canDiscount);
+        setPriced({ totals: local.priced.totals, lines: local.lines.map((l, i) => ({ ...l, ...local.priced.totals.lines[i]! })) as never, snapshot: local.priced.snapshot as never });
+      } catch (e) {
+        if (!(e instanceof CartError)) throw e;
+        setPriced(null);
+        toast(to("invalidCart"), "error");
+      }
       return;
     }
     const mine = ++seq.current;
@@ -128,11 +200,12 @@ export function Sell({
           if (mine === seq.current) setPriced(res);
         })
         .catch((e) => {
-          if (mine === seq.current) toast(e instanceof PosError ? e.message : t("network"), "error");
+          // Gagal menjangkau server: status offline ikut berubah sehingga efek ini berjalan lagi dengan harga lokal.
+          if (mine === seq.current && !(e instanceof PosError && e.code === "network")) toast(e instanceof PosError ? e.message : t("network"), "error");
         });
     }, 180);
     return () => clearTimeout(id);
-  }, [cart, toast, t]);
+  }, [cart, toast, t, to, offline.online, pack, catalog, canDiscount]);
 
   const priceOf = useCallback(
     (item: CatalogItem) => {
@@ -175,6 +248,7 @@ export function Sell({
     setPriced(null);
     setCustomer(null);
     setRewardCode(null);
+    setCartOpen(false);
   };
 
   const load = (o: OrderView) => {
@@ -187,7 +261,7 @@ export function Sell({
   };
 
   /** Simpan bill (buat atau ganti isi). Mengembalikan bill tersimpan, atau null bila gagal. */
-  const save = async (): Promise<OrderView | null> => {
+  const save = async (opts: { silentNetwork?: boolean } = {}): Promise<OrderView | null> => {
     if (cart.lines.length === 0) return null;
     setBusy(true);
     const send = async (extra: Record<string, unknown> = {}) =>
@@ -199,6 +273,8 @@ export function Sell({
       load(res.order);
       return res.order;
     } catch (e) {
+      // Server tidak terjangkau: pemanggil (pembayaran) yang memutuskan apakah jatuh ke mode offline.
+      if (opts.silentNetwork && e instanceof PosError && e.code === "network") return null;
       // Mengurangi/menghapus item yang sudah tersimpan: minta alasan dan (bila perlu) persetujuan atasan.
       if (orderId && needsApprovalError(e, "pos.void")) {
         let saved: OrderView | null = null;
@@ -216,11 +292,59 @@ export function Sell({
         }
         return null;
       }
-      toast(e instanceof PosError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : t("network"), "error");
+      toast(e instanceof PosError && e.code !== "network" ? (e.fields ? Object.values(e.fields)[0]! : e.message) : t("network"), "error");
       return null;
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Penjualan langsung tanpa server: hanya bill baru (tanpa pelanggan, reward, atau meja). Masuk antrean perangkat. */
+  const payOffline = async (payments: { method: string; amount: number; reference?: string | null }[]): Promise<boolean> => {
+    if (orderId || cart.customerId || cart.rewardId || cart.tableId) {
+      toast(to("unsupported"), "error");
+      return false;
+    }
+    if (!pack || !catalog) {
+      toast(to("noData"), "error");
+      return false;
+    }
+    let price;
+    try {
+      price = priceCartOffline(pack, catalog, cart as CartInput, canDiscount);
+    } catch (e) {
+      if (!(e instanceof CartError)) throw e;
+      toast(to("invalidCart"), "error");
+      return false;
+    }
+    let settlement;
+    try {
+      settlement = settle(price.priced.totals.total, payments.map((p) => ({ method: p.method, amount: p.amount })));
+    } catch (e) {
+      if (!(e instanceof PaymentError)) throw e;
+      toast(e.code === "noncash_overpay" ? t("nonCashOver") : t("changeNeedsCash"), "error");
+      return false;
+    }
+    if (!settlement.fullyPaid) return false;
+    const { queue } = await getEngine();
+    const op = buildSaleOp({
+      clientId: newUuid(),
+      clientRef: await queue.nextRef(),
+      createdAt: new Date(),
+      userId: ctx.session.user.id,
+      shiftId: shift.id,
+      salesTypeId: cart.salesTypeId,
+      label: cart.label ?? null,
+      note: cart.note ?? null,
+      price,
+      payments,
+    });
+    await queue.enqueue(op);
+    setPayOpen(false);
+    setReceipt(offlineOrderView(op, price, settlement));
+    reset();
+    toast(to("savedToast", { ref: op.clientRef }));
+    return true;
   };
 
   const guardLeave = (next: () => void) => (cart.lines.length > 0 && dirty ? setConfirmLeave(() => next) : next());
@@ -278,24 +402,36 @@ export function Sell({
   const lineView = (i: number) => priced?.lines[i];
 
   return (
-    <div className="flex h-screen flex-col bg-bg">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-4 py-2">
+    <div className="flex h-dvh flex-col bg-bg pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+      <header className="flex items-center justify-between gap-2 border-b border-line bg-surface px-3 py-2 sm:px-4">
         <div className="min-w-0">
           <div className="truncate font-semibold">{ctx.session.outlet.name}</div>
           <div className="truncate text-xs text-muted">{ctx.session.user.name}</div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button variant="secondary" onClick={() => setBillsOpen(true)}>
-            <ClipboardList size={16} aria-hidden /> {t("bills")}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <SyncBadge status={offline} onOpen={() => setSyncOpen(true)} />
+          <Button className="h-11 min-w-11 sm:h-9" variant="secondary" onClick={() => setBillsOpen(true)} disabled={!offline.online} title={!offline.online ? to("needNetwork") : t("bills")} aria-label={t("bills")}>
+            <ClipboardList size={16} aria-hidden /> <span className="hidden md:inline">{t("bills")}</span>
           </Button>
-          <Button variant="secondary" onClick={() => setShiftOpen(true)}>
-            <Wallet size={16} aria-hidden /> {t("shift")}
+          <Button className="h-11 min-w-11 sm:h-9" variant="secondary" onClick={() => setShiftOpen(true)} disabled={!offline.online} title={!offline.online ? to("needNetwork") : t("shift")} aria-label={t("shift")}>
+            <Wallet size={16} aria-hidden /> <span className="hidden md:inline">{t("shift")}</span>
           </Button>
+          {fullscreen.supported ? (
+            <Button className="h-11 min-w-11 sm:h-9" variant="ghost" onClick={() => void fullscreen.toggle()} aria-label={fullscreen.active ? td("exitFullscreen") : td("fullscreen")} title={fullscreen.active ? td("exitFullscreen") : td("fullscreen")} data-testid="fullscreen-toggle">
+              {fullscreen.active ? <Minimize size={16} aria-hidden /> : <Maximize size={16} aria-hidden />}
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={() => guardLeave(onLogout)} aria-label={t("logout")} title={t("logout")}>
             <LogOut size={16} aria-hidden />
           </Button>
         </div>
       </header>
+      {!offline.online || cachedAt ? (
+        <div role="status" data-testid="offline-banner" className="space-y-0.5 border-b border-line bg-warn-soft px-4 py-1.5 text-sm">
+          {!offline.online ? <p>{to("bannerOffline")}</p> : null}
+          {cachedAt ? <p className="text-muted">{to("usingCache", { time: new Date(cachedAt).toLocaleString(locale) })}</p> : null}
+        </div>
+      ) : null}
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_400px]">
         <section className="flex min-h-0 flex-col border-line lg:border-e" aria-label={t("catalog")}>
@@ -312,7 +448,7 @@ export function Sell({
                   role="tab"
                   aria-selected={category === c.id}
                   onClick={() => setCategory(c.id)}
-                  className={`h-9 shrink-0 rounded-full border px-4 text-sm font-medium ${category === c.id ? "border-brand bg-brand text-white" : "border-line bg-surface hover:bg-surface-2"}`}
+                  className={`h-11 shrink-0 rounded-full border px-4 sm:h-9 text-sm font-medium ${category === c.id ? "border-brand bg-brand text-white" : "border-line bg-surface hover:bg-surface-2"}`}
                 >
                   {c.name}
                 </button>
@@ -355,8 +491,15 @@ export function Sell({
           </div>
         </section>
 
-        <aside className="flex min-h-0 flex-col bg-surface" aria-label={t("cart")}>
+        <aside
+          className={`${cartOpen ? "fixed inset-0 z-30 flex pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]" : "hidden"} min-h-0 flex-col bg-surface lg:static lg:z-auto lg:flex lg:p-0`}
+          aria-label={t("cart")}
+          data-testid="cart-panel"
+        >
           <div className="flex items-center justify-between gap-2 border-b border-line p-3">
+            <Button className="h-11 min-w-11 lg:hidden" variant="ghost" onClick={() => setCartOpen(false)} aria-label={td("closeCart")} data-testid="close-cart">
+              <X size={18} aria-hidden />
+            </Button>
             <Select aria-label={t("salesType")} value={cart.salesTypeId} onChange={(e) => setCart((c) => ({ ...c, salesTypeId: e.target.value }))} className="max-w-48">
               {catalog?.salesTypes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -367,7 +510,7 @@ export function Sell({
             <div className="text-xs text-muted">{orderId ? t("savedBill") : t("newBill")}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-            <Button variant="secondary" onClick={() => setCustomerOpen(true)} data-testid="open-customer">
+            <Button variant="secondary" onClick={() => setCustomerOpen(true)} disabled={!offline.online} data-testid="open-customer">
               {customer ? customer.name : t("customer")}
               {customer?.member ? <span className="ms-1 text-xs text-brand">{t("pointsLabel", { count: customer.points })}</span> : null}
             </Button>
@@ -376,7 +519,7 @@ export function Sell({
                 {cart.rewardId ? (loyalty.rewards.find((r) => r.id === cart.rewardId)?.name ?? t("reward")) : t("reward")}
               </Button>
             ) : null}
-            <Button variant="secondary" onClick={() => setTablesOpen(true)} data-testid="open-tables">
+            <Button variant="secondary" onClick={() => setTablesOpen(true)} disabled={!offline.online} data-testid="open-tables">
               <LayoutGrid size={15} aria-hidden /> {tableName ?? t("tables")}
             </Button>
             {cart.tableId ? (
@@ -411,11 +554,11 @@ export function Sell({
                   {v && v.promoDiscount > 0 ? <div className="text-xs text-brand">{t("promoApplied", { amount: ctx.fmt(v.promoDiscount) })}</div> : null}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1" dir="ltr">
-                      <button type="button" onClick={() => changeQty(i, -1)} aria-label={t("decrease")} className="grid h-9 w-9 place-items-center rounded-lg border border-line hover:bg-surface-2">
+                      <button type="button" onClick={() => changeQty(i, -1)} aria-label={t("decrease")} className="grid h-11 w-11 place-items-center rounded-lg border border-line hover:bg-surface-2 lg:h-9 lg:w-9">
                         {l.quantity === 1 ? <Trash2 size={15} className="text-danger" aria-hidden /> : <Minus size={15} aria-hidden />}
                       </button>
                       <span className="w-9 text-center font-medium tabular-nums">{l.quantity}</span>
-                      <button type="button" onClick={() => changeQty(i, 1)} aria-label={t("increase")} className="grid h-9 w-9 place-items-center rounded-lg border border-line hover:bg-surface-2">
+                      <button type="button" onClick={() => changeQty(i, 1)} aria-label={t("increase")} className="grid h-11 w-11 place-items-center rounded-lg border border-line hover:bg-surface-2 lg:h-9 lg:w-9">
                         <Plus size={15} aria-hidden />
                       </button>
                     </div>
@@ -452,10 +595,10 @@ export function Sell({
               </Button>
             ) : null}
             <div className="grid grid-cols-3 gap-2 pt-1">
-              <Button variant="secondary" className="h-11" disabled={empty || busy || (!dirty && Boolean(orderId))} onClick={() => void save().then((o) => o && toast(t("billSaved")))}>
+              <Button variant="secondary" className="h-11" disabled={empty || busy || !offline.online || (!dirty && Boolean(orderId))} onClick={() => void save().then((o) => o && toast(t("billSaved")))}>
                 {t("saveBill")}
               </Button>
-              <Button variant="secondary" className="h-11" disabled={empty || busy} onClick={() => void startSplit()}>
+              <Button variant="secondary" className="h-11" disabled={empty || busy || !offline.online} onClick={() => void startSplit()}>
                 <Split size={15} aria-hidden /> {t("split")}
               </Button>
               <Button className="h-11" disabled={empty || busy || !priced} onClick={() => setPayOpen(true)}>
@@ -469,6 +612,25 @@ export function Sell({
             ) : null}
           </div>
         </aside>
+      </div>
+
+      <div className="border-t border-line bg-surface p-2 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          data-testid="open-cart"
+          className="flex h-14 w-full items-center justify-between gap-3 rounded-xl bg-brand px-4 text-white active:opacity-90"
+        >
+          <span className="flex items-center gap-2 font-semibold">
+            <ShoppingCart size={20} aria-hidden /> {td("openCart")}
+            <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs" data-testid="cart-count">
+              {td("items", { count: cart.lines.reduce((n, l) => n + l.quantity, 0) })}
+            </span>
+          </span>
+          <span className="text-lg font-semibold tabular-nums" data-testid="cart-total-bar">
+            {ctx.fmt(totals?.total ?? 0)}
+          </span>
+        </button>
       </div>
 
       {itemDialog ? (
@@ -509,8 +671,10 @@ export function Sell({
           allowSplit={settings?.checkout.allowSplitPayment ?? true}
           onClose={() => setPayOpen(false)}
           onPay={async (payments, stockOverride = false) => {
-            const saved = dirty || !orderId ? await save() : ({ id: orderId } as OrderView);
-            if (!saved) return false;
+            if (!offline.online) return payOffline(payments);
+            const saved = dirty || !orderId ? await save({ silentNetwork: true }) : ({ id: orderId } as OrderView);
+            // Server hilang saat menyimpan bill baru: tidak ada yang tersimpan di server, jadi aman dijual offline.
+            if (!saved) return !orderId && !getOnline() ? payOffline(payments) : false;
             try {
               const res = await posApi<{ order: OrderView }>(`/orders/${saved.id}/pay`, { method: "POST", json: { payments, ...(stockOverride ? { stockOverride: true } : {}), ...(rewardCode ? { rewardCode } : {}) } });
               setPayOpen(false);
@@ -527,7 +691,7 @@ export function Sell({
                 setStockShort({ short: e.extra.short as never, canOverride: e.extra.canOverride === true, payments });
                 return false;
               }
-              toast(e instanceof PosError ? (e.fields?.payments ?? e.message) : t("network"), "error");
+              toast(e instanceof PosError && e.code !== "network" ? (e.fields?.payments ?? e.message) : t("network"), "error");
               return false;
             }
           }}
@@ -579,6 +743,7 @@ export function Sell({
           </div>
         </div>
       ) : null}
+      {syncOpen ? <SyncDialog ctx={ctx} status={offline} onClose={() => setSyncOpen(false)} /> : null}
       {billsOpen ? <BillsDialog ctx={ctx} onClose={() => setBillsOpen(false)} onOpen={(id) => void openBill(id)} /> : null}
       {shiftOpen ? <ShiftDialog ctx={ctx} shift={shift} onShift={onShift} onClose={() => setShiftOpen(false)} onClosed={onShiftClosed} /> : null}
       {receipt ? <ReceiptDialog ctx={ctx} order={receipt} settings={settings} tableName={floor?.tables.find((x) => x.id === receipt.tableId)?.name ?? null} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}

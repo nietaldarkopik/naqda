@@ -669,14 +669,17 @@ export function ReceiptDialog({
   onRefund?: (() => void) | undefined;
 }) {
   const t = useTranslations("cashier");
+  const to = useTranslations("offline");
   const tx = t as unknown as (k: string) => string;
   const snap = order.snapshot;
   const paid = order.status === "paid";
+  const provisional = Boolean(order.offlineRef);
   const label = (key: string) => settings?.paymentMethods.find((m) => m.key === key)?.name ?? (["cash", "card", "qris", "ewallet", "transfer", "other"].includes(key) ? tx(`methods.${key}`) : key);
   const data: ReceiptData = {
     businessName: ctx.session.business.name,
     outlet: settings?.outlet ?? { name: ctx.session.outlet.name, address: null, phone: null },
     receiptNumber: order.receiptNumber,
+    provisionalRef: order.offlineRef ?? null,
     at: order.paidAt ?? order.openedAt,
     cashier: ctx.session.user.name,
     table: tableName ?? null,
@@ -697,11 +700,11 @@ export function ReceiptDialog({
   return (
     <Modal
       open
-      title={paid ? t("paymentDone") : t("receipt")}
+      title={provisional ? to("receiptTitle") : paid ? t("paymentDone") : t("receipt")}
       onClose={onClose}
       footer={
         <>
-          {paid && order.refundedTotal < order.totals.total && onRefund ? (
+          {paid && !provisional && order.refundedTotal < order.totals.total && onRefund ? (
             <Button variant="secondary" onClick={onRefund} data-testid="open-refund">
               {t("refund")}
             </Button>
@@ -723,7 +726,12 @@ export function ReceiptDialog({
           </div>
         </div>
       ) : null}
-      {paid ? <FeedbackPanel order={order} /> : null}
+      {provisional ? (
+        <p role="status" className="rounded-lg bg-warn-soft p-3 text-sm" data-testid="offline-receipt-note">
+          {to("receiptNote")}
+        </p>
+      ) : null}
+      {paid && !provisional ? <FeedbackPanel order={order} /> : null}
       <ReceiptView data={data} settings={settings?.receipt ?? defaultReceiptSettings} fmt={ctx.fmt} />
     </Modal>
   );

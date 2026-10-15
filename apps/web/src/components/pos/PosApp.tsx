@@ -20,6 +20,7 @@ import {
   type PosUserLite,
   type ShiftView,
 } from "@/lib/posClient";
+import { RegisterSw } from "./RegisterSw";
 import { Sell } from "./Sell";
 
 export interface Ctx {
@@ -32,6 +33,15 @@ export interface Ctx {
 type Stage = "loading" | "activate" | "pin" | "shift" | "sell";
 
 export function PosApp() {
+  return (
+    <>
+      <RegisterSw />
+      <PosFlow />
+    </>
+  );
+}
+
+function PosFlow() {
   const t = useTranslations("cashier");
   const toast = useToast();
   const locale = useLocale() as Locale;

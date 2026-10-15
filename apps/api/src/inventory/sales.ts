@@ -32,10 +32,11 @@ const nameShortages = async (tx: Db, shortages: ReturnType<typeof findShortages>
  * Memotong stok untuk pesanan yang sedang dibayar (dipanggil di dalam transaksi bayar, setelah pesanan dikunci).
  * Yang dipotong: varian item yang dilacak stoknya, bahan resep varian, bahan stok modifier, dan komponen paket.
  * Mode stok outlet: off = boleh minus; block = tolak bila kurang; override = tolak kecuali kasir menyetujui (`override`).
+ * Mengembalikan jumlah bahan/varian yang stoknya kurang (stok menjadi minus hanya bila mode off atau `force`).
  */
-export const deductForOrder = async (tx: Db, actor: Actor, orderId: string, override: boolean): Promise<void> => {
+export const deductForOrder = async (tx: Db, actor: Actor, orderId: string, override: boolean, force = false): Promise<number> => {
   const lines = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(asc(orderItems.position));
-  if (lines.length === 0) return;
+  if (lines.length === 0) return 0;
   const mods = await tx.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, lines.map((l) => l.id)));
   const optionsOf = (lineId: string) => mods.filter((m) => m.orderItemId === lineId).map((m) => m.optionId);
 
@@ -49,16 +50,15 @@ export const deductForOrder = async (tx: Db, actor: Actor, orderId: string, over
     reqs: model.unitRequirements({ variantId: l.variantId, bundleId: l.bundleId, optionIds: optionsOf(l.id) }).map((r) => ({ ...r, quantity: r.quantity * l.quantity })),
   }));
   const all = mergeRequirements(perLine.flatMap((x) => x.reqs));
-  if (all.length === 0) return;
+  if (all.length === 0) return 0;
 
   const levels = await lockLevels(tx, actor.outletId, all);
   const [outlet] = await tx.select({ mode: outlets.stockMode }).from(outlets).where(eq(outlets.id, actor.outletId)).limit(1);
   const mode = outlet?.mode ?? "off";
-  if (mode !== "off") {
-    const short = findShortages(all, levels);
-    if (short.length > 0 && !(mode === "override" && override)) {
-      throw new AppError("conflict", { messageKey: "pos.stockShort", extra: { short: await nameShortages(tx, short), canOverride: mode === "override" } });
-    }
+  const short = findShortages(all, levels);
+  // `force`: penjualan offline yang sudah terjadi dicatat apa adanya; stok boleh menjadi minus dan dilaporkan lewat jumlah kekurangan.
+  if (mode !== "off" && !force && short.length > 0 && !(mode === "override" && override)) {
+    throw new AppError("conflict", { messageKey: "pos.stockShort", extra: { short: await nameShortages(tx, short), canOverride: mode === "override" } });
   }
 
   for (const { line, reqs } of perLine) {
@@ -66,6 +66,7 @@ export const deductForOrder = async (tx: Db, actor: Actor, orderId: string, over
       await applyMove(tx, { ...actor, refType: "order", refId: orderId, orderItemId: line.id }, levels, r, "sale", -r.quantity);
     }
   }
+  return short.length;
 };
 
 /**

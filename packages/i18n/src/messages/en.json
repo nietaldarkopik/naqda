@@ -473,7 +473,22 @@
       "translation": "Translation",
       "device": "Device",
       "table": "Table",
-      "table_group": "Table group"
+      "table_group": "Table group",
+      "customer": "Customer",
+      "ingredient": "Ingredient",
+      "loyalty_program": "Loyalty program",
+      "loyalty_reward": "Loyalty reward",
+      "modifier_stock": "Modifier stock",
+      "payment_method": "Payment method",
+      "production": "Production",
+      "purchase_order": "Purchase order",
+      "recipe": "Recipe",
+      "role": "Access role",
+      "settings": "Settings",
+      "stock_adjustment": "Stock adjustment",
+      "transfer": "Transfer",
+      "user": "Employee",
+      "user_pin": "Employee PIN"
     }
   },
   "pos": {
@@ -525,6 +540,64 @@
       "active": "Active",
       "expired": "Code expired",
       "revoked": "Revoked"
+    }
+  },
+  "device": {
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "openCart": "View cart",
+    "closeCart": "Close cart",
+    "items": "{count} items"
+  },
+  "offline": {
+    "online": "Online",
+    "offline": "Offline",
+    "pending": "{count} waiting to sync",
+    "synced": "Synced",
+    "allSynced": "All synced",
+    "failedCount": "{count} failed",
+    "syncNow": "Sync now",
+    "syncing": "Syncing…",
+    "dialogTitle": "Offline sync",
+    "bannerOffline": "Offline mode: sales are saved on this device and sent automatically when the connection returns.",
+    "usingCache": "Using data saved at {time}. Prices and stock may differ from the server.",
+    "queueEmpty": "No sales are waiting.",
+    "queueTitle": "Waiting to sync",
+    "syncedTitle": "Recently synced",
+    "failedTitle": "Needs attention",
+    "retry": "Retry",
+    "discard": "Discard",
+    "discardConfirm": "Discard this sale? The money already received will not be recorded in the system.",
+    "waitingShift": "Waiting for an open shift",
+    "receiptTitle": "Provisional receipt",
+    "receiptNote": "Not officially numbered yet. The receipt number is assigned on sync.",
+    "savedToast": "Saved offline ({ref}). It will be sent when you are online.",
+    "unsupported": "Not available offline: remove the customer, reward, and table, or wait for the connection to return.",
+    "noData": "Catalog data is not saved on this device yet. Connect to the internet once to download it.",
+    "invalidCart": "This cart is not valid in offline mode.",
+    "needNetwork": "An internet connection is required.",
+    "notPersistent": "Device storage is unavailable: offline sales will be lost if the page is closed.",
+    "reference": "Reference",
+    "total": "Total",
+    "flags": {
+      "price_mismatch": "Server price differed at sync",
+      "stock_negative": "Stock went negative",
+      "clock_skew": "Device clock is off",
+      "price_unverified": "Price could not be verified"
+    },
+    "codes": {
+      "inconsistent_quote": "Total does not match the server calculation",
+      "payment_short": "Payment is less than the total",
+      "payment_invalid": "Payment is not valid",
+      "invalid_items": "Unknown item or bundle",
+      "forbidden": "The cashier may not sell",
+      "forbidden_discount": "The cashier may not give discounts",
+      "invalid_user": "The cashier is not valid at this outlet",
+      "conflict": "Transaction ID conflict",
+      "invalid": "Transaction data is not valid",
+      "no_shift": "No open shift",
+      "server": "Server error, will retry",
+      "no_result": "The server has not answered yet"
     }
   },
   "cashier": {
@@ -761,7 +834,8 @@
       "paid": "Paid",
       "split": "Split bill",
       "table_changed": "Table changed",
-      "refund": "Refund"
+      "refund": "Refund",
+      "sync_review": "Offline sale to review"
     }
   },
   "reports": {

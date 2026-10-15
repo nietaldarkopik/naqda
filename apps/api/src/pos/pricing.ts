@@ -28,12 +28,15 @@ import {
   type DbHandle,
 } from "@naqdi/db";
 import {
-  applyPromos,
-  computeOrder,
-  type DiscountInput,
+  fromDiscountInput,
+  priceLines,
+  toDiscountInput,
   type OrderSettings,
-  type OrderTotals,
+  type PricedOrder,
   type PromoDef,
+  type Rates,
+  type ResolvedLine,
+  type StoredDiscount,
 } from "@naqdi/domain";
 import { AppError } from "../errors";
 import { buildCostModel } from "../inventory/recipes";
@@ -41,36 +44,9 @@ import { getSettings } from "../settings/service";
 
 type Db = DbHandle["db"];
 
-export interface StoredDiscount {
-  kind: "percent" | "amount";
-  value: number;
-  discountId?: string | null;
-}
-
-export const toDiscountInput = (d: StoredDiscount | null | undefined): DiscountInput | null =>
-  !d ? null : d.kind === "percent" ? { kind: "percent", bp: d.value } : { kind: "amount", amount: d.value };
-
-export const fromDiscountInput = (d: DiscountInput | null | undefined, discountId?: string | null): StoredDiscount | null =>
-  !d ? null : d.kind === "percent" ? { kind: "percent", value: d.bp, discountId: discountId ?? null } : { kind: "amount", value: d.amount, discountId: discountId ?? null };
-
-/** Baris pesanan yang sudah diselesaikan terhadap katalog; harga di sini adalah SALINAN yang akan dibekukan di order_items. */
-export interface ResolvedLine {
-  key: string;
-  itemId: string | null;
-  variantId: string | null;
-  bundleId: string | null;
-  categoryId: string | null;
-  name: string;
-  sku: string | null;
-  /** Harga satuan termasuk modifier. */
-  unitPrice: number;
-  basePrice: number;
-  cost: number;
-  quantity: number;
-  discount: StoredDiscount | null;
-  note: string | null;
-  modifiers: { optionId: string | null; name: string; price: number }[];
-}
+// Tipe dan mesin harga murni ada di @naqdi/domain (dipakai juga kasir offline); diekspor ulang agar impor lama tetap berlaku.
+export { fromDiscountInput, priceLines, toDiscountInput };
+export type { PricedOrder, Rates, ResolvedLine, StoredDiscount };
 
 export interface OutletContext {
   outletId: string;
@@ -128,11 +104,6 @@ export const loadSalesType = async (db: Db, businessId: string, salesTypeId: str
   if (!st) throw new AppError("validation", { fields: { salesTypeId: "errors.notFound" } });
   return st;
 };
-
-export interface Rates {
-  taxes: { id: string; name: string; rateBp: number }[];
-  gratuities: { id: string; name: string; rateBp: number }[];
-}
 
 /** Pajak yang ditugaskan ke outlet; gratuity yang ditugaskan ke outlet DAN tertaut ke tipe penjualan pesanan. */
 export const loadRates = async (db: Db, ctx: OutletContext, salesTypeId: string): Promise<Rates> => {
@@ -389,53 +360,4 @@ export const resolveCart = async (
   for (const l of out) l.cost = model.unitCost({ variantId: l.variantId, bundleId: l.bundleId, optionIds: l.modifiers.map((m) => m.optionId), manualCost: l.cost });
 
   return { lines: out, orderDiscount };
-};
-
-export interface PricedOrder {
-  totals: OrderTotals;
-  /** id baris (key) -> promo yang berlaku. */
-  promoByLine: Record<string, string>;
-  snapshot: Record<string, unknown>;
-}
-
-/** Promo otomatis lalu `computeOrder`. Murni terhadap masukan; tidak menyentuh DB selain data yang sudah dimuat. */
-export const priceLines = (
-  lines: readonly ResolvedLine[],
-  orderDiscount: StoredDiscount | null,
-  ctx: OutletContext,
-  rates: Rates,
-  promoDefs: readonly PromoDef[],
-  salesTypeId: string,
-  now = new Date(),
-): PricedOrder => {
-  const promoLines = lines.flatMap((l) =>
-    l.itemId ? [{ id: l.key, itemId: l.itemId, categoryId: l.categoryId, unitPrice: l.unitPrice, quantity: l.quantity }] : [],
-  );
-  const promo = applyPromos(promoLines, promoDefs, { now, timezone: ctx.timezone, salesTypeId });
-  const totals = computeOrder({
-    lines: lines.map((l) => ({
-      id: l.key,
-      unitPrice: l.unitPrice,
-      quantity: l.quantity,
-      discount: toDiscountInput(l.discount),
-      promoDiscount: promo.perLine[l.key] ?? 0,
-    })),
-    orderDiscount: toDiscountInput(orderDiscount),
-    taxRatesBp: rates.taxes.map((t) => t.rateBp),
-    gratuityRatesBp: rates.gratuities.map((g) => g.rateBp),
-    settings: ctx.settings,
-  });
-  const promoByLine: Record<string, string> = {};
-  for (const a of promo.applications) promoByLine[a.lineId] ??= a.promoId;
-  return {
-    totals,
-    promoByLine,
-    snapshot: {
-      settings: ctx.settings,
-      taxes: rates.taxes.map((t, i) => ({ ...t, amount: totals.taxPerRate[i] ?? 0 })),
-      gratuities: rates.gratuities.map((g, i) => ({ ...g, amount: totals.gratuityPerRate[i] ?? 0 })),
-      promos: promo.applications,
-      computedAt: now.toISOString(),
-    },
-  };
 };

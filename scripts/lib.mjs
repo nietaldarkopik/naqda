@@ -1,7 +1,7 @@
 // Fungsi bantu bersama untuk skrip setup, doctor, dan dev. Hanya memakai Node (tanpa bash),
 // agar berjalan sama di Windows, macOS, dan Linux.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -57,3 +57,23 @@ export const parseDbUrl = (url) => {
 };
 
 export const maskUrl = (url) => url.replace(/:\/\/([^:@/]*):[^@]*@/, "://$1:***@");
+
+/**
+ * Mencari klien MySQL (mysqldump atau mysql): variabel MYSQLDUMP_PATH / MYSQL_PATH, lalu PATH, lalu lokasi umum
+ * (WampServer, Program Files, Homebrew). Mengembalikan path berkas atau null.
+ */
+export const findMysqlTool = (name) => {
+  const exe = isWin ? `${name}.exe` : name;
+  const envPath = process.env[name === "mysqldump" ? "MYSQLDUMP_PATH" : "MYSQL_PATH"];
+  if (envPath && existsSync(envPath)) return envPath;
+  const probe = spawnSync(isWin ? "where" : "which", [name], { encoding: "utf8" });
+  if (probe.status === 0) return probe.stdout.split(/\r?\n/)[0].trim();
+  const roots = isWin ? ["C:/wamp64/bin/mysql", "C:/Program Files/MySQL"] : ["/usr/local/mysql/bin", "/opt/homebrew/opt/mysql/bin"];
+  for (const r of roots) {
+    if (!existsSync(r)) continue;
+    const direct = path.join(r, exe);
+    if (existsSync(direct)) return direct;
+    for (const sub of readdirSync(r)) for (const bin of [path.join(r, sub, "bin", exe), path.join(r, sub, exe)]) if (existsSync(bin)) return bin;
+  }
+  return null;
+};

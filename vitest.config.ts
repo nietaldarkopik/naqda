@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       "@naqdi/db": p("./packages/db/src/index.ts"),
       "@naqdi/domain": p("./packages/domain/src/index.ts"),
+      "@naqdi/sync": p("./packages/sync/src/index.ts"),
       "@naqdi/i18n": p("./packages/i18n/src/index.ts"),
     },
   },

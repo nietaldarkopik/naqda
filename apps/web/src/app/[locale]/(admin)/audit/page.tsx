@@ -18,7 +18,7 @@ interface AuditRow {
   createdAt: string;
 }
 
-const entityTypes = ["item", "category", "brand", "sales_type", "tax", "gratuity", "discount", "modifier_set", "bundle", "promo", "outlet", "translation", "device", "table", "table_group"];
+const entityTypes = ["item", "category", "brand", "sales_type", "tax", "gratuity", "discount", "modifier_set", "bundle", "promo", "outlet", "translation", "device", "table", "table_group", "user", "user_pin", "role", "settings", "payment_method", "customer", "ingredient", "stock_adjustment", "purchase_order", "transfer", "production"];
 const actions = ["create", "update", "delete", "import"] as const;
 
 export default function AuditPage() {
