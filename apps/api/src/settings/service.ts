@@ -14,6 +14,10 @@ export const checkoutSchema = z.object({
 
 export const receiptSchema = z.object({
   headerText: z.string().max(200).default(""),
+  /** Nomor pajak/registrasi usaha di struk (NPWP, VAT No., TRN, dst.). Kosong = tidak dicetak. Nama bidangnya mengikuti negara. */
+  taxId: z.string().trim().max(40).default(""),
+  /** Judul untuk nomor itu, mis. "NPWP" atau "VAT No."; kosong memakai "Nomor pajak" sesuai bahasa. */
+  taxIdLabel: z.string().trim().max(30).default(""),
   showOutletName: z.boolean().default(true),
   showOutletAddress: z.boolean().default(true),
   showOutletPhone: z.boolean().default(true),
@@ -37,6 +41,8 @@ export const notificationsSchema = z.object({
 export const accountSchema = z.object({
   /** Batas karyawan aktif; null = tanpa batas. */
   employeeSlots: z.number().int().min(1).max(100_000).nullable().default(null),
+  /** Kebijakan retensi: pelanggan tanpa aktivitas selama sekian bulan layak dihapus datanya; null = belum ditetapkan. */
+  customerRetentionMonths: z.number().int().min(1).max(240).nullable().default(null),
 });
 
 export const sections = { checkout: checkoutSchema, receipt: receiptSchema, notifications: notificationsSchema, account: accountSchema } as const;

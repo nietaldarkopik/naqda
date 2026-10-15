@@ -227,14 +227,16 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
   });
 
   const optional = (max: number) => z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
-  session.post("/customers", validate("json", z.object({ name: z.string().trim().min(1).max(191), phone: optional(32), email: optional(191), enroll: z.boolean().default(false) })), async (c) => {
+  session.post("/customers", validate("json", z.object({ name: z.string().trim().min(1).max(191), phone: optional(32), email: optional(191), enroll: z.boolean().default(false), consent: z.boolean().default(false) })), async (c) => {
     const pos = c.get("pos");
     const body = c.req.valid("json");
+    // Telepon/email hanya boleh disimpan dengan persetujuan pelanggan (dicatat waktunya).
+    if ((body.phone || body.email) && !body.consent) throw new AppError("validation", { fields: { consent: "customers.consentRequired" } });
     const id = newId();
     try {
       await db.transaction(async (t) => {
         const tx = t as unknown as Db;
-        await tx.insert(customers).values({ id, businessId: pos.businessId, name: body.name, phone: body.phone, email: body.email });
+        await tx.insert(customers).values({ id, businessId: pos.businessId, name: body.name, phone: body.phone, email: body.email, consentAt: body.consent ? new Date() : null });
         if (body.enroll) await enrollCustomer(tx, pos.businessId, id, await localToday(pos.outletId), pos.userId);
       });
     } catch (e) {

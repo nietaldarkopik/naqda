@@ -779,6 +779,7 @@
     "newCustomer": "Pelanggan baru",
     "customerName": "Nama",
     "customerPhone": "Telepon",
+    "consentLabel": "Pelanggan setuju nomor teleponnya disimpan untuk loyalty dan struk.",
     "customerPhoneHint": "Dibutuhkan untuk kode validasi reward.",
     "enrollMember": "Daftarkan sebagai member loyalty",
     "searchCustomer": "Cari nama, telepon, atau email",
@@ -1238,6 +1239,26 @@
     }
   },
   "customers": {
+    "privacy": {
+      "consent": "Pelanggan setuju nomor telepon/email-nya disimpan untuk keperluan loyalty dan struk.",
+      "consentAt": "Persetujuan data pribadi: {date}",
+      "noConsent": "Belum ada catatan persetujuan untuk data pribadi ini.",
+      "noPersonalData": "Tanpa telepon atau email.",
+      "download": "Unduh data",
+      "erase": "Hapus data pribadi",
+      "eraseConfirm": "Hapus permanen",
+      "eraseWarning": "Nama, telepon, email, catatan, komentar, dan pesan terkait akan dihapus dari seluruh sistem dan tidak bisa dikembalikan. Transaksi, poin, dan laporan tetap ada tanpa identitas.",
+      "erased": "Data pribadi dihapus",
+      "retention": "Pelanggan tidak aktif",
+      "retentionHelp": "Hapus data pribadi pelanggan yang lama tidak bertransaksi atau berubah. Periksa dulu, lalu terapkan.",
+      "retentionMonths": "Tidak aktif selama (bulan)",
+      "retentionCheck": "Periksa",
+      "retentionFound": "{count} pelanggan memenuhi syarat.",
+      "retentionApply": "Hapus data {count} pelanggan",
+      "retentionDone": "{count} pelanggan dihapus datanya."
+    },
+    "consentRequired": "Persetujuan pelanggan wajib bila menyimpan telepon atau email.",
+    "retentionUnset": "Tetapkan batas bulan terlebih dahulu.",
     "cols": {
       "name": "Nama",
       "phone": "Telepon",
@@ -1310,6 +1331,10 @@
       "subtitle": "Atur isi struk dan lihat pratinjaunya langsung",
       "header": "Teks di bagian atas",
       "headerHint": "Satu baris per baris teks (mis. jam buka, slogan).",
+      "taxIdLabel": "Nama nomor pajak",
+      "taxIdLabelHint": "Mis. NPWP, VAT No., TRN. Kosong = \"Nomor pajak\".",
+      "taxId": "Nomor pajak usaha",
+      "taxIdHint": "Dicetak di bagian atas struk. Wajib bagi usaha yang terdaftar sebagai pengusaha kena pajak; pastikan sesuai ketentuan setempat.",
       "website": "Situs web",
       "instagram": "Media sosial",
       "footer": "Catatan kaki",
@@ -1376,10 +1401,13 @@
       "currency": "Mata uang",
       "activeEmployees": "Karyawan aktif",
       "slots": "Batas karyawan aktif",
+      "retention": "Retensi pelanggan (bulan)",
+      "retentionHint": "Pelanggan tanpa aktivitas selama sekian bulan layak dihapus datanya (lihat halaman Pelanggan). Kosongkan bila belum ada kebijakan.",
       "slotsHint": "Kosongkan untuk tanpa batas. Karyawan nonaktif tidak memakai slot."
     }
   },
   "receipt": {
+    "taxIdDefault": "Nomor pajak",
     "defaultFooter": "Terima kasih",
     "taxAndService": "Pajak dan service",
     "table": "Meja {name}"

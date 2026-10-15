@@ -89,7 +89,7 @@ describe("program dan reward", () => {
 
 describe("pelanggan dan pendaftaran member", () => {
   it("membuat pelanggan; telepon ganda ditolak; bonus member baru hanya sekali; kuota ditegakkan", async () => {
-    const mk = (body: Record<string, unknown>, token = A) => call(fx.app, "POST", "/customers", { token, body });
+    const mk = (body: Record<string, unknown>, token = A) => call(fx.app, "POST", "/customers", { token, body: { consent: true, ...body } });
     const a = await mk({ name: "Andi", phone: "0811", enroll: true });
     expect(a.status).toBe(201);
     andi = a.json.id;
@@ -200,7 +200,7 @@ describe("menukar reward", () => {
   });
 
   it("penolakan: poin kurang, bukan member, tanpa pelanggan, minimum belanja, digabung diskon pesanan, bisnis lain", async () => {
-    const poor = await call(fx.app, "POST", "/customers", { token: A, body: { name: "Miskin", phone: "0877" } });
+    const poor = await call(fx.app, "POST", "/customers", { token: A, body: { name: "Miskin", phone: "0877", consent: true } });
     await call(fx.app, "POST", `/customers/${poor.json.id}/enroll`, { token: A }).catch(() => undefined);
     expect((await pos("POST", "/price", cartOf(2, { customerId: budi, rewardId: r10 }))).status).toBe(422); // bukan member
     expect((await pos("POST", "/price", cartOf(2, { rewardId: r10 }))).status).toBe(422); // tanpa pelanggan
@@ -303,10 +303,10 @@ describe("kasir: pelanggan", () => {
   it("cari, daftar baru (dengan member), dan daftar jadi member dari kasir", async () => {
     const found = await pos("GET", "/customers?q=Andi");
     expect(found.json.items[0]).toMatchObject({ name: "Andi", member: true });
-    const created = await pos("POST", "/customers", { name: "Fani", phone: "0855" });
+    const created = await pos("POST", "/customers", { name: "Fani", phone: "0855", consent: true });
     expect(created.status).toBe(201);
     expect(created.json.customer.member).toBe(false);
-    expect((await pos("POST", "/customers", { name: "Fani 2", phone: "0855" })).status).toBe(409);
+    expect((await pos("POST", "/customers", { name: "Fani 2", phone: "0855", consent: true })).status).toBe(409);
     const prog = await pos("GET", "/loyalty");
     expect(prog.json.enabled).toBe(true);
     expect(prog.json.rewards.map((r: any) => r.name)).toContain("Diskon 10%");

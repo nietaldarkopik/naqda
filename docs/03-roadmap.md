@@ -259,6 +259,24 @@ Batas Bagian C (jangan dianggap ada):
 - Diuji dengan simulasi ketikan di Chromium, **belum dengan scanner fisik**. Scanner yang dikonfigurasi tanpa Enter, atau dengan awalan/akhiran lain, tidak akan terdeteksi; atur scanner agar mengirim Enter di akhir.
 - Dua perangkat memakai barcode berbeda untuk produk yang sama tidak didukung (satu barcode per varian, sesuai keputusan).
 
+## Tambahan setelah Fase 8: perlindungan data pelanggan dan nomor pajak — SELESAI 16 Okt 2026
+
+**Berjalan dan teruji** (446 tes otomatis; `tools/verify_privacy.mjs` di browser):
+- **Persetujuan**: telepon atau email pelanggan hanya boleh disimpan bila persetujuan dicentang (Back Office dan kasir); server menolak (422) tanpa itu dan mencatat waktu persetujuan (`customers.consent_at`). Pelanggan hanya bernama tidak butuh persetujuan. Pelanggan lama sebelum fitur ini tidak punya catatan persetujuan (ditampilkan apa adanya); mengisi telepon/email mereka kini minta persetujuan.
+- **Hapus data pribadi (hak hapus)**: anonimisasi permanen yang **menyapu semua salinan**: nama/telepon/email/catatan pelanggan, nama yang dibekukan di `pricing_snapshot` struk, pesan SMS dan struk keluar, komentar dan balasan masukan, catatan manual poin, dan ringkasan jejak audit entitas itu. Baris pelanggan tetap ada (bernama "(data dihapus)", disembunyikan dari daftar) agar transaksi, poin, dan laporan tidak rusak. Nomor telepon yang dihapus bisa dipakai pelanggan lain. Penghapusan tercatat di audit **tanpa data pribadi**. Terbukti menangkap satu bug nyata saat pengujian (kolom uuid biner membuat sapuan snapshot melewatkan baris).
+- **Unduh data (hak akses/portabilitas)**: JSON berisi profil, persetujuan, transaksi, buku besar poin, penukaran, dan masukan; tercatat di audit.
+- **Retensi**: kebijakan bulan di Pengaturan > Akun (1-240), dan di halaman Pelanggan > Pelanggan tidak aktif: **periksa dulu (dry-run)** lalu hapus; aktivitas = perubahan data, transaksi dibayar, atau mutasi poin terakhir.
+- **Hak akses**: hanya `customers.manage`; bisnis lain tidak bisa melihat atau menghapus (404).
+- **Nomor pajak di struk**: Pengaturan > Desain Struk > Nama nomor pajak + Nomor pajak usaha (NPWP, VAT No., TRN, dan seterusnya), tampil di pratinjau dan struk kasir.
+- **Bahan verifikasi akuntan**: `docs/06-contoh-perhitungan.md` dihasilkan `npm run docs:tax-examples` dari mesin hitung sungguhan (rupiah, dolar AS, riyal, SGD; harga termasuk/di luar pajak; tiga cara gabung diskon; arah pembulatan).
+
+**Batas** (jangan dianggap ada):
+- **Penghapusan data tidak otomatis terjadwal**: retensi dijalankan manual dari halaman Pelanggan (tidak ada penjadwal tugas di aplikasi). Cadangan database (`npm run backup`) **tetap memuat data lama** sampai cadangan itu sendiri dihapus/kedaluwarsa; kebijakan retensi cadangan menjadi tugas operator.
+- Yang dianonimkan hanya data **pelanggan**. Data karyawan, label atau catatan teks bebas pada order/bill (mis. nama di "label"), dan nama di catatan item tidak disapu.
+- Tidak ada portal mandiri bagi pelanggan, pencatatan banyak jenis persetujuan (mis. pemasaran terpisah), atau pencabutan persetujuan yang otomatis menghapus (pencabutan = jalankan Hapus data pribadi).
+- Dokumen kebijakan privasi, ketentuan layanan, penunjukan penanggung jawab data, dan prosedur pelaporan kebocoran data berada **di luar kode**.
+- Nomor pajak hanya dicetak; belum ada validasi format per negara dan belum ada e-faktur atau e-invoicing.
+
 ## Fase 9 (opsional). Integrasi — DITUNDA (diputuskan 15 Okt 2026): untuk sekarang hanya TUNAI
 
 Naqdi akan dipakai pelanggan di Indonesia **dan** toko di luar negeri, dan penyedia pembayaran berbeda per negara. Karena itu
@@ -366,11 +384,11 @@ Status per 14 Okt 2026:
 | Pemantauan (log terstruktur, pemberitahuan galat, ruang disk) | Sebagian: log JSON dan `/health` (db, disk) selesai; pemberitahuan galat otomatis belum | 8 |
 | Mode offline dan sinkron tanpa duplikat | Selesai untuk penjualan langsung (fase 8A); transaksi lain tetap butuh online | 8 |
 | Pengaturan harga termasuk pajak per outlet dan fungsi hitung pajak (eksklusif/inklusif) | Selesai, teruji | 1 |
-| Penghitungan pajak/gratuity/pembulatan di keranjang sesuai aturan setempat, diverifikasi dengan akuntan | Belum | 2 |
+| Penghitungan pajak/gratuity/pembulatan di keranjang sesuai aturan setempat, diverifikasi dengan akuntan | **Bahan verifikasi siap**: `docs/06-contoh-perhitungan.md` (8 skenario dihasilkan dari mesin hitung sungguhan, dengan daftar pertanyaan untuk akuntan). **Verifikasi profesional belum dilakukan** | 2 |
 | Pembaruan sebagian (PATCH) tidak menimpa data lain | Selesai, ada tes regresi | 1 |
-| Struk memenuhi ketentuan setempat (NPWP, nomor struk berurutan tanpa celah) | Belum | 2 |
+| Struk memenuhi ketentuan setempat (NPWP, nomor struk berurutan tanpa celah) | Nomor struk berurutan tanpa celah: selesai dan teruji. **Nomor pajak (NPWP/VAT No./TRN) bisa diisi pemilik dan dicetak di struk**. Kelengkapan unsur wajib menurut hukum setempat **belum diverifikasi** | 2 dan 8 |
 | Pembayaran digital sungguhan (QRIS/e-wallet) lewat penyedia berizin | **Ditunda sengaja; tunai dulu.** Non-tunai hanya pencatatan manual (diperingatkan di UI); rancangan penyedia ada di Fase 9 | 9 |
-| Perlindungan data pribadi pelanggan (UU PDP): persetujuan, hak hapus, retensi | Belum | 6–7 |
+| Perlindungan data pribadi pelanggan (UU PDP): persetujuan, hak hapus, retensi | Selesai di kode dan teruji: persetujuan tercatat, unduh data, hapus data (anonimisasi), retensi manual. **Kebijakan privasi, prosedur permintaan subjek data, dan penanganan kebocoran data di luar kode** | 6–7 dan setelah 8 |
 | Ketentuan layanan, kebijakan privasi, dan rencana dukungan | Belum | di luar kode |
 | Uji beban dan uji keamanan oleh pihak yang tidak menulis kodenya | Belum | 8 |
 

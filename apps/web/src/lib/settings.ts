@@ -16,7 +16,7 @@ export interface AllSettings {
   checkout: { taxEnabled: boolean; gratuityEnabled: boolean; allowSplitPayment: boolean };
   receipt: ReceiptSettings;
   notifications: { dailySummary: boolean; lowStock: boolean; recipients: string[] };
-  account: { employeeSlots: number | null };
+  account: { employeeSlots: number | null; customerRetentionMonths: number | null };
   paymentMethods: PaymentMethodRow[];
 }
 

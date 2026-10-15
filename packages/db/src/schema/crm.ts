@@ -27,6 +27,10 @@ export const customers = mysqlTable(
     points: money("points").notNull().default(0),
     lifetimeSpending: money("lifetime_spending").notNull().default(0),
     visits: int("visits", { unsigned: true }).notNull().default(0),
+    /** Kapan pelanggan menyetujui datanya disimpan (null = belum tercatat; pelanggan lama sebelum fitur ini). */
+    consentAt: dt("consent_at"),
+    /** Kapan data pribadinya dihapus (anonimisasi). Barisnya tetap ada agar riwayat transaksi tidak rusak. */
+    anonymizedAt: dt("anonymized_at"),
     ...timestamps,
     /** Nomor telepon dan email unik per bisnis di antara pelanggan yang belum dihapus. */
     activePhone: varchar("active_phone", { length: 32 }).generatedAlwaysAs(sql`(IF(\`deleted_at\` IS NULL, \`phone\`, NULL))`, { mode: "stored" }),

@@ -17,7 +17,7 @@ export function CustomerDialog({ onClose, onPick, loyaltyOn }: { onClose: () => 
   const [q, setQ] = useState("");
   const [results, setResults] = useState<PosCustomer[] | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", enroll: true });
+  const [form, setForm] = useState({ name: "", phone: "", enroll: true, consent: false });
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export function CustomerDialog({ onClose, onPick, loyaltyOn }: { onClose: () => 
   const create = async () => {
     setError("");
     try {
-      const res = await posApi<{ customer: PosCustomer }>("/customers", { method: "POST", json: { name: form.name, phone: form.phone || null, enroll: loyaltyOn && form.enroll } });
+      const res = await posApi<{ customer: PosCustomer }>("/customers", { method: "POST", json: { name: form.name, phone: form.phone || null, enroll: loyaltyOn && form.enroll, consent: form.consent } });
       onPick(res.customer);
     } catch (e) {
       setError(errText(e, t("network")));
@@ -45,6 +45,12 @@ export function CustomerDialog({ onClose, onPick, loyaltyOn }: { onClose: () => 
         <div className="space-y-3">
           <Field label={t("customerName")}>{(id) => <Input id={id} value={form.name} maxLength={191} autoFocus onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />}</Field>
           <Field label={t("customerPhone")} hint={t("customerPhoneHint")}>{(id) => <Input id={id} dir="ltr" inputMode="tel" className="text-start" value={form.phone} maxLength={32} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />}</Field>
+          {form.phone.trim() ? (
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5 h-5 w-5" checked={form.consent} onChange={(e) => setForm((f) => ({ ...f, consent: e.target.checked }))} data-testid="customer-consent" />
+              <span>{t("consentLabel")}</span>
+            </label>
+          ) : null}
           {loyaltyOn ? (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.enroll} onChange={(e) => setForm((f) => ({ ...f, enroll: e.target.checked }))} data-testid="customer-enroll" />
@@ -54,7 +60,7 @@ export function CustomerDialog({ onClose, onPick, loyaltyOn }: { onClose: () => 
           {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setAdding(false)}>{t("back")}</Button>
-            <Button disabled={!form.name.trim()} onClick={() => void create()} data-testid="customer-create">{t("save")}</Button>
+            <Button disabled={!form.name.trim() || (Boolean(form.phone.trim()) && !form.consent)} onClick={() => void create()} data-testid="customer-create">{t("save")}</Button>
           </div>
         </div>
       ) : (

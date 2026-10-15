@@ -82,6 +82,14 @@ export default function ReceiptSettingsPage() {
             {(id) => <Textarea id={id} rows={3} maxLength={200} value={form.headerText} onChange={(e) => setForm({ ...form, headerText: e.target.value })} data-testid="receipt-header" />}
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={t("settings.receipt.taxIdLabel")} hint={t("settings.receipt.taxIdLabelHint")} error={errors.taxIdLabel}>
+              {(id) => <Input id={id} className="text-start" value={form.taxIdLabel} maxLength={30} placeholder="NPWP / VAT No." onChange={(e) => setForm({ ...form, taxIdLabel: e.target.value })} data-testid="receipt-taxid-label" />}
+            </Field>
+            <Field label={t("settings.receipt.taxId")} hint={t("settings.receipt.taxIdHint")} error={errors.taxId}>
+              {(id) => <Input id={id} dir="ltr" className="text-start" value={form.taxId} maxLength={40} onChange={(e) => setForm({ ...form, taxId: e.target.value })} data-testid="receipt-taxid-input" />}
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("settings.receipt.website")} error={errors.website}>
               {(id) => <Input id={id} dir="ltr" className="text-start" value={form.website} maxLength={120} onChange={(e) => setForm({ ...form, website: e.target.value })} />}
             </Field>

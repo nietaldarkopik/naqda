@@ -779,6 +779,7 @@
     "newCustomer": "New customer",
     "customerName": "Name",
     "customerPhone": "Phone",
+    "consentLabel": "The customer agrees to their phone number being stored for loyalty and receipts.",
     "customerPhoneHint": "Needed for reward validation codes.",
     "enrollMember": "Enroll as a loyalty member",
     "searchCustomer": "Search name, phone or email",
@@ -1238,6 +1239,26 @@
     }
   },
   "customers": {
+    "privacy": {
+      "consent": "The customer agrees to their phone number/email being stored for loyalty and receipts.",
+      "consentAt": "Personal data consent: {date}",
+      "noConsent": "No consent is recorded for this personal data.",
+      "noPersonalData": "No phone or email.",
+      "download": "Download data",
+      "erase": "Erase personal data",
+      "eraseConfirm": "Erase permanently",
+      "eraseWarning": "Name, phone, email, notes, comments, and related messages will be removed from the whole system and cannot be restored. Transactions, points, and reports remain without identity.",
+      "erased": "Personal data erased",
+      "retention": "Inactive customers",
+      "retentionHelp": "Erase personal data of customers who have not transacted or changed for a long time. Check first, then apply.",
+      "retentionMonths": "Inactive for (months)",
+      "retentionCheck": "Check",
+      "retentionFound": "{count} customers qualify.",
+      "retentionApply": "Erase data of {count} customers",
+      "retentionDone": "Data erased for {count} customers."
+    },
+    "consentRequired": "Customer consent is required to store a phone number or email.",
+    "retentionUnset": "Set the number of months first.",
     "cols": {
       "name": "Name",
       "phone": "Phone",
@@ -1310,6 +1331,10 @@
       "subtitle": "Choose what the receipt shows and see the preview live",
       "header": "Text at the top",
       "headerHint": "One line per text line (e.g. opening hours, slogan).",
+      "taxIdLabel": "Tax number name",
+      "taxIdLabelHint": "E.g. NPWP, VAT No., TRN. Empty = \"Tax ID\".",
+      "taxId": "Business tax number",
+      "taxIdHint": "Printed at the top of the receipt. Required for businesses registered for tax; check your local rules.",
       "website": "Website",
       "instagram": "Social media",
       "footer": "Footer note",
@@ -1376,10 +1401,13 @@
       "currency": "Currency",
       "activeEmployees": "Active employees",
       "slots": "Active employee limit",
+      "retention": "Customer retention (months)",
+      "retentionHint": "Customers with no activity for this many months are due for data erasure (see the Customers page). Leave empty if there is no policy yet.",
       "slotsHint": "Leave empty for no limit. Inactive employees do not use a slot."
     }
   },
   "receipt": {
+    "taxIdDefault": "Tax ID",
     "defaultFooter": "Thank you",
     "taxAndService": "Tax and service",
     "table": "Table {name}"

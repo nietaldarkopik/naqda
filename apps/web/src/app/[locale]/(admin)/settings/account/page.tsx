@@ -14,6 +14,7 @@ export default function AccountSettingsPage() {
   const { can, business } = useAuth();
   const { data, save } = useSettings();
   const [slots, setSlots] = useState("");
+  const [retention, setRetention] = useState("");
   const [used, setUsed] = useState<number | null>(null);
   const [error, setError] = useState("");
   const locale = useLocale();
@@ -28,7 +29,10 @@ export default function AccountSettingsPage() {
   }, [locale]);
 
   useEffect(() => {
-    if (data) setSlots(data.account.employeeSlots === null ? "" : String(data.account.employeeSlots));
+    if (data) {
+      setSlots(data.account.employeeSlots === null ? "" : String(data.account.employeeSlots));
+      setRetention(data.account.customerRetentionMonths === null ? "" : String(data.account.customerRetentionMonths));
+    }
   }, [data]);
   useEffect(() => {
     api<{ currency: string; exponent: number; locked: boolean }>("/settings/currency")
@@ -60,7 +64,9 @@ export default function AccountSettingsPage() {
     const n = slots.trim() === "" ? null : Number(slots);
     if (n !== null && (!Number.isInteger(n) || n < 1)) return setError(t("common.invalidNumber"));
     setError("");
-    const r = await save("account", { employeeSlots: n });
+    const months = retention.trim() === "" ? null : Number(retention);
+    if (months !== null && (!Number.isInteger(months) || months < 1 || months > 240)) return setError(t("common.invalidNumber"));
+    const r = await save("account", { employeeSlots: n, customerRetentionMonths: months });
     toast(r.ok ? t("common.saved") : r.message, r.ok ? "ok" : "error");
   };
 
@@ -91,6 +97,9 @@ export default function AccountSettingsPage() {
             )}
           </Field>
         </div>
+        <Field label={t("settings.account.retention")} hint={t("settings.account.retentionHint")}>
+          {(id) => <Input id={id} inputMode="numeric" dir="ltr" className="max-w-40 text-start" value={retention} onChange={(e) => setRetention(e.target.value)} data-testid="retention-input" />}
+        </Field>
         <Field label={t("settings.account.slots")} hint={t("settings.account.slotsHint")} error={error || undefined}>
           {(id) => <Input id={id} inputMode="numeric" dir="ltr" className="max-w-40 text-start" value={slots} onChange={(e) => setSlots(e.target.value)} data-testid="slots-input" />}
         </Field>

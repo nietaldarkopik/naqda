@@ -7,7 +7,9 @@ import { translate } from "@naqdi/i18n";
 import { AppError, duplicateKey, requestLocale } from "../errors";
 import { iso, patchSchema, requireAnyPrivilege, requirePrivilege, validate, type AppEnv } from "../http";
 import { addPoints, enrollCustomer, findCustomer } from "../loyalty/service";
+import { ERASED, eraseCustomer, exportCustomerData, inactiveCustomers } from "../privacy/customers";
 import { writeAudit } from "../repo/audit";
+import { getSettings } from "../settings/service";
 import { contains } from "../repo/generic";
 import { assignedOutlets } from "../repo/outlet-access";
 
@@ -17,6 +19,12 @@ const idParam = z.object({ id: z.string().uuid() });
 const optional = (max: number) => z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
 const body = z.object({ name: z.string().trim().min(1).max(191), phone: optional(32), email: optional(191), note: optional(500) });
 
+/**
+ * Persetujuan: data pribadi (telepon/email) hanya boleh disimpan dengan persetujuan pelanggan yang tercatat waktunya.
+ * Pelanggan tanpa telepon dan email (hanya nama) tidak butuh persetujuan.
+ */
+const consentMissing = (phone: string | null | undefined, email: string | null | undefined, hasConsent: boolean): boolean => Boolean(phone || email) && !hasConsent;
+
 const present = (c: typeof customers.$inferSelect) => ({
   id: c.id,
   name: c.name,
@@ -25,6 +33,8 @@ const present = (c: typeof customers.$inferSelect) => ({
   note: c.note,
   member: Boolean(c.memberSince),
   memberSince: iso(c.memberSince),
+  consentAt: iso(c.consentAt),
+  anonymizedAt: iso(c.anonymizedAt),
   points: c.points,
   lifetimeSpending: c.lifetimeSpending,
   visits: c.visits,
@@ -79,6 +89,65 @@ export const customerRoutes = () => {
     return new Response(`﻿${csv}`, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="naqdi-customers.csv"' } });
   });
 
+  // ---- perlindungan data pribadi (didaftarkan sebelum "/:id")
+  // Kebijakan retensi: pelanggan tanpa aktivitas selama N bulan. Dry-run dulu (bawaan), lalu terapkan.
+  app.get("/retention", manage, async (c) => {
+    const auth = c.get("auth");
+    const db = c.get("db");
+    const months = (await getSettings(db, auth.businessId)).account.customerRetentionMonths;
+    return c.json({ months, due: months ? (await inactiveCustomers(db, auth.businessId, months)).length : null });
+  });
+
+  app.post(
+    "/purge-inactive",
+    manage,
+    validate("json", z.object({ months: z.number().int().min(1).max(240).optional(), dryRun: z.boolean().default(true) })),
+    async (c) => {
+      const auth = c.get("auth");
+      const db = c.get("db");
+      const b = c.req.valid("json");
+      const months = b.months ?? (await getSettings(db, auth.businessId)).account.customerRetentionMonths;
+      if (!months) throw new AppError("validation", { fields: { months: "customers.retentionUnset" } });
+      const due = await inactiveCustomers(db, auth.businessId, months);
+      if (b.dryRun) return c.json({ dryRun: true, months, count: due.length, sample: due.slice(0, 20) });
+      let erased = 0;
+      for (const row of due.slice(0, 500)) {
+        const done = await db.transaction(async (tx) => {
+          const report = await eraseCustomer(tx as unknown as Db, auth.businessId, row.id);
+          if (report) await writeAudit(tx as unknown as Db, auth, { entityType: "customer", entityId: row.id, action: "delete", summary: ERASED, changes: { erased: true, reason: "retention", months, ...report } });
+          return Boolean(report);
+        });
+        if (done) erased++;
+      }
+      return c.json({ dryRun: false, months, count: due.length, erased, remaining: due.length - erased });
+    },
+  );
+
+  // Hak akses/portabilitas: semua data tentang satu pelanggan sebagai JSON.
+  app.get("/:id/data", manage, validate("param", idParam), async (c) => {
+    const auth = c.get("auth");
+    const db = c.get("db");
+    const { id } = c.req.valid("param");
+    const data = await exportCustomerData(db, auth.businessId, id);
+    if (!data) throw new AppError("not_found");
+    await writeAudit(db, auth, { entityType: "customer", entityId: id, action: "update", summary: "data export", changes: { dataExported: true } });
+    return new Response(JSON.stringify(data, null, 2), { headers: { "content-type": "application/json; charset=utf-8", "content-disposition": `attachment; filename="pelanggan-${id}.json"` } });
+  });
+
+  // Hak hapus: anonimisasi permanen (tidak bisa dibatalkan). Barisnya tetap ada agar transaksi dan laporan tidak rusak.
+  app.post("/:id/erase", manage, validate("param", idParam), async (c) => {
+    const auth = c.get("auth");
+    const db = c.get("db");
+    const { id } = c.req.valid("param");
+    const report = await db.transaction(async (tx) => {
+      const r = await eraseCustomer(tx as unknown as Db, auth.businessId, id);
+      if (r) await writeAudit(tx as unknown as Db, auth, { entityType: "customer", entityId: id, action: "delete", summary: ERASED, changes: { erased: true, reason: "request", ...r } });
+      return r;
+    });
+    if (!report) throw new AppError("not_found");
+    return c.json({ erased: true, report });
+  });
+
   app.get("/:id", view, validate("param", idParam), async (c) => {
     const auth = c.get("auth");
     const db = c.get("db");
@@ -88,17 +157,18 @@ export const customerRoutes = () => {
     return c.json({ ...present(row), ledger: ledger.map((l) => ({ id: l.id, kind: l.kind, points: l.points, balanceAfter: l.balanceAfter, note: l.note, orderId: l.orderId, at: iso(l.createdAt) })) });
   });
 
-  app.post("/", manage, validate("json", body.extend({ enroll: z.boolean().default(false) })), async (c) => {
+  app.post("/", manage, validate("json", body.extend({ enroll: z.boolean().default(false), consent: z.boolean().default(false) })), async (c) => {
     const b = c.req.valid("json");
+    if (consentMissing(b.phone, b.email, b.consent)) throw new AppError("validation", { fields: { consent: "customers.consentRequired" } });
     const auth = c.get("auth");
     const db = c.get("db");
     const id = newId();
     try {
       await db.transaction(async (t) => {
         const tx = t as unknown as Db;
-        await tx.insert(customers).values({ id, businessId: auth.businessId, name: b.name, phone: b.phone, email: b.email, note: b.note });
+        await tx.insert(customers).values({ id, businessId: auth.businessId, name: b.name, phone: b.phone, email: b.email, note: b.note, consentAt: b.consent ? new Date() : null });
         if (b.enroll) await enrollCustomer(tx, auth.businessId, id, await todayFor(db, auth), auth.userId);
-        await writeAudit(tx, auth, { entityType: "customer", entityId: id, action: "create", summary: b.name, changes: { enroll: b.enroll } });
+        await writeAudit(tx, auth, { entityType: "customer", entityId: id, action: "create", summary: b.name, changes: { enroll: b.enroll, consent: b.consent } });
       });
     } catch (e) {
       throw dup(e);
@@ -106,16 +176,18 @@ export const customerRoutes = () => {
     return c.json(present((await findCustomer(db, auth.businessId, id))!), 201);
   });
 
-  app.patch("/:id", manage, validate("param", idParam), validate("json", patchSchema(body)), async (c) => {
+  app.patch("/:id", manage, validate("param", idParam), validate("json", patchSchema(body.extend({ consent: z.boolean() }))), async (c) => {
     const { id } = c.req.valid("param");
-    const b = c.req.valid("json");
+    const { consent, ...b } = c.req.valid("json");
     const auth = c.get("auth");
     const db = c.get("db");
     const before = await findCustomer(db, auth.businessId, id);
     if (!before) throw new AppError("not_found");
+    // Telepon/email boleh diisi/diubah hanya bila persetujuan sudah ada atau diberikan sekarang.
+    if (consentMissing(b.phone !== undefined ? b.phone : before.phone, b.email !== undefined ? b.email : before.email, Boolean(before.consentAt) || consent === true)) throw new AppError("validation", { fields: { consent: "customers.consentRequired" } });
     try {
       await db.transaction(async (tx) => {
-        await tx.update(customers).set(b).where(eq(customers.id, id));
+        await tx.update(customers).set({ ...b, ...(consent === true && !before.consentAt ? { consentAt: new Date() } : {}) }).where(eq(customers.id, id));
         await writeAudit(tx as unknown as Db, auth, { entityType: "customer", entityId: id, action: "update", summary: before.name, changes: { after: b } });
       });
     } catch (e) {

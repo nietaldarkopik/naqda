@@ -17,6 +17,7 @@ interface Customer {
   note: string | null;
   member: boolean;
   memberSince: string | null;
+  consentAt: string | null;
   points: number;
   lifetimeSpending: number;
   visits: number;
@@ -32,7 +33,7 @@ interface Listing {
 }
 
 const pageSize = 20;
-const emptyForm = { name: "", phone: "", email: "", note: "", enroll: false };
+const emptyForm = { name: "", phone: "", email: "", note: "", enroll: false, consent: false };
 
 export default function CustomersPage() {
   const t = useTranslations();
@@ -53,6 +54,8 @@ export default function CustomersPage() {
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [adjust, setAdjust] = useState({ points: "", note: "" });
+  const [erasing, setErasing] = useState<Detail | null>(null);
+  const [retention, setRetention] = useState<{ months: string; result: { count: number; sample: { id: string; name: string; lastActivity: string }[] } | null; done: string } | null>(null);
 
   const money = useMemo(() => (v: number) => formatMinor(v, business?.currencyExponent ?? 0, business?.currency ?? "IDR", locale), [business, locale]);
   const num = useMemo(() => new Intl.NumberFormat(intlTags[locale]), [locale]);
@@ -80,7 +83,7 @@ export default function CustomersPage() {
 
   const openForm = (c: Customer | "new") => {
     setErrors({});
-    setForm(c === "new" ? emptyForm : { name: c.name, phone: c.phone ?? "", email: c.email ?? "", note: c.note ?? "", enroll: false });
+    setForm(c === "new" ? emptyForm : { name: c.name, phone: c.phone ?? "", email: c.email ?? "", note: c.note ?? "", enroll: false, consent: Boolean(c.consentAt) });
     setEditing(c);
   };
 
@@ -90,8 +93,8 @@ export default function CustomersPage() {
     setErrors({});
     const body = { name: form.name, phone: form.phone || null, email: form.email || null, note: form.note || null };
     try {
-      if (editing === "new") await api("/customers", { method: "POST", json: { ...body, enroll: form.enroll } });
-      else if (editing) await api(`/customers/${editing.id}`, { method: "PATCH", json: body });
+      if (editing === "new") await api("/customers", { method: "POST", json: { ...body, enroll: form.enroll, consent: form.consent } });
+      else if (editing) await api(`/customers/${editing.id}`, { method: "PATCH", json: { ...body, ...(form.consent ? { consent: true } : {}) } });
       setEditing(null);
       toast(t("common.saved"));
       await load();
@@ -113,6 +116,49 @@ export default function CustomersPage() {
       await load();
     } catch (err) {
       failed(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const eraseData = async () => {
+    if (!erasing) return;
+    setBusy(true);
+    try {
+      await api(`/customers/${erasing.id}/erase`, { method: "POST", json: {} });
+      setErasing(null);
+      setDetail(null);
+      toast(t("customers.privacy.erased"));
+      await load();
+    } catch (err) {
+      failed(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openRetention = async () => {
+    try {
+      const r = await api<{ months: number | null }>("/customers/retention");
+      setRetention({ months: r.months ? String(r.months) : "", result: null, done: "" });
+    } catch (e) {
+      failed(e);
+    }
+  };
+  const runRetention = async (dryRun: boolean) => {
+    if (!retention) return;
+    const months = Number(retention.months);
+    if (!Number.isInteger(months) || months < 1) return toast(t("common.invalidNumber"), "error");
+    setBusy(true);
+    try {
+      const r = await api<{ count: number; sample: { id: string; name: string; lastActivity: string }[]; erased?: number }>("/customers/purge-inactive", { method: "POST", json: { months, dryRun } });
+      if (dryRun) setRetention({ ...retention, result: r, done: "" });
+      else {
+        setRetention({ ...retention, result: null, done: t("customers.privacy.retentionDone", { count: r.erased ?? 0 }) });
+        await load();
+      }
+    } catch (e) {
+      failed(e);
     } finally {
       setBusy(false);
     }
@@ -166,6 +212,11 @@ export default function CustomersPage() {
         <Button variant="secondary" onClick={() => void apiDownload("/customers/export", "naqdi-customers.csv").catch(failed)}>
           <Download size={15} aria-hidden /> {t("reports.exportCsv")}
         </Button>
+        {manage ? (
+          <Button variant="secondary" onClick={() => void openRetention()} data-testid="open-retention">
+            {t("customers.privacy.retention")}
+          </Button>
+        ) : null}
         {manage ? (
           <Button onClick={() => openForm("new")}>
             <Plus size={16} aria-hidden /> {t("customers.create")}
@@ -260,6 +311,15 @@ export default function CustomersPage() {
             <Field label={t("common.email")} error={errors.email}>{(id) => <Input id={id} dir="ltr" className="text-start" value={form.email} maxLength={191} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} invalid={Boolean(errors.email)} />}</Field>
           </div>
           <Field label={t("inventory.note")}>{(id) => <Input id={id} value={form.note} maxLength={500} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} />}</Field>
+          {form.phone.trim() || form.email.trim() ? (
+            <div className="space-y-1">
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-0.5" checked={form.consent} onChange={(e) => setForm((f) => ({ ...f, consent: e.target.checked }))} data-testid="customer-consent" />
+                <span>{t("customers.privacy.consent")}</span>
+              </label>
+              {errors.consent ? <p role="alert" className="text-xs text-danger">{errors.consent}</p> : null}
+            </div>
+          ) : null}
           {editing === "new" ? (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.enroll} onChange={(e) => setForm((f) => ({ ...f, enroll: e.target.checked }))} />
@@ -284,9 +344,57 @@ export default function CustomersPage() {
         <p className="font-medium">{deleting?.name}</p>
       </Modal>
 
+      <Modal
+        open={retention !== null}
+        title={t("customers.privacy.retention")}
+        onClose={() => setRetention(null)}
+        footer={<Button variant="secondary" onClick={() => setRetention(null)}>{t("common.close")}</Button>}
+      >
+        {retention ? (
+          <div className="space-y-3 text-sm">
+            <p className="text-muted">{t("customers.privacy.retentionHelp")}</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label={t("customers.privacy.retentionMonths")}>
+                {(id) => <Input id={id} inputMode="numeric" dir="ltr" className="w-28 text-start" value={retention.months} onChange={(e) => setRetention({ ...retention, months: e.target.value, result: null, done: "" })} data-testid="retention-months" />}
+              </Field>
+              <Button variant="secondary" disabled={busy} onClick={() => void runRetention(true)} data-testid="retention-check">{t("customers.privacy.retentionCheck")}</Button>
+            </div>
+            {retention.result ? (
+              <div className="space-y-2" data-testid="retention-result">
+                <p className="font-medium">{t("customers.privacy.retentionFound", { count: retention.result.count })}</p>
+                <ul className="max-h-40 list-disc overflow-auto ps-5 text-muted">
+                  {retention.result.sample.map((s) => (
+                    <li key={s.id}>{s.name} <span className="ltr-text">({day.format(new Date(s.lastActivity))})</span></li>
+                  ))}
+                </ul>
+                {retention.result.count > 0 ? (
+                  <Button variant="danger" disabled={busy} onClick={() => void runRetention(false)} data-testid="retention-apply">{t("customers.privacy.retentionApply", { count: retention.result.count })}</Button>
+                ) : null}
+              </div>
+            ) : null}
+            {retention.done ? <p role="status" className="font-medium text-brand" data-testid="retention-done">{retention.done}</p> : null}
+          </div>
+        ) : null}
+      </Modal>
+
       <Modal open={detail !== null} title={detail?.name ?? ""} onClose={() => setDetail(null)} wide>
         {detail ? (
           <div className="space-y-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 p-3" data-testid="privacy-panel">
+              <span className="text-muted">
+                {detail.consentAt ? t("customers.privacy.consentAt", { date: day.format(new Date(detail.consentAt)) }) : detail.phone || detail.email ? t("customers.privacy.noConsent") : t("customers.privacy.noPersonalData")}
+              </span>
+              {manage ? (
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => void apiDownload(`/customers/${detail.id}/data`, `pelanggan-${detail.id}.json`).catch(failed)} data-testid="download-data">
+                    <Download size={15} aria-hidden /> {t("customers.privacy.download")}
+                  </Button>
+                  <Button variant="danger" onClick={() => setErasing(detail)} data-testid="erase-data">
+                    {t("customers.privacy.erase")}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
             <div className="flex flex-wrap gap-6">
               <div><div className="text-muted">{t("customers.cols.points")}</div><div className="text-2xl font-semibold tabular-nums" data-testid="detail-points">{num.format(detail.points)}</div></div>
               <div><div className="text-muted">{t("customers.cols.lifetimeSpending")}</div><div className="text-2xl font-semibold tabular-nums">{money(detail.lifetimeSpending)}</div></div>
@@ -326,6 +434,21 @@ export default function CustomersPage() {
             </table>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={erasing !== null}
+        title={t("customers.privacy.erase")}
+        onClose={() => setErasing(null)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setErasing(null)}>{t("common.cancel")}</Button>
+            <Button variant="danger" onClick={() => void eraseData()} disabled={busy} data-testid="erase-confirm">{t("customers.privacy.eraseConfirm")}</Button>
+          </>
+        }
+      >
+        <p className="font-medium">{erasing?.name}</p>
+        <p className="text-sm">{t("customers.privacy.eraseWarning")}</p>
       </Modal>
     </div>
   );

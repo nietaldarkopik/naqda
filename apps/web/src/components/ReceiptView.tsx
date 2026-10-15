@@ -5,6 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 /** Pengaturan struk (sama dengan apps/api/src/settings/service.ts). */
 export interface ReceiptSettings {
   headerText: string;
+  taxId: string;
+  taxIdLabel: string;
   showOutletName: boolean;
   showOutletAddress: boolean;
   showOutletPhone: boolean;
@@ -20,6 +22,8 @@ export interface ReceiptSettings {
 
 export const defaultReceiptSettings: ReceiptSettings = {
   headerText: "",
+  taxId: "",
+  taxIdLabel: "",
   showOutletName: true,
   showOutletAddress: true,
   showOutletPhone: true,
@@ -87,6 +91,11 @@ export function ReceiptView({ data, settings, fmt }: { data: ReceiptData; settin
         {settings.headerText.split("\n").filter(Boolean).map((line, i) => (
           <div key={i}>{line}</div>
         ))}
+        {settings.taxId ? (
+          <div data-testid="receipt-taxid">
+            {settings.taxIdLabel || r("taxIdDefault")}: <span dir="ltr">{settings.taxId}</span>
+          </div>
+        ) : null}
         <div>
           {data.receiptNumber ? `#${data.receiptNumber} · ` : data.provisionalRef ? `${data.provisionalRef} · ` : ""}
           {new Date(data.at).toLocaleString(locale)}
