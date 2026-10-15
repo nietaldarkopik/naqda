@@ -1,4 +1,5 @@
 import { compare } from "bcryptjs";
+import { billingView } from "../billing/view";
 import { and, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -73,6 +74,7 @@ export const authRoutes = (db: DbHandle["db"], config: Config, limiter: LoginLim
               currency: business.currency,
               currencyExponent: business.currencyExponent,
               defaultLocale: business.defaultLocale,
+              billing: await billingView(db, business.id),
             }
           : null,
       },

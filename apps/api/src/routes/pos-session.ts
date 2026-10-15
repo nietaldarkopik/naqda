@@ -66,6 +66,7 @@ import {
 } from "../pos/pricing";
 import { logActivity as writeActivity, persistLines, totalsColumns } from "../pos/orders";
 import { syncRoutes } from "../pos/sync";
+import { enforcePosAccess } from "../billing/access";
 import { posAuthRoutes } from "./pos-auth";
 
 type Db = DbHandle["db"];
@@ -86,6 +87,8 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
   const session = new Hono<PosEnv>();
   session.use("*", requireDevice(db), requirePos(db, config));
   session.use("*", requirePosPrivilege("pos.sell"));
+  // Langganan tidak aktif: tidak bisa membuat penjualan baru (sinkron offline dan tutup shift tetap boleh).
+  session.use("*", enforcePosAccess(db, config.nodeEnv === "test" ? 0 : 15_000));
 
   const openShiftOf = async (d: Db, userId: string, outletId: string) =>
     (

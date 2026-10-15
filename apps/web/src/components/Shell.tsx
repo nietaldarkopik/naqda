@@ -1,5 +1,6 @@
 "use client";
 
+import { BillingBanner } from "@/components/BillingBanner";
 import { Logo } from "@/components/Logo";
 import {
   Activity,
@@ -255,7 +256,10 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6 lg:p-8">{canOpen(pathname, can) ? children : <p className="rounded-lg bg-warn-soft p-4" role="alert" data-testid="forbidden-page">{t("errors.forbidden")}</p>}</main>
+      <main className="min-w-0 flex-1 p-6 lg:p-8">
+        <BillingBanner />
+        {canOpen(pathname, can) ? children : <p className="rounded-lg bg-warn-soft p-4" role="alert" data-testid="forbidden-page">{t("errors.forbidden")}</p>}
+      </main>
     </div>
   );
 }

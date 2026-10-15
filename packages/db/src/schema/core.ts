@@ -21,6 +21,21 @@ export const businesses = mysqlTable("businesses", {
   address: varchar("address", { length: 500 }),
   province: varchar("province", { length: 100 }),
   plan: varchar("plan", { length: 32 }).notNull().default("basic"),
+  /** Siklus hidup langganan (lihat packages/domain/src/plans.ts): trial | active | past_due | suspended | cancelled. */
+  status: varchar("status", { length: 12 }).notNull().default("active"),
+  /** Akhir masa uji coba (status trial). */
+  trialEndsAt: dt("trial_ends_at"),
+  billingInterval: varchar("billing_interval", { length: 8 }),
+  /** Akhir periode yang sudah dibayar; null = tanpa batas (dikelola manual). */
+  currentPeriodEndsAt: dt("current_period_ends_at"),
+  suspendedAt: dt("suspended_at"),
+  suspendReason: varchar("suspend_reason", { length: 255 }),
+  /** Negara usaha (ISO 3166-1 alpha-2), untuk pajak/penagihan dan kepatuhan; tidak menentukan mata uang. */
+  country: varchar("country", { length: 2 }),
+  termsAcceptedAt: dt("terms_accepted_at"),
+  termsVersion: varchar("terms_version", { length: 16 }),
+  /** Timpaan batas paket khusus bisnis ini, mis. { "maxOutlets": 8 }. */
+  limits: json("limits").$type<Record<string, number> | null>(),
   currency: varchar("currency", { length: 3 }).notNull().default("IDR"),
   currencyExponent: tinyint("currency_exponent", { unsigned: true }).notNull().default(0),
   defaultLocale: varchar("default_locale", { length: 5 }).notNull().default("id"),

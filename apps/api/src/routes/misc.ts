@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { billingView } from "../billing/view";
 import { Hono } from "hono";
 import { businesses, type DbHandle } from "@naqdi/db";
 import { AppError } from "../errors";
@@ -31,6 +32,7 @@ export const meRoutes = (db: DbHandle["db"]) => {
         currency: business.currency,
         currencyExponent: business.currencyExponent,
         defaultLocale: business.defaultLocale,
+        billing: await billingView(db, business.id),
       },
     });
   });

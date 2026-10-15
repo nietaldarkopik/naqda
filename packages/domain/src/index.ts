@@ -16,3 +16,4 @@ export * from "./pin";
 export * from "./cart";
 export * from "./barcode";
 export * from "./currency";
+export * from "./plans";

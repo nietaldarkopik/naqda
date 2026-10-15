@@ -15,6 +15,13 @@ export interface CreateBusinessInput {
   outletName?: string;
   /** Zona waktu IANA outlet, mis. Asia/Jakarta, Asia/Riyadh, America/New_York. */
   timezone?: string;
+  /** Paket dan siklus hidup; bawaan "unlimited" dan aktif (dikelola manual). */
+  plan?: string;
+  status?: "trial" | "active";
+  trialEndsAt?: Date | null;
+  country?: string | null;
+  termsAcceptedAt?: Date | null;
+  termsVersion?: string | null;
   adminEmail: string;
   adminName?: string;
   /** Kosong = dibuat acak dan dikembalikan sekali. */
@@ -48,6 +55,12 @@ export const createBusiness = async (db: Db, input: CreateBusinessInput) => {
     name: input.name,
     currency: input.currency,
     defaultLocale: input.defaultLocale ?? "id",
+    ...(input.plan !== undefined ? { plan: input.plan } : {}),
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(input.trialEndsAt !== undefined ? { trialEndsAt: input.trialEndsAt } : {}),
+    ...(input.country !== undefined ? { country: input.country } : {}),
+    ...(input.termsAcceptedAt !== undefined ? { termsAcceptedAt: input.termsAcceptedAt } : {}),
+    ...(input.termsVersion !== undefined ? { termsVersion: input.termsVersion } : {}),
   });
   const outletId = newId();
   await db.insert(outlets).values({ id: outletId, businessId, name: input.outletName ?? input.name, timezone });

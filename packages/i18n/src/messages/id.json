@@ -3,6 +3,16 @@
     "name": "Naqdi",
     "tagline": "Aplikasi kasir untuk semua jenis usaha"
   },
+  "billing": {
+    "bannerTrial": "Uji coba gratis: sisa {days} hari.",
+    "bannerGrace": "Masa uji coba atau langganan sudah berakhir. Sisa {days} hari masa tenggang sebelum Back Office menjadi hanya-baca dan kasir berhenti menjual.",
+    "bannerLocked": "Langganan tidak aktif: Back Office hanya-baca dan kasir tidak bisa membuat penjualan baru. Perpanjang langganan untuk melanjutkan.",
+    "bannerSuspended": "Akun ditangguhkan: Back Office hanya-baca dan kasir tidak bisa membuat penjualan baru. Hubungi pengelola.",
+    "bannerCancelled": "Langganan dibatalkan: Back Office hanya-baca. Data Anda tetap bisa dilihat dan diekspor.",
+    "bannerRenew": "Langganan berakhir dalam {days} hari.",
+    "locked": "Langganan tidak aktif. Back Office hanya bisa dibaca dan kasir tidak bisa membuat penjualan baru. Perpanjang langganan atau hubungi pengelola.",
+    "limitReached": "Batas paket tercapai. Tingkatkan paket untuk menambah lagi."
+  },
   "common": {
     "save": "Simpan",
     "cancel": "Batal",

@@ -3,6 +3,16 @@
     "name": "Naqdi",
     "tagline": "Point of sale for every kind of business"
   },
+  "billing": {
+    "bannerTrial": "Free trial: {days} days left.",
+    "bannerGrace": "Your trial or subscription has ended. {days} days of grace remain before the Back Office becomes read-only and the till stops selling.",
+    "bannerLocked": "Subscription inactive: the Back Office is read-only and the till cannot create new sales. Renew to continue.",
+    "bannerSuspended": "Account suspended: the Back Office is read-only and the till cannot create new sales. Contact the administrator.",
+    "bannerCancelled": "Subscription cancelled: the Back Office is read-only. Your data can still be viewed and exported.",
+    "bannerRenew": "Your subscription ends in {days} days.",
+    "locked": "The subscription is not active. The Back Office is read-only and the till cannot create new sales. Renew the subscription or contact the administrator.",
+    "limitReached": "Plan limit reached. Upgrade the plan to add more."
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

@@ -1,4 +1,4 @@
-import { supportedCurrencies } from "@naqdi/domain";
+import { planCodes, supportedCurrencies, trialEndFrom } from "@naqdi/domain";
 import { createBusiness } from "../business";
 import { createDb } from "../client";
 import { defaultDatabaseUrl, loadEnv } from "../env";
@@ -21,6 +21,8 @@ Wajib   --name         nama bisnis
 Opsi    --outlet       nama outlet pertama (bawaan: nama bisnis)
         --timezone     zona waktu IANA outlet (bawaan Asia/Jakarta; mis. Asia/Riyadh, America/New_York)
         --locale       bahasa bawaan: id | en | ar (bawaan id)
+        --plan         paket: ${planCodes.join(" | ")} (bawaan unlimited = tanpa batas, dikelola manual)
+        --trial-days   jadikan bisnis masa uji coba selama sekian hari (bawaan: aktif tanpa batas waktu)
         --admin-name   nama administrator (bawaan Administrator)
         --admin-password  kata sandi (bawaan: acak, ditampilkan sekali; atau lewat env ADMIN_PASSWORD)
 
@@ -49,6 +51,8 @@ try {
     ...(flag("outlet") ? { outletName: flag("outlet")! } : {}),
     ...(flag("timezone") ? { timezone: flag("timezone")! } : {}),
     adminEmail,
+    ...(flag("plan") ? { plan: flag("plan")! } : {}),
+    ...(flag("trial-days") ? { status: "trial" as const, trialEndsAt: trialEndFrom(new Date(), Number(flag("trial-days"))) } : {}),
     ...(flag("admin-name") ? { adminName: flag("admin-name")! } : {}),
     ...(adminPassword ? { adminPassword } : {}),
   });

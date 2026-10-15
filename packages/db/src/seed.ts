@@ -16,6 +16,14 @@ export interface NewBusinessInput {
   currency?: string;
   currencyExponent?: number;
   defaultLocale?: "id" | "en" | "ar";
+  /** Paket (lihat planLimits); bawaan "unlimited" agar bisnis demo/uji/dikelola manual tidak dibatasi. */
+  plan?: string;
+  /** Bawaan "active" tanpa batas waktu. Pendaftaran mandiri memakai "trial" dengan `trialEndsAt`. */
+  status?: "trial" | "active";
+  trialEndsAt?: Date | null;
+  country?: string | null;
+  termsAcceptedAt?: Date | null;
+  termsVersion?: string | null;
 }
 
 /** Membuat bisnis beserta lima peran bawaan (doc 01, bagian 2). Mengembalikan id peran per kunci. */
@@ -33,6 +41,12 @@ export const createBusinessWithRoles = async (db: Db, input: NewBusinessInput) =
     currency: info.code,
     currencyExponent: info.exponent,
     defaultLocale: input.defaultLocale ?? "id",
+    plan: input.plan ?? "unlimited",
+    status: input.status ?? "active",
+    trialEndsAt: input.trialEndsAt ?? null,
+    country: input.country ?? null,
+    termsAcceptedAt: input.termsAcceptedAt ?? null,
+    termsVersion: input.termsVersion ?? null,
   });
 
   const roleIds: Record<string, string> = {};

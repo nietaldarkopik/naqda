@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { assertWithinLimit } from "../billing/access";
 import { z } from "zod";
 import { newId, outlets, type DbHandle } from "@naqdi/db";
 import { AppError, duplicateKey } from "../errors";
@@ -128,6 +129,7 @@ export const outletRoutes = () => {
     const { assignCatalog, ...data } = c.req.valid("json");
     const db = c.get("db");
     const auth = c.get("auth");
+    await assertWithinLimit(db, auth.businessId, "outlets");
     const id = newId();
     let assigned: AssignSummary | null = null;
     try {

@@ -1,4 +1,5 @@
 import { randomInt } from "node:crypto";
+import { assertWithinLimit } from "../billing/access";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -75,6 +76,7 @@ export const deviceRoutes = () => {
     const db = c.get("db");
     const outlet = await c.get("repo").outlets.get(outletId);
     if (!outlet) throw new AppError("validation", { fields: { outletId: "errors.notFound" } });
+    await assertWithinLimit(db, auth.businessId, "devices");
     const id = newId();
     let code = "";
     await db.transaction(async (tx) => {

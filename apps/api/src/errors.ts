@@ -3,6 +3,7 @@ import { isLocale, translate, type Locale, defaultLocale } from "@naqdi/i18n";
 
 export type ErrorCode =
   | "unauthorized"
+  | "payment_required"
   | "forbidden"
   | "no_backoffice_access"
   | "not_found"
@@ -13,8 +14,9 @@ export type ErrorCode =
   | "server";
 
 /** Pemetaan kode ke status HTTP dan kunci terjemahan pesan. */
-const meta: Record<ErrorCode, { status: 400 | 401 | 403 | 404 | 409 | 422 | 423 | 429 | 500; key: string }> = {
+const meta: Record<ErrorCode, { status: 400 | 401 | 402 | 403 | 404 | 409 | 422 | 423 | 429 | 500; key: string }> = {
   unauthorized: { status: 401, key: "errors.unauthorized" },
+  payment_required: { status: 402, key: "billing.locked" },
   forbidden: { status: 403, key: "errors.forbidden" },
   no_backoffice_access: { status: 403, key: "auth.noAccess" },
   not_found: { status: 404, key: "errors.notFound" },

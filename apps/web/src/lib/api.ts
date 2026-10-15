@@ -144,6 +144,21 @@ export interface SessionBusiness {
   currency: string;
   currencyExponent: number;
   defaultLocale: string;
+  /** Status langganan untuk spanduk (uji coba, masa tenggang, terkunci). */
+  billing?: BillingView | null;
+}
+
+export interface BillingView {
+  status: "trial" | "active" | "past_due" | "suspended" | "cancelled";
+  level: "full" | "grace" | "locked";
+  reason: "trial" | "trial_expired" | "active" | "period_expired" | "past_due" | "suspended" | "cancelled";
+  daysLeft: number | null;
+  graceDaysLeft: number | null;
+  plan: string;
+  interval: "monthly" | "yearly" | null;
+  trialEndsAt: string | null;
+  currentPeriodEndsAt: string | null;
+  limits: { maxOutlets: number; maxDevices: number; maxEmployees: number };
 }
 
 export interface SessionPayload {

@@ -18,7 +18,7 @@
     "start:api": "tsx apps/api/src/server.ts",
     "build": "npm run typecheck && npm --prefix apps/web run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "node scripts/test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx packages/db/src/cli/migrate.ts",
     "db:seed": "tsx packages/db/src/cli/seed.ts",

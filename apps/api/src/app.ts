@@ -9,6 +9,7 @@ import { AppError, errorBody } from "./errors";
 import { logLine, requestLogger } from "./logging";
 import { authenticate, requireBackoffice, type AppEnv } from "./http";
 import { LoginLimiter } from "./auth/limiter";
+import { enforceBackofficeAccess } from "./billing/access";
 import { tenantRepo } from "./repo/tenant";
 import { authRoutes } from "./routes/auth";
 import { employeeRoutes } from "./routes/employees";
@@ -102,6 +103,8 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   const secured = new Hono<AppEnv>();
   secured.use("*", authenticate(config.jwtSecret));
   secured.use("*", requireBackoffice);
+  // Langganan tidak aktif: Back Office hanya-baca. Cache singkat di produksi; tes selalu membaca langsung.
+  secured.use("*", enforceBackofficeAccess(db, config.nodeEnv === "test" ? 0 : 15_000));
   secured.use("*", async (c, next) => {
     c.set("repo", tenantRepo(db, c.get("auth").businessId));
     c.set("db", db);

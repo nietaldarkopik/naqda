@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, count, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
-import { businessSettings, paymentMethods, users, type DbHandle } from "@naqdi/db";
+import { businesses, businessSettings, paymentMethods, users, type DbHandle } from "@naqdi/db";
+import { limitsOf } from "@naqdi/domain";
 
 type Db = DbHandle["db"];
 
@@ -117,6 +118,8 @@ export const activeEmployeeCount = async (db: Db, businessId: string, excludeUse
 
 export const slotsAvailable = async (db: Db, businessId: string, excludeUserId?: string): Promise<boolean> => {
   const { account } = await getSettings(db, businessId);
-  if (account.employeeSlots === null) return true;
-  return (await activeEmployeeCount(db, businessId, excludeUserId)) < account.employeeSlots;
+  const [b] = await db.select({ plan: businesses.plan, limits: businesses.limits }).from(businesses).where(eq(businesses.id, businessId)).limit(1);
+  // Batas yang berlaku = yang lebih kecil antara pilihan pemilik (slot) dan batas paket.
+  const cap = Math.min(account.employeeSlots ?? Number.MAX_SAFE_INTEGER, b ? limitsOf(b.plan, b.limits).maxEmployees : Number.MAX_SAFE_INTEGER);
+  return (await activeEmployeeCount(db, businessId, excludeUserId)) < cap;
 };

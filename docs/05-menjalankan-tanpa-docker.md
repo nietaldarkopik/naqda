@@ -62,7 +62,7 @@ Port MySQL yang dipakai di mesin Anda bisa berbeda. Bila `DATABASE_URL` tidak co
 | `npm run setup` | Menyiapkan semuanya dari repo bersih |
 | `npm run dev` | API + web dengan muat ulang otomatis |
 | `npm run doctor` | Memeriksa Node, `.env`, MySQL, migrasi, port |
-| `npm test` | Seluruh tes (butuh MySQL; memakai database `naqdi_test`) |
+| `npm test` | Seluruh tes (butuh MySQL; memakai database `naqdi_test`). Lewat `scripts/test.mjs` yang menormalkan huruf drive Windows (`c:` vs `C:`); tanpa itu vitest bisa gagal total dengan "Cannot read properties of undefined (reading 'config')". Argumen diteruskan: `npm test -- packages/sync`. Menjalankan `npx vitest` langsung dari terminal berhuruf drive kecil tidak aman |
 | `npm run typecheck` | Pemeriksaan tipe backend dan paket bersama |
 | `npm run build` | Pemeriksaan tipe + build web produksi |
 | `npm run db:generate` | Membuat berkas migrasi dari perubahan skema |
