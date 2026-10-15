@@ -19,8 +19,12 @@ export const roundTo = (minor: Minor, step: number): Minor => {
   return Math.floor((minor + step / 2) / step) * step;
 };
 
+/**
+ * Menampilkan uang. Rupiah SELALU tampil gaya Indonesia ("Rp 18.000") apa pun bahasa antarmukanya, karena bisnis rupiah
+ * tidak mengharapkan "IDR 18,000"; mata uang lain mengikuti bahasa antarmuka (mis. "$12.37", "SAR 12.50", "12.50 ر.س.").
+ */
 export const formatMoney = (minor: Minor, exponent: number, currency: string, intlTag: string): string =>
-  new Intl.NumberFormat(intlTag, {
+  new Intl.NumberFormat(currency === "IDR" ? "id-ID" : intlTag, {
     style: "currency",
     currency,
     minimumFractionDigits: exponent,

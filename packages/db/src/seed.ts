@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { and, eq, isNull } from "drizzle-orm";
-import { systemRoles } from "@naqdi/domain";
+import { currencyInfo, systemRoles } from "@naqdi/domain";
 import type { DbHandle } from "./client";
 import {
   businesses, categories, discountOutlets, discounts, gratuities, gratuityOutlets, itemModifierSets, itemOutlets, items,
@@ -20,12 +20,18 @@ export interface NewBusinessInput {
 
 /** Membuat bisnis beserta lima peran bawaan (doc 01, bagian 2). Mengembalikan id peran per kunci. */
 export const createBusinessWithRoles = async (db: Db, input: NewBusinessInput) => {
+  // Jumlah desimal diturunkan dari kode ISO; kombinasi yang salah (mis. USD 0 desimal) ditolak karena menggeser semua angka.
+  const info = currencyInfo(input.currency ?? "IDR");
+  if (!info) throw new RangeError(`mata uang tidak didukung: ${input.currency}`);
+  if (input.currencyExponent !== undefined && input.currencyExponent !== info.exponent) {
+    throw new RangeError(`${info.code} memakai ${info.exponent} desimal, bukan ${input.currencyExponent}`);
+  }
   const businessId = newId();
   await db.insert(businesses).values({
     id: businessId,
     name: input.name,
-    currency: input.currency ?? "IDR",
-    currencyExponent: input.currencyExponent ?? 0,
+    currency: info.code,
+    currencyExponent: info.exponent,
     defaultLocale: input.defaultLocale ?? "id",
   });
 

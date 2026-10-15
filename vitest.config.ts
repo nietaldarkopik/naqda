@@ -1,9 +1,16 @@
 import { defineConfig } from "vitest/config";
+import { realpathSync } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const p = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
+// Di Windows huruf drive bisa datang sebagai "c:" atau "C:" tergantung cara shell dibuka. Bila root konfigurasi dan berkas tes
+// berbeda huruf, vitest memuat dirinya dua kali dan SEMUA tes gagal dengan "Cannot read properties of undefined (reading 'config')".
+// realpathSync.native mengembalikan huruf yang kanonik, sehingga hasilnya sama dari mana pun vitest dijalankan.
+const root = realpathSync.native(path.dirname(fileURLToPath(import.meta.url)));
+const p = (rel: string) => path.join(root, rel);
 
 export default defineConfig({
+  root,
   resolve: {
     alias: {
       "@naqdi/db": p("./packages/db/src/index.ts"),

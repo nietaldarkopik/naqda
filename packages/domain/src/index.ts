@@ -15,3 +15,4 @@ export * from "./shift";
 export * from "./pin";
 export * from "./cart";
 export * from "./barcode";
+export * from "./currency";

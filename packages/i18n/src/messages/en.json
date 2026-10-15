@@ -1286,6 +1286,8 @@
     "repliedBy": "Replied by {name}"
   },
   "settings": {
+    "currencyLocked": "The currency can only be changed before any money data exists (transactions, shifts, items, bundles, modifiers, discounts, promos, ingredients, purchase orders, or rewards). All amounts are stored in the smallest unit, so changing currency after data exists would shift every number.",
+    "currencyUnsupported": "Currency is not supported",
     "cashRequired": "The cash method cannot be turned off",
     "systemMethod": "Built-in methods cannot be deleted (just turn them off)",
     "noRecipients": "Enter at least one recipient email",
@@ -1366,6 +1368,10 @@
     },
     "account": {
       "title": "Account and Employee Slots",
+      "currencyHint": "Business currency (rupiah, dollars, riyals, and others). Decimal places follow ISO and cannot be changed separately.",
+      "decimals": "{count} decimals",
+      "currencyApply": "Apply currency",
+      "currencyConfirm": "Change the business currency to {code}? Once money data exists, the currency can no longer be changed.",
       "business": "Business",
       "currency": "Currency",
       "activeEmployees": "Active employees",

@@ -1,14 +1,15 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { emailOutbox, newId, outlets, paymentMethods, type DbHandle } from "@naqdi/db";
-import { addDays, localMoment } from "@naqdi/domain";
+import { businesses, emailOutbox, newId, outlets, paymentMethods, type DbHandle } from "@naqdi/db";
+import { addDays, currencyInfo, localMoment, supportedCurrencies } from "@naqdi/domain";
 import { AppError } from "../errors";
 import { iso, patchSchema, requirePrivilege, validate, type AppEnv } from "../http";
 import { writeAudit } from "../repo/audit";
 import { assignedOutlets } from "../repo/outlet-access";
 import { loadDataset } from "../reports/dataset";
 import { summarize } from "../reports/engine";
+import { moneyDataKinds } from "../settings/currency";
 import { getSettings, listPaymentMethods, newMethodKey, saveSection, sections, type SectionName } from "../settings/service";
 
 type Db = DbHandle["db"];
@@ -119,6 +120,34 @@ export const settingsRoutes = () => {
     ].join("\n");
     await db.insert(emailOutbox).values(s.notifications.recipients.map((to) => ({ id: newId(), businessId: auth.businessId, recipient: to, kind: "daily_summary", subject, body })));
     return c.json({ subject, body, recipients: s.notifications.recipients, delivered: false });
+  });
+
+  // ---------------------------------------------------------------- mata uang bisnis
+  // Hanya boleh diganti selama belum ada data bernilai uang (lihat moneyDataKinds); jumlah desimal mengikuti kode ISO.
+  app.get("/currency", async (c) => {
+    const { businessId } = c.get("auth");
+    const db = c.get("db");
+    const [b] = await db.select({ currency: businesses.currency, exponent: businesses.currencyExponent }).from(businesses).where(eq(businesses.id, businessId)).limit(1);
+    const reasons = await moneyDataKinds(db, businessId);
+    return c.json({ currency: b?.currency ?? "IDR", exponent: b?.exponent ?? 0, locked: reasons.length > 0, reasons, supported: supportedCurrencies });
+  });
+
+  app.put("/currency", validate("json", z.object({ currency: z.string().trim().length(3).transform((v) => v.toUpperCase()) })), async (c) => {
+    const auth = c.get("auth");
+    const db = c.get("db");
+    const { currency } = c.req.valid("json");
+    const info = currencyInfo(currency);
+    if (!info) throw new AppError("validation", { fields: { currency: "settings.currencyUnsupported" } });
+    const [before] = await db.select({ currency: businesses.currency }).from(businesses).where(eq(businesses.id, auth.businessId)).limit(1);
+    if (before?.currency !== info.code) {
+      const reasons = await moneyDataKinds(db, auth.businessId);
+      if (reasons.length > 0) throw new AppError("conflict", { messageKey: "settings.currencyLocked", extra: { reasons } });
+      await db.transaction(async (tx) => {
+        await tx.update(businesses).set({ currency: info.code, currencyExponent: info.exponent }).where(eq(businesses.id, auth.businessId));
+        await writeAudit(tx as unknown as Db, auth, { entityType: "settings", entityId: null, action: "update", summary: "currency", changes: { before: before?.currency, after: info.code, exponent: info.exponent } });
+      });
+    }
+    return c.json({ currency: info.code, exponent: info.exponent });
   });
 
   // ---------------------------------------------------------------- bagian pengaturan (checkout, receipt, notifications, account)

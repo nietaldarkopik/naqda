@@ -277,10 +277,24 @@ integrasi pembayaran digital sengaja **belum dikerjakan**; yang berlaku sekarang
   generik untuk yang belum terdaftar). Sebelumnya pecahan rupiah tertanam dan salah untuk mata uang berdesimal.
 - Bahasa antarmuka: Indonesia, Inggris, Arab (RTL).
 
+**Mata uang non-rupiah (selesai dan teruji, 15 Okt 2026)** (437 tes otomatis; `tools/verify_currency.mjs` di browser):
+- **Daftar mata uang resmi** (`packages/domain/src/currency.ts`, 28 mata uang): rupiah, dolar (USD, SGD, AUD, CAD, NZD, HKD, BND), riyal dan Timur
+  Tengah (SAR, AED, QAR, OMR, KWD, BHD, JOD, EGP), serta EUR, GBP, CHF, MYR, THB, PHP, VND, INR, CNY, JPY, KRW, TRY. **Jumlah desimal diturunkan dari
+  kode ISO** (rupiah 0, dolar dan riyal 2, dinar 3) dan diuji terhadap `Intl`; kombinasi salah (mis. USD 0 desimal) ditolak.
+- **Format**: rupiah selalu `Rp 18.000` **juga di antarmuka Inggris dan Arab**; dolar `$12.37` (`A$`, `CA$`, `NZ$`, `HK$` untuk dolar lain, `SGD` di
+  Inggris); riyal Saudi `SAR 12.50` di Inggris/Indonesia dan `12.50 ر.س.` di Arab dengan digit Latin; dinar tiga desimal. Dibuktikan di kasir dan
+  struk untuk USD, SAR, IDR, dan AUD.
+- **Membuat bisnis dengan mata uang pilihan**: `npm run db:create-business -- --name "Toko Riyadh" --currency SAR --timezone Asia/Riyadh --locale ar
+  --admin-email owner@toko.com` (tanpa data demo; kata sandi acak ditampilkan sekali). Dipakai sampai ada pendaftaran di UI.
+- **Uang tunai cepat** per mata uang (lihat di atas); hitungan pajak dan pembulatan tepat dalam satuan terkecil (diuji USD dengan pajak 8,25% dan
+  pembulatan 5 sen; SAR dengan PPN 15%, 12,50 x 3 = 37,50 + 5,63 = 43,13).
+- Ekspor/impor CSV memakai **satuan terkecil** (USD: 1237 berarti $12.37), bukan satuan utama; perhatikan saat mengimpor untuk mata uang berdesimal.
+
 **Belum ada untuk toko luar negeri** (jangan dianggap ada):
-- **Mata uang tidak bisa diubah dari UI**: ditetapkan saat bisnis dibuat (bawaan IDR, 0 desimal). Mengubahnya setelah ada transaksi merusak
-  semua angka lama, jadi memang sebaiknya tidak dibuka tanpa migrasi data. Sampai ada alur pembuatan bisnis di UI, mata uang diatur lewat
-  data awal (`createBusinessWithRoles`) atau langsung di database sebelum transaksi pertama.
+- **Mata uang hanya bisa diganti selama bisnis masih kosong**: semua uang disimpan sebagai bilangan bulat satuan terkecil, jadi mengganti mata
+  uang setelah ada data bernilai uang (transaksi, shift, item, paket, modifier, diskon, promo, bahan, PO, reward) menggeser semua angka. Pemilih
+  ada di Pengaturan > Akun dan Slot; terkunci otomatis begitu data pertama ada (server menolak dengan 409 dan daftar alasannya). Tidak ada
+  konversi data, dan harga yang sudah diisi tidak ikut diubah saat mata uang diganti, jadi **pilih mata uang sebelum membuat item**.
 - Aturan pajak/struk/privasi negara lain (mis. nomor pajak di struk, e-invoicing, GDPR) **belum ditinjau**; yang dipetakan baru Indonesia.
 - Satu bisnis memakai satu mata uang (tidak ada multi-mata-uang atau kurs). Bahasa selain tiga di atas belum ada.
 

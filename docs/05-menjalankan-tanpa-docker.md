@@ -68,6 +68,7 @@ Port MySQL yang dipakai di mesin Anda bisa berbeda. Bila `DATABASE_URL` tidak co
 | `npm run db:generate` | Membuat berkas migrasi dari perubahan skema |
 | `npm run db:migrate` | Menjalankan migrasi (membuat database bila belum ada) |
 | `npm run db:seed` | Data demo (ditolak di produksi tanpa `--force`) |
+| `npm run db:create-business -- --name "Toko" --currency SAR --admin-email a@b.com` | Membuat bisnis BARU tanpa data demo dengan mata uang pilihan (IDR, USD, SGD, AUD, CAD, NZD, SAR, dan lain-lain; lihat `--help` di CLI), satu outlet, dan satu admin. Opsi: `--timezone`, `--locale id\|en\|ar`, `--outlet`, `--admin-password` (bawaan acak, tampil sekali). **Pilih mata uang sebelum membuat item**; setelah ada data uang, mata uang tidak bisa diganti |
 | `npm run db:reset -- --yes` | **Menghapus** database kerja lalu membuatnya ulang (hanya pengembangan) |
 
 Pemeriksaan tipe web terpisah: `cd apps/web && npx tsc --noEmit`.

@@ -1286,6 +1286,8 @@
     "repliedBy": "Dibalas oleh {name}"
   },
   "settings": {
+    "currencyLocked": "Mata uang hanya bisa diganti sebelum ada data bernilai uang (transaksi, shift, item, paket, modifier, diskon, promo, bahan, PO, atau reward). Semua uang disimpan dalam satuan terkecil, sehingga mengganti mata uang setelah ada data akan menggeser semua angka.",
+    "currencyUnsupported": "Mata uang tidak didukung",
     "cashRequired": "Metode tunai tidak boleh dimatikan",
     "systemMethod": "Metode bawaan tidak bisa dihapus (cukup dimatikan)",
     "noRecipients": "Isi minimal satu alamat email penerima",
@@ -1366,6 +1368,10 @@
     },
     "account": {
       "title": "Akun dan Slot Karyawan",
+      "currencyHint": "Mata uang bisnis (rupiah, dolar, riyal, dan lain-lain). Jumlah desimal mengikuti standar ISO dan tidak bisa diubah terpisah.",
+      "decimals": "{count} desimal",
+      "currencyApply": "Terapkan mata uang",
+      "currencyConfirm": "Ganti mata uang bisnis ke {code}? Setelah ada data bernilai uang, mata uang tidak bisa diganti lagi.",
       "business": "Bisnis",
       "currency": "Mata uang",
       "activeEmployees": "Karyawan aktif",
