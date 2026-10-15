@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { platformApi } from "@/lib/platformApi";
 
 interface Overview {
+  pendingInvoices: number;
   total: number;
   byStatus: Record<string, number>;
   byPlan: Record<string, number>;
@@ -61,6 +62,9 @@ export default function PlatformOverviewPage() {
         <Stat label={t("level.grace")} value={o.access.grace} testid="stat-grace" tone="warn" />
         <Stat label={t("level.locked")} value={o.access.locked} testid="stat-locked" tone="danger" />
       </div>
+      <Link href="/platform/invoices" className="block" data-testid="pending-invoices-link">
+        <Stat label={t("pendingInvoices")} value={o.pendingInvoices} testid="stat-pending-invoices" {...(o.pendingInvoices > 0 ? { tone: "warn" as const } : {})} />
+      </Link>
       <div className="grid gap-3 md:grid-cols-4">
         <Breakdown title={t("byStatus")} data={Object.fromEntries(Object.entries(o.byStatus).map(([k, v]) => [status(k), v]))} />
         <Breakdown title={t("byPlan")} data={o.byPlan} />

@@ -15,8 +15,9 @@ module.exports = {
       script: path.join(root, "node_modules", "tsx", "dist", "cli.mjs"),
       args: "apps/api/src/server.ts",
       // TRUST_PROXY_HOPS: jumlah proxy tepercaya di depan API (Apache + Next = 2); dipakai untuk alamat IP klien pada pembatas laju.
+      // BILLING_BANK_INFO: petunjuk transfer di faktur (rekening resmi Naqdi; \n = baris baru). Kosong = pelanggan diminta menghubungi pengelola.
       // SIGNUP_ENABLED: pendaftaran mandiri mati di produksi sampai dinyalakan (jangan sebelum ada verifikasi email dan dokumen hukum).
-      env: { NODE_ENV: "production", TRUST_PROXY_HOPS: process.env.TRUST_PROXY_HOPS || "2", SIGNUP_ENABLED: process.env.SIGNUP_ENABLED || "false" },
+      env: { NODE_ENV: "production", TRUST_PROXY_HOPS: process.env.TRUST_PROXY_HOPS || "2", SIGNUP_ENABLED: process.env.SIGNUP_ENABLED || "false", BILLING_BANK_INFO: process.env.BILLING_BANK_INFO || "" },
       max_restarts: 10,
       min_uptime: "10s",
     },

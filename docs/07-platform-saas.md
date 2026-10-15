@@ -63,9 +63,33 @@ Sumber angka: https://nqd.my.id/pricing (dibaca 2026-10-16). Harga (IDR): Starte
 | **12A** | Status langganan, uji coba, masa tenggang, terkunci; batas paket; spanduk di Back Office; penegakan di API dan kasir | **Selesai dan teruji** |
 | **12B** | **Pendaftaran mandiri**: halaman daftar, uji coba 14 hari otomatis, perlindungan penyalahgunaan | **Selesai dan teruji, MATI di produksi** (lihat bagian 9) |
 | **12C** | **Panel pengelola**: akun pengelola terpisah, daftar bisnis dan pemakaian, buat/perpanjang/tangguhkan, ubah paket dan batas, catatan audit pengelola | **Selesai** (panel di `/platform`; akun dibuat lewat `npm run platform:create-admin`; peran owner/support; token terpisah 8 jam) |
-| **12D** | **Penagihan**: pembayaran langganan bulanan/tahunan lewat penyedia, webhook, faktur, jatuh tempo otomatis, pajak per negara | Butuh keputusan penyedia |
+| **12D** | **Penagihan**. Tahap 1 (transfer manual) **selesai**: faktur, bukti transfer, verifikasi pengelola, perpanjangan periode, faktur perpanjangan otomatis. Tahap 2: penyedia lain (Google Play, kartu/VA) lewat kolom `provider` | Tahap 1 selesai; tahap 2 butuh keputusan |
 | **12E** | **Operasional skala**: uji beban, pemisahan baca/tulis, pengarsipan data lama, ekspor dan hapus per bisnis, pemantauan per bisnis | Sebelum peluncuran besar |
 | **12F** | Akses bantuan (support) yang tercatat dan atas izin; pengumuman; halaman status | Setelah 12C |
+
+## 5b. 12D tahap 1: pembayaran transfer manual (selesai)
+
+Alur: pemilik bisnis membuka **Pengaturan > Langganan**, memilih paket (Starter/Pro) dan siklus, sistem menerbitkan **faktur** (nomor `INV-YYYYMMDD-XXXXX`, jumlah tetap dari daftar harga, jatuh tempo 7 hari). Pelanggan transfer ke rekening resmi (teks petunjuk dari env `BILLING_BANK_INFO`, pakai `\n` untuk baris baru; kosong = pelanggan diminta menghubungi pengelola), lalu **mengirim bukti** (bank, nama pengirim, tanggal, catatan, dan foto opsional PNG/JPG/WebP maks. 2 MB; gambar disimpan di database dan hanya bisa dibuka pemilik bisnis dan pengelola). Faktur menjadi `pending`. Pengelola membuka **Pembayaran** di panel, melihat bukti, lalu **menyetujui** (faktur lunas, paket dan siklus berlaku, periode DITAMBAH dari akhir periode berjalan sehingga tidak ada hari hilang, status menjadi aktif) atau **menolak** dengan alasan (faktur kembali terbuka, pelanggan bisa kirim ulang).
+
+Aturan yang ditegakkan (diuji di `apps/api/test/invoices.test.ts`):
+- Halaman dan API langganan tetap bisa DITULIS saat bisnis terkunci; pelanggan harus bisa membayar.
+- Persetujuan memakai kunci baris dalam satu transaksi: persetujuan ganda tidak menambah periode dua kali.
+- Bisnis yang ditangguhkan pengelola tetap ditangguhkan setelah bayar (periodenya bertambah); bisnis uji coba, dibatalkan, atau jatuh tempo menjadi aktif.
+- Menjelang akhir periode (7 hari) faktur perpanjangan terbit sendiri satu kali dengan siklus yang sama; saat ini dibuat saat pemilik membuka halaman Langganan (belum ada penjadwal latar).
+- Daftar harga mandiri hanya untuk rupiah dan hanya Starter/Pro. Bisnis bukan-rupiah dan Enterprise ditagih lewat **faktur khusus** yang dibuat pengelola (jumlah dalam satuan terkecil mata uang bisnis).
+- Peran support hanya melihat; menyetujui, menolak, dan membuat faktur butuh owner. Semua tindakan masuk jejak audit pengelola (`invoice.create/approve/reject`).
+
+Belum ada: email pemberitahuan (tidak ada pengirim email), pajak/PPN pada faktur, PDF faktur, penjadwal yang menandai `past_due` otomatis, dan pengembalian dana.
+
+### 12D-2. Pembayaran lewat Google Play (aplikasi seluler)
+
+Belum dibuat. Desain 12D sengaja netral terhadap penyedia: tabel `invoices` punya kolom `provider` (`manual_transfer` sekarang, `google_play` disiapkan) dan `external_ref` (mis. purchase token). Yang perlu ditambah nanti, tanpa mengubah faktur dan perpanjangan yang ada:
+
+1. Produk langganan di Play Console (Starter/Pro x bulanan/tahunan) dengan ID produk yang dipetakan ke `plan` + `interval`.
+2. Aplikasi seluler membeli lewat Play Billing, lalu mengirim purchase token ke API; server MEMVERIFIKASI token ke Google Play Developer API (jangan percaya klien), membuat faktur `google_play` lunas, dan memanggil perpanjangan yang sama dengan persetujuan transfer (`approveInvoice`).
+3. Webhook Real-time Developer Notifications (Pub/Sub) untuk perpanjangan otomatis, pembatalan, penangguhan, dan pengembalian dana; semuanya menggeser `currentPeriodEndsAt` / status bisnis.
+4. Aturan Google: membeli langganan DI DALAM aplikasi Android umumnya wajib lewat Play Billing dengan potongan komisi Google (kebijakan dan besarnya berbeda per wilayah dan berubah; periksa kebijakan Payments Google Play terbaru dan perjanjian pengembang sebelum merancang harga). Pelanggan yang membayar lewat situs/transfer di luar aplikasi mengikuti jalur yang sudah ada. Satu bisnis boleh punya jalur campuran, tetapi hanya SATU sumber periode aktif pada satu waktu (hindari tagihan ganda: tampilkan jalur yang sedang dipakai di halaman langganan).
+5. Harga di Play per mata uang/negara (bukan hanya rupiah), jadi daftar harga non-rupiah muncul dari sini.
 
 ## 6. Hal yang harus diputuskan sebelum 12B–12D
 

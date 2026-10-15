@@ -143,6 +143,7 @@ const nav: NavItem[] = [
       { key: "aReceipt", href: "/settings/receipt", icon: Receipt },
       { key: "aPayments", href: "/settings/payments", icon: CreditCard },
       { key: "aNotifications", href: "/settings/notifications", icon: Bell },
+      { key: "aBilling", href: "/settings/billing", icon: Wallet },
       { key: "aAccount", href: "/settings/account", icon: Settings },
     ],
   },

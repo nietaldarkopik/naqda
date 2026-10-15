@@ -80,6 +80,14 @@ export async function platformApi<T>(path: string, init: { method?: string; json
   throw new PlatformError(res.status, data.code ?? "server", data.message ?? res.statusText, data.fields, data.extra);
 }
 
+/** Mengambil berkas biner (mis. gambar bukti transfer) dengan token pengelola; mengembalikan URL objek sementara, atau null bila tidak ada. */
+export async function platformBlobUrl(path: string): Promise<string | null> {
+  const s = read();
+  const res = await fetch(`/api/v1/platform${path}`, { headers: s ? { authorization: `Bearer ${s.token}` } : {} });
+  if (!res.ok) return null;
+  return URL.createObjectURL(await res.blob());
+}
+
 /** Sesi pengelola saat ini; `ready` false sampai dibaca dari sessionStorage (tidak ada di server saat prarender). */
 export const usePlatformSession = (refreshKey?: string) => {
   const [state, setState] = useState<{ ready: boolean; admin: PlatformAdmin | null }>({ ready: false, admin: null });

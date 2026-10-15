@@ -17,4 +17,5 @@ export * from "./cart";
 export * from "./barcode";
 export * from "./currency";
 export * from "./plans";
+export * from "./subscription-pricing";
 export * from "./countries";

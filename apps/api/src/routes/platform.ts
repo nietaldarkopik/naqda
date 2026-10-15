@@ -1,12 +1,13 @@
 import { compare } from "bcryptjs";
-import { and, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { businesses, createBusiness, isValidTimezone, platformAdmins, platformAudit, users, type DbHandle } from "@naqdi/db";
-import { TRIAL_DAYS, accessOf, billingIntervals, businessStatuses, isBusinessStatus, isPlanCode, isSupportedCurrency, limitsOf, trialEndFrom, type BusinessStatus } from "@naqdi/domain";
+import { businesses, createBusiness, invoices, isValidTimezone, platformAdmins, platformAudit, users, type DbHandle } from "@naqdi/db";
+import { TRIAL_DAYS, accessOf, billingIntervals, businessStatuses, invoiceStatuses, isBusinessStatus, isPlanCode, isSupportedCurrency, limitsOf, selfServePrice, trialEndFrom, type BusinessStatus } from "@naqdi/domain";
 import { LoginLimiter } from "../auth/limiter";
 import { signPlatformToken, verifyPlatformToken } from "../auth/tokens";
 import { businessBilling, clearBillingCache, usageOf } from "../billing/access";
+import { activeInvoice, approveInvoice, createInvoice, invoiceView, latestProof, rejectInvoice } from "../billing/invoices";
 import type { Config } from "../config";
 import { AppError } from "../errors";
 import { clientIp, iso, validate } from "../http";
@@ -149,7 +150,9 @@ export const platformRoutes = (db: Db, config: Config) => {
       if (r.status === "trial" && a.level === "full" && a.daysLeft !== null && a.daysLeft <= 3 && r.trialEndsAt) expiring.push({ id: r.id, name: r.name, endsAt: r.trialEndsAt.toISOString(), daysLeft: a.daysLeft });
     }
     const since = (days: number) => new Date(now.getTime() - days * 86_400_000);
+    const [{ pending }] = (await db.select({ pending: sql<number>`COUNT(*)` }).from(invoices).where(eq(invoices.status, "pending"))) as [{ pending: number }];
     return c.json({
+      pendingInvoices: Number(pending),
       total: rows.length,
       byStatus: tally((r) => r.status),
       byPlan: tally((r) => r.plan),
@@ -295,6 +298,93 @@ export const platformRoutes = (db: Db, config: Config) => {
     const billing = await businessBilling(db, id, 0);
     return c.json({ business: item, usage: await usageOf(db, id), effective: billing?.access ?? null });
   });
+
+  // ------------------------------------------------------------------ faktur dan pembayaran
+  const invoiceWithBusiness = async (id: string) => {
+    const [row] = await db.select({ inv: invoices, business: businesses.name, currency: businesses.currency }).from(invoices).innerJoin(businesses, eq(invoices.businessId, businesses.id)).where(eq(invoices.id, id)).limit(1);
+    if (!row) throw new AppError("not_found");
+    return row;
+  };
+
+  app.get(
+    "/invoices",
+    validate("query", z.object({ status: z.enum(invoiceStatuses).optional(), businessId: z.string().uuid().optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25) })),
+    async (c) => {
+      const q = c.req.valid("query");
+      const where = and(q.status ? eq(invoices.status, q.status) : undefined, q.businessId ? eq(invoices.businessId, q.businessId) : undefined);
+      const rows = await db
+        .select({ inv: invoices, business: businesses.name })
+        .from(invoices)
+        .innerJoin(businesses, eq(invoices.businessId, businesses.id))
+        .where(where)
+        // Yang menunggu verifikasi paling lama dulu; sisanya terbaru dulu.
+        .orderBy(q.status === "pending" ? asc(invoices.createdAt) : desc(invoices.createdAt))
+        .limit(q.pageSize)
+        .offset((q.page - 1) * q.pageSize);
+      const [{ n }] = (await db.select({ n: sql<number>`COUNT(*)` }).from(invoices).where(where)) as [{ n: number }];
+      return c.json({ items: rows.map((r) => ({ ...invoiceView(r.inv), businessId: r.inv.businessId, business: r.business })), total: Number(n), page: q.page, pageSize: q.pageSize });
+    },
+  );
+
+  app.get("/invoices/:id", validate("param", idParam), async (c) => {
+    const { id } = c.req.valid("param");
+    const row = await invoiceWithBusiness(id);
+    return c.json({ invoice: { ...invoiceView(row.inv, await latestProof(db, id)), businessId: row.inv.businessId, business: row.business } });
+  });
+
+  app.get("/invoices/:id/proof-image", validate("param", idParam), async (c) => {
+    const { id } = c.req.valid("param");
+    await invoiceWithBusiness(id);
+    const proof = await latestProof(db, id);
+    if (!proof?.image) throw new AppError("not_found");
+    return new Response(new Uint8Array(proof.image), {
+      headers: { "content-type": proof.imageType ?? "image/jpeg", "x-content-type-options": "nosniff", "cache-control": "private, no-store", "content-security-policy": "default-src 'none'; sandbox" },
+    });
+  });
+
+  app.post("/invoices/:id/approve", owner, validate("param", idParam), validate("json", z.object({ note: z.string().trim().max(500).optional() }).default({})), async (c) => {
+    const { id } = c.req.valid("param");
+    const admin = c.get("admin");
+    const done = await approveInvoice(db, id, admin.id);
+    await recordPlatformEvent(db, admin.id, "invoice.approve", done.businessId, { invoice: done.number, plan: done.plan, interval: done.interval, amount: done.amount, currency: done.currency, periodEndsAt: done.periodEnd.toISOString(), stillSuspended: done.stillSuspended, ...(c.req.valid("json").note ? { note: c.req.valid("json").note } : {}) });
+    const row = await invoiceWithBusiness(id);
+    return c.json({ invoice: { ...invoiceView(row.inv, await latestProof(db, id)), businessId: row.inv.businessId, business: row.business }, periodEndsAt: done.periodEnd.toISOString(), stillSuspended: done.stillSuspended });
+  });
+
+  app.post("/invoices/:id/reject", owner, validate("param", idParam), validate("json", z.object({ reason: z.string().trim().min(3).max(255) })), async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason } = c.req.valid("json");
+    const admin = c.get("admin");
+    const before = await invoiceWithBusiness(id);
+    await rejectInvoice(db, id, admin.id, reason);
+    await recordPlatformEvent(db, admin.id, "invoice.reject", before.inv.businessId, { invoice: before.inv.number, reason });
+    const row = await invoiceWithBusiness(id);
+    return c.json({ invoice: { ...invoiceView(row.inv, await latestProof(db, id)), businessId: row.inv.businessId, business: row.business } });
+  });
+
+  /** Faktur buatan pengelola: untuk bisnis bukan-rupiah, Enterprise, atau jumlah kesepakatan khusus. `amount` dalam satuan terkecil mata uang bisnis. */
+  app.post(
+    "/businesses/:id/invoices",
+    owner,
+    validate("param", idParam),
+    validate("json", z.object({ plan: z.string().refine(isPlanCode, "plan tidak dikenal"), interval: z.enum(billingIntervals), amount: z.number().int().min(1).max(1_000_000_000_000).optional(), note: z.string().trim().max(255).optional() })),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const admin = c.get("admin");
+      const [biz] = await db.select().from(businesses).where(eq(businesses.id, id)).limit(1);
+      if (!biz) throw new AppError("not_found");
+      const listed = selfServePrice(body.plan, body.interval, biz.currency);
+      const amount = body.amount ?? listed;
+      if (amount === null || amount === undefined) throw new AppError("validation", { fields: { amount: "common.required" } });
+      const existing = await activeInvoice(db, id);
+      if (existing?.status === "pending") throw new AppError("conflict", { messageKey: "billing.invoicePending" });
+      if (existing) await db.update(invoices).set({ status: "void" }).where(eq(invoices.id, existing.id));
+      const row = await createInvoice(db, { businessId: id, plan: body.plan, interval: body.interval, amount, currency: biz.currency, custom: body.amount !== undefined && body.amount !== listed, note: body.note ?? null });
+      await recordPlatformEvent(db, admin.id, "invoice.create", id, { invoice: row.number, plan: body.plan, interval: body.interval, amount, currency: biz.currency, ...(body.note ? { note: body.note } : {}) });
+      return c.json({ invoice: invoiceView(row) }, 201);
+    },
+  );
 
   // ------------------------------------------------------------------ jejak audit pengelola
   app.get(

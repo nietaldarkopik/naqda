@@ -64,7 +64,8 @@ const READ_ONLY = new Set(["GET", "HEAD", "OPTIONS"]);
 export const enforceBackofficeAccess =
   (db: Db, ttlMs: number): MiddlewareHandler<AppEnv> =>
   async (c, next) => {
-    if (!READ_ONLY.has(c.req.method)) {
+    // Halaman langganan harus tetap bisa dipakai membayar saat terkunci.
+    if (!READ_ONLY.has(c.req.method) && !/\/billing(\/|$)/.test(c.req.path)) {
       const billing = await businessBilling(db, c.get("auth").businessId, ttlMs);
       if (billing?.access.level === "locked") throw new AppError("payment_required", { extra: { reason: billing.access.reason } });
     }

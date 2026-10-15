@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { useAuth } from "@/lib/auth";
 
 /**
@@ -33,7 +34,10 @@ export function BillingBanner() {
   const style = tone === "danger" ? "bg-danger-soft text-danger" : tone === "warn" ? "bg-warn-soft text-ink" : "bg-brand-soft text-brand-strong";
   return (
     <div role="status" data-testid="billing-banner" data-level={b.level} className={`mb-5 rounded-lg px-4 py-2.5 text-sm font-medium ${style}`}>
-      {text}
+      {text}{" "}
+      <Link href="/settings/billing" className="underline" data-testid="billing-link">
+        {t("manage")}
+      </Link>
     </div>
   );
 }

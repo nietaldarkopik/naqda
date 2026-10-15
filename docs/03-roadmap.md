@@ -366,7 +366,9 @@ langganan bulanan atau tahunan, sekitar 2000 toko per tahun, lintas negara.
 
 **12C selesai**: panel pengelola di `/platform` (ringkasan, daftar dan cari bisnis, buat bisnis, perpanjang uji coba, tangguhkan, ubah paket dan batas khusus, langganan, jejak audit; peran owner dan support hanya-lihat).
 
-**Belum**: penagihan langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
+**12D tahap 1 selesai**: pembayaran langganan lewat transfer manual (faktur, bukti transfer, verifikasi pengelola, perpanjangan periode, faktur perpanjangan otomatis; lihat docs/07 bagian 5b). Google Play untuk aplikasi seluler didesain tetapi belum dibuat (docs/07, 12D-2).
+
+**Belum**: penagihan lewat penyedia lain langganan (12D; butuh keputusan penyedia pembayaran dan pajak per negara), kesiapan skala (12E: uji beban, pemulihan per bisnis, pengarsipan), akses bantuan tercatat (12F).
 
 ## Urutan ringkas
 

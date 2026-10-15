@@ -7,6 +7,16 @@ import { fmtLimit, levelTone, type BizRow } from "@/components/platform/shared";
 import { Link } from "@/i18n/navigation";
 import { PlatformError, platformApi, usePlatformSession } from "@/lib/platformApi";
 
+interface InvoiceItem {
+  id: string;
+  number: string;
+  plan: string;
+  interval: string;
+  amount: number;
+  currency: string;
+  status: string;
+}
+
 interface HistoryItem {
   id: string;
   action: string;
@@ -38,6 +48,10 @@ export default function PlatformBusinessPage({ params }: { params: Promise<{ id:
   const [status, setStatus] = useState("trial");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
+  const [invPlan, setInvPlan] = useState("basic");
+  const [invInterval, setInvInterval] = useState("monthly");
+  const [invAmount, setInvAmount] = useState("");
 
   const when = useMemo(() => new Intl.DateTimeFormat(locale === "ar" ? "ar-u-nu-latn" : locale, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }), [locale]);
 
@@ -56,6 +70,8 @@ export default function PlatformBusinessPage({ params }: { params: Promise<{ id:
       const r = await platformApi<{ business: BizRow; history: HistoryItem[] }>(`/businesses/${id}`);
       apply(r.business);
       setHistory(r.history);
+      const inv = await platformApi<{ items: InvoiceItem[] }>(`/invoices?businessId=${id}&pageSize=10`);
+      setInvoices(inv.items);
       setError("");
     } catch (e) {
       setError(e instanceof PlatformError ? e.message : t("network"));
@@ -77,6 +93,24 @@ export default function PlatformBusinessPage({ params }: { params: Promise<{ id:
     } catch (e) {
       if (e instanceof PlatformError && e.fields) setErrors(e.fields);
       else toast(e instanceof PlatformError ? e.message : t("network"), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createInvoice = async () => {
+    setBusy(true);
+    setErrors({});
+    try {
+      const amount = invAmount.trim() === "" ? undefined : Number(invAmount);
+      const r = await platformApi<{ invoice: { number: string } }>(`/businesses/${id}/invoices`, { method: "POST", json: { plan: invPlan, interval: invInterval, ...(amount !== undefined ? { amount } : {}), ...(note ? { note } : {}) } });
+      toast(t("invoiceCreated", { number: r.invoice.number }));
+      setInvAmount("");
+      setNote("");
+      await load();
+    } catch (e) {
+      if (e instanceof PlatformError && e.fields) setErrors(e.fields);
+      toast(e instanceof PlatformError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : t("network"), "error");
     } finally {
       setBusy(false);
     }
@@ -201,6 +235,37 @@ export default function PlatformBusinessPage({ params }: { params: Promise<{ id:
           </div>
         </Card>
       ) : null}
+
+      <Card className="space-y-3 p-4" data-testid="biz-invoices">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium">{t("invoices")}</h2>
+          <Link href="/platform/invoices" className="text-sm text-brand underline">{t("viewAll")}</Link>
+        </div>
+        {canWrite ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <Select aria-label={t("a.plan")} value={invPlan} onChange={(e) => setInvPlan(e.target.value)} className="w-40" data-testid="inv-plan">
+              {["basic", "pro", "unlimited"].map((p) => <option key={p} value={p}>{p}</option>)}
+            </Select>
+            <Select aria-label={t("invInterval")} value={invInterval} onChange={(e) => setInvInterval(e.target.value)} className="w-36" data-testid="inv-interval">
+              <option value="monthly">{t("interval.monthly")}</option>
+              <option value="yearly">{t("interval.yearly")}</option>
+            </Select>
+            <Field label={t("invAmount")} error={errors.amount}>{(i) => <Input id={i} inputMode="numeric" dir="ltr" className="w-56 text-start" value={invAmount} onChange={(e) => setInvAmount(e.target.value)} data-testid="inv-amount" />}</Field>
+            <Button variant="secondary" disabled={busy} onClick={() => void createInvoice()} data-testid="inv-create">{t("newInvoice")}</Button>
+          </div>
+        ) : null}
+        {invoices.length === 0 ? <p className="text-sm text-muted">{t("none")}</p> : null}
+        <ul className="divide-y divide-line text-sm">
+          {invoices.map((i) => (
+            <li key={i.id} className="flex flex-wrap justify-between gap-2 py-1.5" data-testid="biz-invoice-row">
+              <span dir="ltr">{i.number}</span>
+              <span>{i.plan} · {i.interval}</span>
+              <span className="tabular-nums" dir="ltr">{i.amount} {i.currency}</span>
+              <span>{t(`invStatus.${i.status}` as never)}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <Card className="p-4" data-testid="biz-history">
         <h2 className="mb-2 font-medium">{t("history")}</h2>

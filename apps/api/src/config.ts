@@ -20,6 +20,9 @@ const envSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   /** Pendaftaran mandiri. Bawaan: aktif di dev/tes, MATI di produksi sampai pemilik menyalakannya (butuh verifikasi email sebelum dibuka ke publik). */
   SIGNUP_ENABLED: z.enum(["true", "false"]).optional(),
+  /** Petunjuk transfer bank yang ditampilkan di faktur (rekening resmi Naqdi). Pakai 
+ untuk baris baru. Kosong = pelanggan diminta menghubungi pengelola. */
+  BILLING_BANK_INFO: z.string().default(""),
 });
 
 export interface Config {
@@ -37,6 +40,7 @@ export interface Config {
   storageDir: string;
   trustProxyHops: number;
   signupEnabled: boolean;
+  billingBankInfo: string;
 }
 
 const rootDir = fileURLToPath(new URL("../../../", import.meta.url));
@@ -70,6 +74,7 @@ export const parseConfig = (env: Record<string, string | undefined>): Config => 
     posTokenTtlSeconds: e.POS_TOKEN_TTL_HOURS * 3600,
     isProduction: e.NODE_ENV === "production",
     trustProxyHops: e.TRUST_PROXY_HOPS,
+    billingBankInfo: e.BILLING_BANK_INFO.replace(/\\n/g, "\n").trim(),
     signupEnabled: e.SIGNUP_ENABLED ? e.SIGNUP_ENABLED === "true" : e.NODE_ENV !== "production",
   };
 };

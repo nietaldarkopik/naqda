@@ -11,7 +11,14 @@
     "bannerCancelled": "Subscription cancelled: the Back Office is read-only. Your data can still be viewed and exported.",
     "bannerRenew": "Your subscription ends in {days} days.",
     "locked": "The subscription is not active. The Back Office is read-only and the till cannot create new sales. Renew the subscription or contact the administrator.",
-    "limitReached": "Plan limit reached. Upgrade the plan to add more."
+    "limitReached": "Plan limit reached. Upgrade the plan to add more.",
+    "noPrice": "This plan has no self-service price in your currency. Contact the operator for an invoice.",
+    "invoicePending": "Your previous payment is being verified. Wait for the result before creating a new invoice.",
+    "invoiceNotOpen": "This invoice is not awaiting payment.",
+    "invoiceNotPayable": "This invoice is already paid or cancelled.",
+    "invoiceNotPending": "This invoice is not awaiting verification.",
+    "dateFuture": "The transfer date cannot be in the future.",
+    "manage": "Manage subscription"
   },
   "signup": {
     "disabled": "Sign-up is not open yet.",
@@ -173,8 +180,52 @@
       "business": {
         "create": "Business created",
         "update": "Business changed"
+      },
+      "invoice": {
+        "create": "Invoice created",
+        "approve": "Payment approved",
+        "reject": "Payment rejected"
       }
-    }
+    },
+    "navInvoices": "Payments",
+    "pendingInvoices": "Payments awaiting verification",
+    "invoicesTitle": "Invoices and payments",
+    "invoiceStatusAll": "All",
+    "inv": {
+      "number": "Number",
+      "business": "Business",
+      "plan": "Plan",
+      "amount": "Amount",
+      "status": "Status",
+      "date": "Date"
+    },
+    "invStatus": {
+      "open": "Awaiting payment",
+      "pending": "Awaiting verification",
+      "paid": "Paid",
+      "void": "Cancelled"
+    },
+    "invoiceDetail": "Invoice",
+    "proof": "Transfer proof",
+    "noProof": "No proof yet.",
+    "proofBank": "Bank",
+    "proofSender": "Sender",
+    "proofDate": "Transfer date",
+    "proofNote": "Customer note",
+    "proofImage": "Proof image",
+    "approve": "Approve and extend",
+    "reject": "Reject",
+    "rejectReason": "Rejection reason",
+    "confirmReject": "Reject proof",
+    "approved": "Approved. Period ends {date}.",
+    "approvedSuspended": "Approved, but the business is still suspended. Period ends {date}.",
+    "rejectedOk": "Proof rejected.",
+    "newInvoice": "Create invoice",
+    "invAmount": "Amount (smallest unit, empty = list price)",
+    "invInterval": "Cycle",
+    "invoiceCreated": "Invoice {number} created.",
+    "invoices": "Invoices",
+    "viewAll": "View all"
   },
   "common": {
     "save": "Save",
@@ -295,7 +346,8 @@
     "aReceipt": "Receipt Design",
     "aPayments": "Payment Methods",
     "aNotifications": "Email Notifications",
-    "aAccount": "Account and Slots"
+    "aAccount": "Account and Slots",
+    "aBilling": "Subscription"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1584,5 +1636,66 @@
     "defaultFooter": "Thank you",
     "taxAndService": "Tax and service",
     "table": "Table {name}"
+  },
+  "subscription": {
+    "title": "Subscription",
+    "subtitle": "Your Naqdi plan, invoices, and payments.",
+    "currentPlan": "Current plan",
+    "statusLabel": "Status",
+    "trialEnds": "Trial ends",
+    "periodEnds": "Period ends",
+    "cycle": "Cycle",
+    "invoice": "Invoice",
+    "planAndCycle": "Plan and cycle",
+    "amount": "Amount",
+    "dueAt": "Due",
+    "note": "Note",
+    "howToPay": "How to pay: bank transfer",
+    "noBankInfo": "Payment account is not available yet. Contact the Naqdi operator.",
+    "payExact": "Transfer exactly {amount}, then send the proof below.",
+    "rejected": "Your previous proof was rejected: {reason}. Please send the correct proof.",
+    "sendProof": "Send transfer proof",
+    "bank": "Sending bank",
+    "sender": "Account holder name",
+    "transferredOn": "Transfer date",
+    "file": "Proof photo (optional)",
+    "fileHint": "PNG, JPG, or WebP, up to 2 MB.",
+    "submitProof": "Send proof",
+    "cancelInvoice": "Cancel invoice",
+    "proofSent": "Proof sent. We will verify it.",
+    "pendingTitle": "Awaiting verification",
+    "pendingBody": "The Naqdi team is checking your payment. Your subscription is extended once approved.",
+    "choosePlan": "Choose a plan",
+    "yourPlan": "Your plan",
+    "createInvoice": "Create invoice",
+    "yearlyNote": "Yearly billing saves 2 months.",
+    "enterprise": "Need Enterprise (unlimited)? Contact us.",
+    "noPrices": "Self-service prices are available for rupiah only. For {currency}, contact the Naqdi operator to get an invoice.",
+    "limitOutlets": "Outlets: {n}",
+    "limitDevices": "Till devices: {n}",
+    "limitEmployees": "Employees: {n}",
+    "history": "Invoice history",
+    "noInvoices": "No invoices yet.",
+    "interval": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "per": {
+      "monthly": "month",
+      "yearly": "year"
+    },
+    "status": {
+      "open": "Awaiting payment",
+      "pending": "Awaiting verification",
+      "paid": "Paid",
+      "void": "Cancelled"
+    },
+    "col": {
+      "number": "Number",
+      "planAndCycle": "Plan",
+      "amount": "Amount",
+      "statusLabel": "Status",
+      "date": "Date"
+    }
   }
 }

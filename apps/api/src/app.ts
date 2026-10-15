@@ -38,6 +38,7 @@ import { settingsRoutes } from "./routes/settings";
 import { posRoutes } from "./routes/pos-session";
 import { platformRoutes } from "./routes/platform";
 import { publicRoutes } from "./routes/public";
+import { billingRoutes } from "./routes/billing";
 
 const rootStatDir = process.cwd();
 
@@ -115,6 +116,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
     await next();
   });
   secured.route("/", meRoutes(db));
+  secured.route("/billing", billingRoutes(db, config));
   secured.route("/outlets", outletRoutes());
   secured.route("/employees", employeeRoutes(config.bcryptCost));
   secured.route("/categories", categoryRoutes());

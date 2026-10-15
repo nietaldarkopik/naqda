@@ -26,6 +26,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   const nav = [
     { href: "/platform", label: t("navOverview") },
     { href: "/platform/businesses", label: t("navBusinesses") },
+    { href: "/platform/invoices", label: t("navInvoices") },
     { href: "/platform/audit", label: t("navAudit") },
   ];
   const active = (href: string) => (href === "/platform" ? pathname.endsWith("/platform") : pathname.includes(href));

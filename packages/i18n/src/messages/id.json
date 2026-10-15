@@ -11,7 +11,14 @@
     "bannerCancelled": "Langganan dibatalkan: Back Office hanya-baca. Data Anda tetap bisa dilihat dan diekspor.",
     "bannerRenew": "Langganan berakhir dalam {days} hari.",
     "locked": "Langganan tidak aktif. Back Office hanya bisa dibaca dan kasir tidak bisa membuat penjualan baru. Perpanjang langganan atau hubungi pengelola.",
-    "limitReached": "Batas paket tercapai. Tingkatkan paket untuk menambah lagi."
+    "limitReached": "Batas paket tercapai. Tingkatkan paket untuk menambah lagi.",
+    "noPrice": "Paket ini tidak punya harga mandiri untuk mata uang Anda. Hubungi pengelola untuk faktur.",
+    "invoicePending": "Pembayaran sebelumnya sedang diverifikasi. Tunggu hasilnya sebelum membuat faktur baru.",
+    "invoiceNotOpen": "Faktur ini tidak menunggu pembayaran.",
+    "invoiceNotPayable": "Faktur ini sudah lunas atau dibatalkan.",
+    "invoiceNotPending": "Faktur ini tidak sedang menunggu verifikasi.",
+    "dateFuture": "Tanggal transfer tidak boleh di masa depan.",
+    "manage": "Kelola langganan"
   },
   "signup": {
     "disabled": "Pendaftaran belum dibuka.",
@@ -173,8 +180,52 @@
       "business": {
         "create": "Bisnis dibuat",
         "update": "Bisnis diubah"
+      },
+      "invoice": {
+        "create": "Faktur dibuat",
+        "approve": "Pembayaran disetujui",
+        "reject": "Pembayaran ditolak"
       }
-    }
+    },
+    "navInvoices": "Pembayaran",
+    "pendingInvoices": "Pembayaran menunggu verifikasi",
+    "invoicesTitle": "Faktur dan pembayaran",
+    "invoiceStatusAll": "Semua",
+    "inv": {
+      "number": "Nomor",
+      "business": "Bisnis",
+      "plan": "Paket",
+      "amount": "Jumlah",
+      "status": "Status",
+      "date": "Tanggal"
+    },
+    "invStatus": {
+      "open": "Menunggu pembayaran",
+      "pending": "Menunggu verifikasi",
+      "paid": "Lunas",
+      "void": "Dibatalkan"
+    },
+    "invoiceDetail": "Faktur",
+    "proof": "Bukti transfer",
+    "noProof": "Belum ada bukti.",
+    "proofBank": "Bank",
+    "proofSender": "Pengirim",
+    "proofDate": "Tanggal transfer",
+    "proofNote": "Catatan pelanggan",
+    "proofImage": "Gambar bukti",
+    "approve": "Setujui dan perpanjang",
+    "reject": "Tolak",
+    "rejectReason": "Alasan penolakan",
+    "confirmReject": "Tolak bukti",
+    "approved": "Disetujui. Periode berakhir {date}.",
+    "approvedSuspended": "Disetujui, tetapi bisnis masih ditangguhkan. Periode berakhir {date}.",
+    "rejectedOk": "Bukti ditolak.",
+    "newInvoice": "Buat faktur",
+    "invAmount": "Jumlah (satuan terkecil, kosong = harga daftar)",
+    "invInterval": "Siklus",
+    "invoiceCreated": "Faktur {number} dibuat.",
+    "invoices": "Faktur",
+    "viewAll": "Lihat semua"
   },
   "common": {
     "save": "Simpan",
@@ -295,7 +346,8 @@
     "aReceipt": "Desain Struk",
     "aPayments": "Metode Pembayaran",
     "aNotifications": "Notifikasi Email",
-    "aAccount": "Akun dan Slot"
+    "aAccount": "Akun dan Slot",
+    "aBilling": "Langganan"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1584,5 +1636,66 @@
     "defaultFooter": "Terima kasih",
     "taxAndService": "Pajak dan service",
     "table": "Meja {name}"
+  },
+  "subscription": {
+    "title": "Langganan",
+    "subtitle": "Paket, tagihan, dan pembayaran Naqdi untuk usaha Anda.",
+    "currentPlan": "Paket saat ini",
+    "statusLabel": "Status",
+    "trialEnds": "Uji coba berakhir",
+    "periodEnds": "Periode berakhir",
+    "cycle": "Siklus",
+    "invoice": "Faktur",
+    "planAndCycle": "Paket dan siklus",
+    "amount": "Jumlah",
+    "dueAt": "Jatuh tempo",
+    "note": "Catatan",
+    "howToPay": "Cara membayar: transfer bank",
+    "noBankInfo": "Rekening pembayaran belum tersedia. Hubungi pengelola Naqdi.",
+    "payExact": "Transfer sebesar {amount} lalu kirim bukti di bawah.",
+    "rejected": "Bukti sebelumnya ditolak: {reason}. Kirim ulang bukti yang benar.",
+    "sendProof": "Kirim bukti transfer",
+    "bank": "Bank pengirim",
+    "sender": "Nama pemilik rekening",
+    "transferredOn": "Tanggal transfer",
+    "file": "Foto bukti (opsional)",
+    "fileHint": "PNG, JPG, atau WebP, maksimal 2 MB.",
+    "submitProof": "Kirim bukti",
+    "cancelInvoice": "Batalkan faktur",
+    "proofSent": "Bukti terkirim. Kami akan memverifikasinya.",
+    "pendingTitle": "Menunggu verifikasi",
+    "pendingBody": "Tim Naqdi memeriksa pembayaran Anda. Langganan diperpanjang setelah disetujui.",
+    "choosePlan": "Pilih paket",
+    "yourPlan": "Paket Anda",
+    "createInvoice": "Buat faktur",
+    "yearlyNote": "Bayar tahunan hemat 2 bulan.",
+    "enterprise": "Butuh Enterprise (tanpa batas)? Hubungi kami.",
+    "noPrices": "Daftar harga mandiri hanya tersedia untuk rupiah. Untuk mata uang {currency}, hubungi pengelola Naqdi agar dibuatkan faktur.",
+    "limitOutlets": "Outlet: {n}",
+    "limitDevices": "Perangkat kasir: {n}",
+    "limitEmployees": "Karyawan: {n}",
+    "history": "Riwayat faktur",
+    "noInvoices": "Belum ada faktur.",
+    "interval": {
+      "monthly": "Bulanan",
+      "yearly": "Tahunan"
+    },
+    "per": {
+      "monthly": "bulan",
+      "yearly": "tahun"
+    },
+    "status": {
+      "open": "Menunggu pembayaran",
+      "pending": "Menunggu verifikasi",
+      "paid": "Lunas",
+      "void": "Dibatalkan"
+    },
+    "col": {
+      "number": "Nomor",
+      "planAndCycle": "Paket",
+      "amount": "Jumlah",
+      "statusLabel": "Status",
+      "date": "Tanggal"
+    }
   }
 }
