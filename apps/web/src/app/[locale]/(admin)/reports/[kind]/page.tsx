@@ -62,7 +62,7 @@ export default function ReportPage() {
         return <span className="ltr-text whitespace-nowrap">{when.format(new Date(String(v)))}</span>;
       default: {
         const s = String(v);
-        if (col.key === "method") return tx(`cashier.methods.${s}`) || s;
+        if (col.key === "method") return (row.name as string | null) ?? (tx(`cashier.methods.${s}`) || s);
         if (col.key === "type") return tx(`reports.types.${s}`) || s;
         if (col.key === "name" && s === "") return row.type === "manual" ? tx("reports.types.manual") : tx("reports.uncategorized");
         return s;

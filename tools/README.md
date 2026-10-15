@@ -10,6 +10,7 @@ Skrip bantu di luar aplikasi. Keluarannya ditulis ke `build/` (tidak masuk git).
 | `verify_phase1.mjs` | Uji regresi di browser sungguhan (login, katalog, impor CSV, wizard promo, audit, investor, Arab/RTL). Menulis screenshot ke `build/web-shots-p1/` | `npm run dev` berjalan, database demo bersih (`npm run db:reset -- --yes && npm run db:migrate && npm run db:seed`), dan Playwright (`npm i -D playwright && npx playwright install chromium`) |
 | `verify_phase5.mjs` | Uji browser: bahan, resep, PO diterima, produksi, penyesuaian, transfer (terima sebagian), batas stok + jual tetap di kasir, refund dengan kembali ke stok, ringkasan inventori, RTL. Screenshot ke `build/web-shots-p5/` | Sama, dan database yang **bersih** |
 | `verify_phase6.mjs` | Uji browser: program loyalty dan reward lewat form, pelanggan, poin saat bayar, tukar reward (termasuk kode validasi), feedback dan balasan, riwayat poin, ekspor pelanggan, RTL. Screenshot ke `build/web-shots-p6/` | Sama, dan database yang **bersih** |
+| `verify_phase7.mjs` | Uji browser: peran kustom, menu dan halaman terlindungi untuk karyawan terbatas, checkout, desain struk dengan pratinjau, metode pembayaran, notifikasi, slot karyawan, dan efeknya di kasir, RTL. Screenshot ke `build/web-shots-p7/` | Sama, dan database yang **bersih** |
 | `make_pdf.py` | Menyusun dokumen `docs/*.md` menjadi `build/kasirku.html` | Python 3 dengan `markdown` (`pip install markdown`) |
 | `pdf.mjs` | Mengubah `build/kasirku.html` menjadi `Naqdi-Dokumen-Pengajuan.pdf` | Playwright (di atas) |
 

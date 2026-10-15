@@ -15,6 +15,7 @@ import {
   orders,
   outlets,
   payments,
+  paymentMethods as paymentMethodsTable,
   promos,
   refunds,
   salesTypes,
@@ -203,8 +204,9 @@ export const reportRoutes = () => {
 
   // ---------------------------------------------------------------- penjualan
   app.get("/payments", (c) =>
-    withData(c, (x, ds) => {
-      const rows = paymentMethods(ds).sort((a, b) => b.net - a.net).map((r) => ({ ...r }));
+    withData(c, async (x, ds) => {
+      const custom = new Map((await x.db.select({ key: paymentMethodsTable.key, name: paymentMethodsTable.name }).from(paymentMethodsTable).where(eq(paymentMethodsTable.businessId, x.scope.businessId))).map((m) => [m.key, m.name]));
+      const rows = paymentMethods(ds).sort((a, b) => b.net - a.net).map((r) => ({ ...r, name: custom.get(r.method) ?? null }));
       return respond(
         x,
         {

@@ -113,7 +113,9 @@ await pos.waitForSelector(`text=${itemName}`);
 // Pilih meja dari denah
 await pos.getByTestId("open-tables").click();
 await pos.waitForSelector('[data-testid="pos-floor"]');
-check("denah meja kasir menampilkan meja yang dibuat di Back Office", (await pos.getByTestId("pos-table-Meja 1").isVisible()) && (await pos.getByTestId("pos-table-Meja 2").isVisible()));
+await pos.getByTestId("pos-table-Meja 1").waitFor();
+await pos.getByTestId("pos-table-Meja 2").waitFor();
+check("denah meja kasir menampilkan meja yang dibuat di Back Office", true);
 await pos.screenshot({ path: `${out}/02-pos-floor.png` });
 await pos.getByTestId("pos-table-Meja 1").click();
 check("meja terpilih tampil di keranjang", await pos.getByTestId("open-tables").getByText("Meja 1").isVisible());

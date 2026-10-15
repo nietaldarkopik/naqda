@@ -37,6 +37,7 @@ import {
 } from "@naqdi/domain";
 import { AppError } from "../errors";
 import { buildCostModel } from "../inventory/recipes";
+import { getSettings } from "../settings/service";
 
 type Db = DbHandle["db"];
 
@@ -135,13 +136,15 @@ export interface Rates {
 
 /** Pajak yang ditugaskan ke outlet; gratuity yang ditugaskan ke outlet DAN tertaut ke tipe penjualan pesanan. */
 export const loadRates = async (db: Db, ctx: OutletContext, salesTypeId: string): Promise<Rates> => {
-  const t = await db
+  // Pengaturan checkout: pajak atau service charge bisa dimatikan untuk seluruh bisnis.
+  const { checkout } = await getSettings(db, ctx.businessId);
+  const t = !checkout.taxEnabled ? [] : await db
     .select({ id: taxes.id, name: taxes.name, rateBp: taxes.rateBp })
     .from(taxes)
     .innerJoin(taxOutlets, eq(taxOutlets.taxId, taxes.id))
     .where(and(eq(taxes.businessId, ctx.businessId), eq(taxOutlets.outletId, ctx.outletId), isNull(taxes.deletedAt)))
     .orderBy(asc(taxes.name));
-  const g = await db
+  const g = !checkout.gratuityEnabled ? [] : await db
     .select({ id: gratuities.id, name: gratuities.name, rateBp: gratuities.rateBp })
     .from(gratuities)
     .innerJoin(gratuityOutlets, eq(gratuityOutlets.gratuityId, gratuities.id))

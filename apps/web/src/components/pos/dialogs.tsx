@@ -14,10 +14,12 @@ import {
   type OrderSummary,
   type OrderView,
   type PosDiscount,
+  type PosSettings,
   type ShiftView,
 } from "@/lib/posClient";
 import type { Ctx } from "./PosApp";
 import { FeedbackPanel } from "./dialogs3";
+import { ReceiptView, defaultReceiptSettings, type ReceiptData } from "@/components/ReceiptView";
 
 const errText = (e: unknown, fallback: string) => (e instanceof PosError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : fallback);
 
@@ -215,8 +217,7 @@ export function DiscountDialog({
 
 // ------------------------------------------------------------------ bayar
 
-const methodKeys = ["cash", "card", "qris", "ewallet", "transfer"] as const;
-type Method = (typeof methodKeys)[number];
+type Method = string;
 interface PayRow {
   method: Method;
   amount: string;
@@ -226,11 +227,15 @@ interface PayRow {
 export function PayDialog({
   ctx,
   total,
+  methods,
+  allowSplit,
   onClose,
   onPay,
 }: {
   ctx: Ctx;
   total: number;
+  methods: { key: string; name: string | null }[];
+  allowSplit: boolean;
   onClose: () => void;
   onPay: (payments: { method: string; amount: number; reference?: string | null }[], stockOverride?: boolean) => Promise<boolean>;
 }) {
@@ -301,9 +306,9 @@ export function PayDialog({
         <div key={i} className="space-y-2 rounded-lg border border-line p-3">
           <div className="flex gap-2">
             <Select aria-label={t("method")} value={r.method} onChange={(e) => setRow(i, { method: e.target.value as Method })} className="w-40">
-              {methodKeys.map((m) => (
-                <option key={m} value={m}>
-                  {t(`methods.${m}`)}
+              {methods.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.name ?? t(`methods.${m.key}` as never)}
                 </option>
               ))}
             </Select>
@@ -339,7 +344,7 @@ export function PayDialog({
           )}
         </div>
       ))}
-      {rows.length < 4 ? (
+      {allowSplit && rows.length < 4 ? (
         <Button variant="ghost" onClick={() => setRows((cur) => [...cur, { method: "card", amount: "", reference: "" }])}>
           + {t("splitPayment")}
         </Button>
@@ -648,11 +653,47 @@ function Summary({ ctx, view }: { ctx: Ctx; view: ShiftView }) {
 
 // ------------------------------------------------------------------ struk
 
-export function ReceiptDialog({ ctx, order, onClose, onRefund }: { ctx: Ctx; order: OrderView; onClose: () => void; onRefund?: (() => void) | undefined }) {
+export function ReceiptDialog({
+  ctx,
+  order,
+  settings,
+  tableName,
+  onClose,
+  onRefund,
+}: {
+  ctx: Ctx;
+  order: OrderView;
+  settings: PosSettings | null;
+  tableName?: string | null;
+  onClose: () => void;
+  onRefund?: (() => void) | undefined;
+}) {
   const t = useTranslations("cashier");
-  const locale = useLocale();
-  const s = order.snapshot;
+  const tx = t as unknown as (k: string) => string;
+  const snap = order.snapshot;
   const paid = order.status === "paid";
+  const label = (key: string) => settings?.paymentMethods.find((m) => m.key === key)?.name ?? (["cash", "card", "qris", "ewallet", "transfer", "other"].includes(key) ? tx(`methods.${key}`) : key);
+  const data: ReceiptData = {
+    businessName: ctx.session.business.name,
+    outlet: settings?.outlet ?? { name: ctx.session.outlet.name, address: null, phone: null },
+    receiptNumber: order.receiptNumber,
+    at: order.paidAt ?? order.openedAt,
+    cashier: ctx.session.user.name,
+    table: tableName ?? null,
+    lines: order.lines.map((l) => ({ id: l.id, quantity: l.quantity, name: l.name, unitPrice: l.unitPrice, modifiers: l.modifiers.map((m) => m.name), discount: l.lineDiscount + l.promoDiscount })),
+    subtotal: order.totals.subtotal,
+    discountTotal: order.totals.discountTotal,
+    charges: [...(snap?.gratuities ?? []).map((g) => ({ name: g.name, amount: g.amount, kind: "gratuity" as const })), ...(snap?.taxes ?? []).map((x) => ({ name: x.name, amount: x.amount, kind: "tax" as const }))],
+    rounding: order.totals.rounding,
+    total: order.totals.total,
+    payments: order.payments.map((p) => ({ label: label(p.method), amount: p.tendered })),
+    change: order.totals.change,
+    refunded: order.refundedTotal,
+    customer: order.customer,
+    pointsRedeemed: order.pointsRedeemed,
+    pointsEarned: order.pointsEarned,
+    paid,
+  };
   return (
     <Modal
       open
@@ -682,64 +723,8 @@ export function ReceiptDialog({ ctx, order, onClose, onRefund }: { ctx: Ctx; ord
           </div>
         </div>
       ) : null}
-
       {paid ? <FeedbackPanel order={order} /> : null}
-      <div className="print-area mx-auto w-full max-w-xs space-y-2 font-mono text-xs" data-testid="receipt">
-        <div className="text-center">
-          <div className="text-sm font-bold">{ctx.session.business.name}</div>
-          <div>{ctx.session.outlet.name}</div>
-          <div>
-            {order.receiptNumber ? `#${order.receiptNumber} · ` : ""}
-            {new Date(order.paidAt ?? order.openedAt).toLocaleString(locale)}
-          </div>
-          <div>{ctx.session.user.name}</div>
-        </div>
-        <hr className="border-dashed border-line" />
-        {order.lines.map((l) => (
-          <div key={l.id}>
-            <div className="flex justify-between gap-2">
-              <span>
-                {l.quantity}× {l.name}
-              </span>
-              <span className="tabular-nums">{ctx.fmt(l.unitPrice * l.quantity)}</span>
-            </div>
-            {l.modifiers.map((m, i) => (
-              <div key={i} className="ps-3 text-muted">
-                + {m.name}
-              </div>
-            ))}
-            {l.lineDiscount + l.promoDiscount > 0 ? <div className="ps-3 text-muted">− {ctx.fmt(l.lineDiscount + l.promoDiscount)}</div> : null}
-          </div>
-        ))}
-        <hr className="border-dashed border-line" />
-        <R label={t("subtotal")} value={ctx.fmt(order.totals.subtotal)} />
-        {order.totals.discountTotal > 0 ? <R label={t("discount")} value={`-${ctx.fmt(order.totals.discountTotal)}`} /> : null}
-        {s?.gratuities.map((g, i) => (g.amount > 0 ? <R key={`g${i}`} label={g.name} value={ctx.fmt(g.amount)} /> : null))}
-        {s?.taxes.map((x, i) => (x.amount > 0 ? <R key={`t${i}`} label={x.name} value={ctx.fmt(x.amount)} /> : null))}
-        {order.totals.rounding !== 0 ? <R label={t("rounding")} value={ctx.fmt(order.totals.rounding)} /> : null}
-        <R label={t("total")} value={ctx.fmt(order.totals.total)} bold />
-        {order.payments.map((p) => (
-          <R key={p.id} label={t(`methods.${p.method}` as never)} value={ctx.fmt(p.tendered)} />
-        ))}
-        {order.totals.change > 0 ? <R label={t("change")} value={ctx.fmt(order.totals.change)} /> : null}
-        {order.refundedTotal > 0 ? <R label={t("refunded")} value={`-${ctx.fmt(order.refundedTotal)}`} /> : null}
-        {order.customer ? (
-          <div className="border-t border-dashed border-line pt-2" data-testid="receipt-loyalty">
-            <div>{order.customer.name}</div>
-            {order.pointsRedeemed > 0 ? <R label={t("pointsRedeemed")} value={`-${order.pointsRedeemed}`} /> : null}
-            {order.pointsEarned > 0 ? <R label={t("pointsEarned")} value={`+${order.pointsEarned}`} /> : null}
-            {order.customer.member ? <R label={t("pointsBalance")} value={String(order.customer.points)} /> : null}
-          </div>
-        ) : null}
-        {!paid ? <Badge tone="warn">{t("notPaid")}</Badge> : null}
-      </div>
+      <ReceiptView data={data} settings={settings?.receipt ?? defaultReceiptSettings} fmt={ctx.fmt} />
     </Modal>
   );
 }
-
-const R = ({ label, value, bold }: { label: string; value: string; bold?: boolean }) => (
-  <div className={`flex justify-between gap-2 ${bold ? "text-sm font-bold" : ""}`}>
-    <span>{label}</span>
-    <span className="tabular-nums">{value}</span>
-  </div>
-);

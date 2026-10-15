@@ -45,6 +45,7 @@ import { AppError, duplicateKey } from "../errors";
 import { iso, validate } from "../http";
 import { requireDevice, requirePos, requirePosPrivilege, type PosEnv } from "../pos/context";
 import { privilegesOfRole, verifyPin } from "../pos/pin";
+import { enabledMethodsFor, getSettings } from "../settings/service";
 import { deductForOrder, restockForRefund } from "../inventory/sales";
 import { CodeRejected, enrollCustomer, findCustomer, getProgram, issueCode, loadRewardContext, programActive, recordCodeAttempt, rewardDef, rewardsOf, reverseLoyalty, settleLoyalty } from "../loyalty/service";
 import {
@@ -69,7 +70,7 @@ type Db = DbHandle["db"];
 type OrderRow = typeof orders.$inferSelect;
 
 const idParam = z.object({ id: z.string().uuid() });
-const methods = ["cash", "card", "qris", "ewallet", "transfer", "other"] as const;
+const methodKey = z.string().trim().min(1).max(24);
 
 const conflict = (messageKey: string): never => {
   throw new AppError("conflict", { messageKey });
@@ -186,6 +187,22 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           open: mine.length ? { count: mine.length, total: mine.reduce((a, o) => a + o.total, 0), since: iso(mine.map((o) => o.openedAt).sort((a, b) => a.getTime() - b.getTime())[0]!) } : null,
         };
       }),
+    });
+  });
+
+  // Pengaturan yang dipakai aplikasi kasir: metode pembayaran yang aktif di outlet ini, desain struk, dan checkout.
+  session.get("/settings", async (c) => {
+    const pos = c.get("pos");
+    const [s, methods, [outlet]] = await Promise.all([
+      getSettings(db, pos.businessId),
+      enabledMethodsFor(db, pos.businessId, pos.outletId),
+      db.select({ name: outlets.name, address: outlets.address, phone: outlets.phone }).from(outlets).where(eq(outlets.id, pos.outletId)).limit(1),
+    ]);
+    return c.json({
+      checkout: s.checkout,
+      receipt: s.receipt,
+      outlet: outlet ?? { name: "", address: null, phone: null },
+      paymentMethods: methods.map((m) => ({ key: m.key, name: m.name, cash: m.key === "cash" })),
     });
   });
 
@@ -706,7 +723,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       "json",
       z.object({
         lines: z.array(z.object({ lineId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1).max(200),
-        method: z.enum(methods),
+        method: methodKey,
         reason: z.string().trim().min(1).max(255),
         restock: z.boolean().default(false),
         approval: approvalSchema.nullish(),
@@ -796,7 +813,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         stockOverride: z.boolean().optional(),
         rewardCode: z.string().trim().max(12).nullish(),
         payments: z
-          .array(z.object({ method: z.enum(methods), amount: z.number().int().min(1).max(1_000_000_000_000), reference: z.string().trim().max(120).nullish() }))
+          .array(z.object({ method: methodKey, amount: z.number().int().min(1).max(1_000_000_000_000), reference: z.string().trim().max(120).nullish() }))
           .max(10),
       }),
     ),
@@ -807,6 +824,10 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       const stockOverride = c.req.valid("json").stockOverride === true;
       const rewardCode = c.req.valid("json").rewardCode ?? null;
       const shift = await requireShift(db, pos.userId, pos.outletId);
+      const settings = await getSettings(db, pos.businessId);
+      if (!settings.checkout.allowSplitPayment && input.length > 1) throw new AppError("validation", { fields: { payments: "settings.splitOff" } });
+      const usable = new Set((await enabledMethodsFor(db, pos.businessId, pos.outletId)).map((m) => m.key));
+      if (input.some((p) => !usable.has(p.method))) throw new AppError("validation", { fields: { payments: "settings.methodUnavailable" } });
 
       await db.transaction(async (t) => {
         const tx = t as unknown as Db;

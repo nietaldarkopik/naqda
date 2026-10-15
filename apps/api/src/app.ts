@@ -30,6 +30,8 @@ import { inventoryRoutes } from "./routes/inventory";
 import { customerRoutes } from "./routes/customers";
 import { loyaltyRoutes } from "./routes/loyalty";
 import { feedbackRoutes } from "./routes/feedback";
+import { roleRoutes } from "./routes/roles";
+import { settingsRoutes } from "./routes/settings";
 import { posRoutes } from "./routes/pos-session";
 
 export interface AppDeps {
@@ -108,6 +110,8 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   secured.route("/customers", customerRoutes());
   secured.route("/loyalty", loyaltyRoutes());
   secured.route("/feedback", feedbackRoutes());
+  secured.route("/roles", roleRoutes());
+  secured.route("/settings", settingsRoutes());
   v1.route("/", secured);
 
   app.route("/api/v1", v1);

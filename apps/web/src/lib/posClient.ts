@@ -307,3 +307,10 @@ export interface PosLoyalty {
   requireCode: boolean;
   rewards: PosReward[];
 }
+
+export interface PosSettings {
+  checkout: { taxEnabled: boolean; gratuityEnabled: boolean; allowSplitPayment: boolean };
+  receipt: import("@/components/ReceiptView").ReceiptSettings;
+  outlet: { name: string; address: string | null; phone: string | null };
+  paymentMethods: { key: string; name: string | null; cash: boolean }[];
+}

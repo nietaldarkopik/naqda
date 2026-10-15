@@ -18,6 +18,7 @@ import {
   type PosCustomer,
   type PosLoyalty,
   type PosReward,
+  type PosSettings,
   type PriceResult,
   type ShiftView,
 } from "@/lib/posClient";
@@ -72,6 +73,7 @@ export function Sell({
   const [rewardOpen, setRewardOpen] = useState(false);
   const [loyalty, setLoyalty] = useState<PosLoyalty>({ enabled: false, requireCode: false, rewards: [] });
   const [rewardCode, setRewardCode] = useState<string | null>(null);
+  const [settings, setSettings] = useState<PosSettings | null>(null);
   const [refunding, setRefunding] = useState<OrderView | null>(null);
   const [stockShort, setStockShort] = useState<{ short: { name: string; needed: number; available: number }[]; canOverride: boolean; payments: { method: string; amount: number; reference?: string | null }[] } | null>(null);
   const [approval, setApproval] = useState<{ privilege: "pos.void" | "pos.refund"; title: string; run: (input: ApprovalInput) => Promise<string | null>; done: (ok: boolean) => void } | null>(null);
@@ -96,6 +98,11 @@ export function Sell({
       })
       .catch((e) => toast(e instanceof PosError ? e.message : t("network"), "error"));
   }, [toast, t]);
+
+  // Pengaturan (metode bayar aktif, desain struk, checkout) dimuat sekali per sesi kasir.
+  useEffect(() => {
+    posApi<PosSettings>("/settings").then(setSettings).catch(() => undefined);
+  }, []);
 
   // Program loyalty (reward yang bisa ditukar) dimuat sekali per sesi kasir.
   useEffect(() => {
@@ -498,6 +505,8 @@ export function Sell({
         <PayDialog
           ctx={ctx}
           total={totals.total}
+          methods={settings?.paymentMethods ?? [{ key: "cash", name: null }]}
+          allowSplit={settings?.checkout.allowSplitPayment ?? true}
           onClose={() => setPayOpen(false)}
           onPay={async (payments, stockOverride = false) => {
             const saved = dirty || !orderId ? await save() : ({ id: orderId } as OrderView);
@@ -572,7 +581,7 @@ export function Sell({
       ) : null}
       {billsOpen ? <BillsDialog ctx={ctx} onClose={() => setBillsOpen(false)} onOpen={(id) => void openBill(id)} /> : null}
       {shiftOpen ? <ShiftDialog ctx={ctx} shift={shift} onShift={onShift} onClose={() => setShiftOpen(false)} onClosed={onShiftClosed} /> : null}
-      {receipt ? <ReceiptDialog ctx={ctx} order={receipt} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}
+      {receipt ? <ReceiptDialog ctx={ctx} order={receipt} settings={settings} tableName={floor?.tables.find((x) => x.id === receipt.tableId)?.name ?? null} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}
       {refunding ? (
         <RefundDialog
           ctx={ctx}

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
-import { devices, users, type DbHandle } from "@naqdi/db";
-import type { Privilege } from "@naqdi/domain";
+import { devices, roles, users, type DbHandle } from "@naqdi/db";
+import { hasAppAccess, isPrivilege, type Privilege } from "@naqdi/domain";
+import { authQueries } from "../repo/tenant";
 import type { PosAuthContext } from "../auth/tokens";
 import { verifyPosToken } from "../auth/tokens";
 import type { Config } from "../config";
@@ -61,9 +62,13 @@ export const requirePos =
     if (!ctx || ctx.deviceId !== device.id || ctx.outletId !== device.outletId || ctx.businessId !== device.businessId) {
       throw new AppError("unauthorized");
     }
-    const [user] = await db.select({ status: users.status, deletedAt: users.deletedAt }).from(users).where(eq(users.id, ctx.userId)).limit(1);
+    const [user] = await db.select({ status: users.status, deletedAt: users.deletedAt, roleId: users.roleId }).from(users).where(eq(users.id, ctx.userId)).limit(1);
     if (!user || user.deletedAt || user.status !== "active") throw new AppError("unauthorized");
-    c.set("pos", ctx);
+    // Hak diambil dari peran SAAT INI (bukan dari token berumur 12 jam): perubahan peran langsung berlaku di kasir.
+    const [role] = await db.select({ accessType: roles.accessType }).from(roles).where(eq(roles.id, user.roleId)).limit(1);
+    if (!role || !hasAppAccess(role.accessType)) throw new AppError("unauthorized");
+    const current = (await authQueries(db).privilegesOf(user.roleId)).filter(isPrivilege);
+    c.set("pos", { ...ctx, roleId: user.roleId, privileges: current });
     await next();
   };
 

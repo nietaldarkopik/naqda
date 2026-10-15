@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { businesses, type DbHandle } from "@naqdi/db";
-import { privileges } from "@naqdi/domain";
 import { AppError } from "../errors";
-import { requirePrivilege, type AppEnv } from "../http";
+import type { AppEnv } from "../http";
 import { authQueries } from "../repo/tenant";
 
 /** Rute yang butuh pengguna masuk: profil dan daftar peran. */
@@ -33,21 +32,6 @@ export const meRoutes = (db: DbHandle["db"]) => {
         currencyExponent: business.currencyExponent,
         defaultLocale: business.defaultLocale,
       },
-    });
-  });
-
-  app.get("/roles", requirePrivilege("employees.manage"), async (c) => {
-    const list = await c.get("repo").roles.list();
-    return c.json({
-      items: list.map((r) => ({
-        id: r.id,
-        systemKey: r.systemKey,
-        name: r.name,
-        accessType: r.accessType,
-        isSystem: r.isSystem,
-        privileges: r.privileges,
-      })),
-      catalog: privileges,
     });
   });
 

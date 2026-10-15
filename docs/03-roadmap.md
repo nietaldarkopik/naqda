@@ -171,11 +171,26 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: pelanggan baru mendaftar, mengumpulkan poin, lalu menukar reward. Tercapai (lihat `tools/verify_phase6.mjs`).
 
-## Fase 7. Pengaturan dan hak akses (2–3 sesi)
-- Role dan privilege penuh, PIN access, kuota slot.
-- Checkout settings, receipt designer + preview, payment configuration, email notification, inventory mode.
-- Penegakan privilege di API dan UI.
-- **Selesai bila**: role Cashier tidak bisa membuka Back Office atau refund tanpa izin.
+## Fase 7. Pengaturan dan hak akses — SELESAI 15 Okt 2026 (dengan batas di bawah)
+
+**Berjalan dan teruji** (361 tes otomatis: 156 unit + 205 API; 127 pemeriksaan browser di `tools/verify_phase2..7.mjs`):
+- **Peran dan hak akses** (Hak Akses Karyawan): peran kustom (nama, jenis akses, 14 hak dalam tiga kelompok) dibuat, diubah, disalin dari peran lain, dan dihapus (tidak bisa bila masih dipakai karyawan); **peran bawaan terkunci**. Konsistensi ditegakkan: akses Back Office wajib punya `backoffice.view`, akses aplikasi kasir wajib punya `pos.sell`.
+- **Penegakan di API diuji dengan matriks**: untuk setiap hak (`library.manage`, `inventory.manage`, `customers.manage`, `employees.manage`, `outlets.manage`, `settings.manage`, `tables.manage`, `reports.view`) dibuat dua peran, "hanya hak itu" yang lolos dan "semua hak kecuali itu" yang ditolak (403). Hak aplikasi kasir dibaca dari peran **saat ini** di setiap permintaan (bukan dari token 12 jam): memindahkan kasir ke peran lain langsung berlaku, dan peran khusus Back Office langsung memutus sesi kasirnya.
+- **Penegakan di UI**: menu disembunyikan dan halaman ditolak dengan pesan bila hak tidak ada (juga lewat URL langsung); diuji di browser dengan karyawan berperan "Hanya Laporan".
+- **Checkout**: pajak, service charge, dan pisah bayar bisa dimatikan untuk seluruh bisnis (ditegakkan server, termasuk penolakan pisah bayar).
+- **Desain struk** dengan **pratinjau langsung** yang memakai komponen yang sama dengan struk kasir: teks atas, situs web, media sosial, catatan kaki (bawaan/kustom/tanpa), lebar kertas 58/80 mm, dan tampilan nama/alamat/telepon outlet, kasir, meja, pelanggan dan poin, serta rincian pajak.
+- **Metode pembayaran**: lima metode bawaan (tunai tidak bisa dimatikan), metode kustom non-tunai (mis. GoPay), urutan, nama tampilan, dan pembatasan per outlet; server menolak metode yang tidak aktif/tersedia di outlet itu; laporan pembayaran memakai nama kustom, dan metode yang dihapus tetap bernama di riwayat.
+- **Slot karyawan** (batas karyawan aktif; yang nonaktif tidak memakai slot; pengaktifan ulang juga dibatasi) dan **PIN** karyawan dari fase 2.
+- **Notifikasi email**: pengaturan penerima dan jenis (ringkasan harian, stok menipis) disimpan; tombol "buat pesan contoh" membuat ringkasan penjualan kemarin yang **dicatat** di `email_outbox`.
+
+**Catatan dan batas** (jangan dianggap ada):
+- **Email tidak terkirim**: belum ada penyedia email. Ringkasan harian dan peringatan stok **tidak dijadwalkan dan tidak dikirim**; yang ada hanya pengaturan dan pesan contoh yang dicatat.
+- Perubahan peran berlaku di Back Office paling lambat setelah token akses (15 menit) diperbarui atau setelah masuk ulang; di kasir seketika.
+- **Mode inventori "Advanced"** tidak dibuat (karena PO/transfer Advanced tidak ada, fase 5). **Track server**, "simpan/cetak bill" sebagai pengaturan, dan konfigurasi pembayaran mobile/EDC tidak dibuat. Metode kustom selalu non-tunai.
+- Struk dicetak lewat dialog cetak browser; belum ada printer ESC/POS, logo gambar, atau struk Arab raster (fase 8 dan perangkat keras).
+- Tidak ada profil akun lengkap (nama bisnis, alamat, penagihan), undangan karyawan lewat email, atau halaman tagihan.
+
+**Selesai bila**: role Cashier tidak bisa membuka Back Office atau refund tanpa izin. Tercapai dan diuji (kasir app-only tidak bisa masuk Back Office, token kasir ditolak di API Back Office, refund tanpa hak butuh PIN atasan).
 
 ## Fase 8. Offline, PWA, dan kerapian (3–4 sesi)
 - Service Worker, IndexedDB, antrean sinkron, indikator sync.

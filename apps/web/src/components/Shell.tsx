@@ -3,6 +3,8 @@
 import {
   Activity,
   BarChart3,
+  Bell,
+  ShieldCheck,
   Boxes,
   Carrot,
   History,
@@ -36,6 +38,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, type ReactNode } from "react";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { canOpen } from "@/lib/access";
 import { useAuth } from "@/lib/auth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
@@ -46,6 +49,8 @@ interface NavItem {
   children?: NavItem[];
   /** Hanya tampil bila pengguna punya hak ini. */
   privilege?: string;
+  /** Atau bila pengguna punya salah satu hak ini. */
+  any?: string[];
 }
 
 // Hanya halaman yang sudah dibangun yang punya href. Sisanya tampil nonaktif ("Segera hadir").
@@ -92,6 +97,7 @@ const nav: NavItem[] = [
   {
     key: "ingredient",
     icon: Carrot,
+    any: ["inventory.manage", "reports.view"],
     children: [
       { key: "iIngredients", href: "/ingredients", icon: Carrot },
       { key: "iRecipes", href: "/recipes", icon: Layers },
@@ -100,6 +106,7 @@ const nav: NavItem[] = [
   {
     key: "inventory",
     icon: Boxes,
+    any: ["inventory.manage", "reports.view"],
     children: [
       { key: "iStock", href: "/inventory/stock", icon: Boxes },
       { key: "iPo", href: "/inventory/purchase-orders", icon: Receipt },
@@ -113,6 +120,7 @@ const nav: NavItem[] = [
   {
     key: "customers",
     icon: UserRound,
+    any: ["customers.manage", "reports.view"],
     children: [
       { key: "cList", href: "/customers", icon: UserRound },
       { key: "cLoyalty", href: "/loyalty", icon: Gift },
@@ -120,10 +128,22 @@ const nav: NavItem[] = [
     ],
   },
   { key: "outlets", href: "/outlets", icon: Store },
-  { key: "employees", href: "/employees", icon: Users },
+  { key: "employees", href: "/employees", icon: Users, privilege: "employees.manage" },
+  { key: "roles", href: "/roles", icon: ShieldCheck, privilege: "employees.manage" },
   { key: "tableManagement", href: "/tables", icon: Table2, privilege: "tables.manage" },
   { key: "payments", icon: CreditCard },
-  { key: "accountSettings", icon: Settings },
+  {
+    key: "accountSettings",
+    icon: Settings,
+    privilege: "settings.manage",
+    children: [
+      { key: "aCheckout", href: "/settings/checkout", icon: ShoppingBag },
+      { key: "aReceipt", href: "/settings/receipt", icon: Receipt },
+      { key: "aPayments", href: "/settings/payments", icon: CreditCard },
+      { key: "aNotifications", href: "/settings/notifications", icon: Bell },
+      { key: "aAccount", href: "/settings/account", icon: Settings },
+    ],
+  },
   { key: "activities", href: "/activities", icon: Activity, privilege: "reports.view" },
   { key: "devices", href: "/devices", icon: Tablet, privilege: "settings.manage" },
   { key: "audit", href: "/audit", icon: History, privilege: "settings.manage" },
@@ -157,7 +177,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="mt-1 truncate text-xs opacity-70">{business?.name}</div>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Menu">
-          {nav.filter((entry) => !entry.privilege || can(entry.privilege)).map((entry) => {
+          {nav.filter((entry) => (!entry.privilege || can(entry.privilege)) && (!entry.any || entry.any.some(can))).map((entry) => {
             const { key, href, icon: Icon, children } = entry;
             const label = t(`nav.${key}`);
             const base = "flex items-center gap-3 rounded-md px-3 py-2 text-sm";
@@ -231,7 +251,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6 lg:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-6 lg:p-8">{canOpen(pathname, can) ? children : <p className="rounded-lg bg-warn-soft p-4" role="alert" data-testid="forbidden-page">{t("errors.forbidden")}</p>}</main>
     </div>
   );
 }

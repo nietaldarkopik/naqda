@@ -116,7 +116,13 @@
     "iSummary": "Inventory Summary",
     "cList": "Customer List",
     "cLoyalty": "Loyalty Program",
-    "cFeedback": "Customer Feedback"
+    "cFeedback": "Customer Feedback",
+    "roles": "Employee Access",
+    "aCheckout": "Checkout",
+    "aReceipt": "Receipt Design",
+    "aPayments": "Payment Methods",
+    "aNotifications": "Email Notifications",
+    "aAccount": "Account and Slots"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -196,6 +202,59 @@
       "app_only": "App only",
       "backoffice_only": "Back Office only",
       "app_and_backoffice": "App and Back Office"
+    },
+    "needBackoffice": "Back Office access must include 'backoffice.view'",
+    "needSell": "Cashier app access must include 'pos.sell'",
+    "systemLocked": "Built-in roles cannot be changed or deleted",
+    "inUse": "The role is still used by employees",
+    "title": "Employee Access",
+    "subtitle": "Roles decide the menus and actions people may use",
+    "create": "Create role",
+    "edit": "Edit role",
+    "viewBuiltIn": "Built-in role",
+    "accessLabel": "Access",
+    "privilegeCount": "Privileges",
+    "users": "Employees",
+    "builtIn": "Built-in",
+    "duplicate": "Copy as a new role",
+    "note": "Privilege changes apply in the cashier app immediately and in Back Office at the latest after the token refreshes (15 minutes) or on next sign-in.",
+    "builtInHint": "Built-in roles cannot be changed. Copy one as a new role to customise it.",
+    "groups": {
+      "backoffice": "Back Office",
+      "admin": "Administration",
+      "pos": "Cashier app"
+    },
+    "privileges": {
+      "backoffice_view": "Open Back Office",
+      "reports_view": "View reports",
+      "library_manage": "Manage catalog",
+      "inventory_manage": "Manage stock",
+      "customers_manage": "Manage customers and loyalty",
+      "employees_manage": "Manage employees and roles",
+      "outlets_manage": "Manage outlets",
+      "settings_manage": "Manage account settings",
+      "tables_manage": "Manage tables",
+      "pos_sell": "Sell at the cashier",
+      "pos_discount": "Give discounts",
+      "pos_refund": "Refund without approval",
+      "pos_void": "Cancel without approval",
+      "shift_manage": "Open and close shifts"
+    },
+    "privilegeHints": {
+      "backoffice_view": "Required for Back Office access; read catalog and outlets.",
+      "reports_view": "Dashboard, reports, activity, and viewing stock.",
+      "library_manage": "Items, categories, modifiers, bundles, promos, discounts, taxes.",
+      "inventory_manage": "Ingredients, recipes, POs, transfers, adjustments.",
+      "customers_manage": "Customers, loyalty program, replying to feedback.",
+      "employees_manage": "Employees, PINs and these roles.",
+      "outlets_manage": "Add and edit outlets.",
+      "settings_manage": "Cashier devices, checkout, receipt, payments, audit.",
+      "tables_manage": "Table groups and floor plan.",
+      "pos_sell": "Required for cashier app access.",
+      "pos_discount": "Choosing discounts in the cart.",
+      "pos_refund": "Without it the cashier needs a manager PIN to refund.",
+      "pos_void": "Without it the cashier needs a manager PIN to cancel a bill or remove saved items.",
+      "shift_manage": "Open/close shifts and cash in/out."
     }
   },
   "errors": {
@@ -567,7 +626,8 @@
       "card": "Card",
       "qris": "QRIS",
       "ewallet": "E-wallet",
-      "transfer": "Transfer"
+      "transfer": "Transfer",
+      "other": "Other"
     },
     "openBills": "Open bills",
     "paidBills": "Paid",
@@ -1138,5 +1198,97 @@
     "reply": "Reply",
     "replyPlaceholder": "Write a reply",
     "repliedBy": "Replied by {name}"
+  },
+  "settings": {
+    "cashRequired": "The cash method cannot be turned off",
+    "systemMethod": "Built-in methods cannot be deleted (just turn them off)",
+    "noRecipients": "Enter at least one recipient email",
+    "splitOff": "Split payment is turned off in checkout settings",
+    "methodUnavailable": "The payment method is not available at this outlet",
+    "slotsFull": "Employee slots are full; raise the quota or deactivate another employee",
+    "checkout": {
+      "title": "Checkout Settings",
+      "subtitle": "Rules that apply to all outlets and cashiers",
+      "tax": "Calculate tax",
+      "taxHint": "When off, tax is not calculated at any outlet (e.g. a business that does not charge tax).",
+      "gratuity": "Calculate service charge",
+      "gratuityHint": "When off, service charge is not calculated even if linked to a sales type.",
+      "split": "Allow split payment",
+      "splitHint": "A bill may be paid with more than one method.",
+      "perOutlet": "Prices including tax, rounding, discount combination and stock limit are set per outlet on the Outlets page."
+    },
+    "receipt": {
+      "title": "Receipt Design",
+      "subtitle": "Choose what the receipt shows and see the preview live",
+      "header": "Text at the top",
+      "headerHint": "One line per text line (e.g. opening hours, slogan).",
+      "website": "Website",
+      "instagram": "Social media",
+      "footer": "Footer note",
+      "footerHint": "Leave empty for the default text.",
+      "noFooter": "No footer note",
+      "paper": "Paper width",
+      "show": "Show",
+      "preview": "Preview (sample data)",
+      "toggles": {
+        "showOutletName": "Outlet name",
+        "showOutletAddress": "Outlet address",
+        "showOutletPhone": "Outlet phone",
+        "showCashier": "Cashier name",
+        "showTable": "Table number",
+        "showCustomer": "Customer and points",
+        "showTaxBreakdown": "Tax and service breakdown"
+      },
+      "sampleOutlet": "Sample Outlet",
+      "sampleAddress": "12 Jasmine St, Jakarta",
+      "sampleCashier": "Sample Cashier",
+      "sampleItem1": "Milk Coffee",
+      "sampleItem2": "Toast",
+      "sampleMod": "Extra shot",
+      "sampleService": "Service 5%",
+      "sampleCustomer": "Sample Customer"
+    },
+    "payments": {
+      "title": "Payment Methods",
+      "subtitle": "Methods the cashier can choose. Cash is always on because it drives change.",
+      "add": "Add method",
+      "availability": "Available at",
+      "builtIn": "Built-in",
+      "cashTag": "Cash",
+      "outletCount": "{count} outlets",
+      "up": "Move up",
+      "down": "Move down",
+      "nameHint": "E.g. GoPay, OVO, Credit card. Custom methods are always non-cash (no change).",
+      "displayName": "Display name",
+      "displayNameHint": "Leave empty to use the built-in name.",
+      "availabilityHint": "Empty = all outlets.",
+      "deleteHint": "Past transactions keep recording this method."
+    },
+    "notifications": {
+      "title": "Email Notifications",
+      "subtitle": "Recipients of the daily sales summary and stock alerts",
+      "notice": "Email delivery is not available yet (no email provider). Messages are only logged; these settings are saved for when delivery is enabled.",
+      "daily": "Daily sales summary",
+      "dailyHint": "Yesterday's sales for all outlets.",
+      "lowStock": "Low stock alerts",
+      "lowStockHint": "Items and ingredients below their alert level.",
+      "recipients": "Recipients",
+      "recipientsHint": "One email per line (max 10).",
+      "test": "Create sample message",
+      "loggedOnly": "Logged in the outbox, not delivered."
+    },
+    "account": {
+      "title": "Account and Employee Slots",
+      "business": "Business",
+      "currency": "Currency",
+      "activeEmployees": "Active employees",
+      "slots": "Active employee limit",
+      "slotsHint": "Leave empty for no limit. Inactive employees do not use a slot."
+    }
+  },
+  "receipt": {
+    "defaultFooter": "Thank you",
+    "taxAndService": "Tax and service",
+    "table": "Table {name}"
   }
 }

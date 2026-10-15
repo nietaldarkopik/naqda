@@ -7,6 +7,7 @@ import { hashPasswordWith } from "../auth/password";
 import { AppError, duplicateKey } from "../errors";
 import { iso, patchSchema, requirePrivilege, validate, type AppEnv } from "../http";
 import { writeAudit } from "../repo/audit";
+import { slotsAvailable } from "../settings/service";
 import { tenantRepo } from "../repo/tenant";
 
 const idParam = z.object({ id: z.string().uuid() });
@@ -91,6 +92,7 @@ export const employeeRoutes = (bcryptCost: number) => {
     const data = c.req.valid("json");
     await assertRefs(c, data.roleId, data.outletIds);
     const repo = c.get("repo");
+    if (data.status !== "inactive" && !(await slotsAvailable(c.get("db"), c.get("auth").businessId))) throw new AppError("conflict", { messageKey: "settings.slotsFull" });
     const role = (await repo.roles.get(data.roleId))!;
     // Peran dengan akses back office wajib punya kata sandi agar bisa masuk.
     if (hasBackofficeAccess(role.accessType) && !data.password) {
@@ -121,8 +123,13 @@ export const employeeRoutes = (bcryptCost: number) => {
     const { id } = c.req.valid("param");
     const data = c.req.valid("json");
     const repo = c.get("repo");
-    if (!(await repo.users.get(id))) throw new AppError("not_found");
+    const existing = await repo.users.get(id);
+    if (!existing) throw new AppError("not_found");
     await assertRefs(c, data.roleId, data.outletIds);
+    // Mengaktifkan kembali karyawan yang nonaktif memakai satu slot.
+    if (data.status && data.status !== "inactive" && existing.status === "inactive" && !(await slotsAvailable(c.get("db"), c.get("auth").businessId, id))) {
+      throw new AppError("conflict", { messageKey: "settings.slotsFull" });
+    }
 
     const { password: newPassword, outletIds, ...rest } = data;
     const patch: Record<string, unknown> = { ...rest };

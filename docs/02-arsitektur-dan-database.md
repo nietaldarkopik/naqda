@@ -218,6 +218,14 @@ tertinggal), diskon persen ikut, promo dihitung ulang setelah dipisah. **Kas shi
 - **Saat bayar** (`loyalty/service.ts` -> `settleLoyalty`, di transaksi bayar): kunci baris pelanggan; bila ada reward: verifikasi program aktif, member, poin cukup, dan kode (bila diwajibkan), potong poin; lalu beri poin untuk pesanan dan perbarui total belanja dan kunjungan.
 - **Refund** (`reverseLoyalty`): poin dikurangi sebanding nilai refund kumulatif (`reversalPoints`), total belanja dikurangi.
 
+## 1k. Pengaturan dan hak akses (Fase 7)
+
+- **Peran**: `roles` (+ `role_privileges`); peran bawaan (`is_system`) tidak bisa diubah. Hak (`packages/domain/src/privileges.ts`) dibagi: Back Office (`backoffice.view`, `reports.view`, `library.manage`, `inventory.manage`, `customers.manage`, `tables.manage`), administrasi (`employees.manage`, `outlets.manage`, `settings.manage`), dan aplikasi kasir (`pos.sell`, `pos.discount`, `pos.void`, `pos.refund`, `shift.manage`). Setiap rute API memasang `requirePrivilege`/`requireAnyPrivilege`; hak kasir dibaca ulang dari DB di `requirePos`. Daftar rute dan hak yang diuji ada di `apps/api/test/settings.test.ts` (matriks).
+- **Pengaturan bisnis**: `business_settings` (satu baris; kolom JSON `checkout`, `receipt`, `notifications`, `account`) divalidasi dengan Zod di `apps/api/src/settings/service.ts`; bidang yang hilang diisi nilai bawaan saat dibaca, jadi menambah bidang baru tidak butuh migrasi data.
+- **Metode pembayaran**: `payment_methods(business_id, key, name, is_system, enabled, position, outlet_ids)`; `cash` satu-satunya tunai (kembalian). `payments.method` menyimpan **kunci** metode, sehingga transaksi lama tetap valid walau metode dihapus.
+- **Struk**: komponen `ReceiptView` yang sama dipakai kasir dan pratinjau Back Office.
+- **Email**: `email_outbox` hanya mencatat (status `logged`); tidak ada pengiriman.
+
 ## 1b. Perangkat keras yang didukung
 
 Standar: **ESC/POS** (printer thermal). Semua perangkat di bawah dicapai lewat antarmuka `Hardware`

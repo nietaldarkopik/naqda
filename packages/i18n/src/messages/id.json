@@ -116,7 +116,13 @@
     "iSummary": "Ringkasan Inventori",
     "cList": "Daftar Pelanggan",
     "cLoyalty": "Program Loyalty",
-    "cFeedback": "Masukan Pelanggan"
+    "cFeedback": "Masukan Pelanggan",
+    "roles": "Hak Akses Karyawan",
+    "aCheckout": "Checkout",
+    "aReceipt": "Desain Struk",
+    "aPayments": "Metode Pembayaran",
+    "aNotifications": "Notifikasi Email",
+    "aAccount": "Akun dan Slot"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -196,6 +202,59 @@
       "app_only": "Aplikasi saja",
       "backoffice_only": "Back Office saja",
       "app_and_backoffice": "Aplikasi dan Back Office"
+    },
+    "needBackoffice": "Akses Back Office wajib menyertakan hak 'backoffice.view'",
+    "needSell": "Akses aplikasi kasir wajib menyertakan hak 'pos.sell'",
+    "systemLocked": "Peran bawaan tidak bisa diubah atau dihapus",
+    "inUse": "Peran masih dipakai karyawan",
+    "title": "Hak Akses Karyawan",
+    "subtitle": "Peran menentukan menu dan tindakan yang boleh dilakukan",
+    "create": "Buat peran",
+    "edit": "Ubah peran",
+    "viewBuiltIn": "Peran bawaan",
+    "accessLabel": "Akses",
+    "privilegeCount": "Jumlah hak",
+    "users": "Karyawan",
+    "builtIn": "Bawaan",
+    "duplicate": "Salin sebagai peran baru",
+    "note": "Perubahan hak berlaku di aplikasi kasir seketika dan di Back Office paling lambat setelah token diperbarui (15 menit) atau setelah masuk ulang.",
+    "builtInHint": "Peran bawaan tidak bisa diubah. Salin sebagai peran baru untuk menyesuaikannya.",
+    "groups": {
+      "backoffice": "Back Office",
+      "admin": "Administrasi",
+      "pos": "Aplikasi kasir"
+    },
+    "privileges": {
+      "backoffice_view": "Membuka Back Office",
+      "reports_view": "Melihat laporan",
+      "library_manage": "Kelola katalog",
+      "inventory_manage": "Kelola stok",
+      "customers_manage": "Kelola pelanggan dan loyalty",
+      "employees_manage": "Kelola karyawan dan peran",
+      "outlets_manage": "Kelola outlet",
+      "settings_manage": "Kelola pengaturan akun",
+      "tables_manage": "Kelola meja",
+      "pos_sell": "Berjualan di kasir",
+      "pos_discount": "Memberi diskon",
+      "pos_refund": "Refund tanpa persetujuan",
+      "pos_void": "Membatalkan tanpa persetujuan",
+      "shift_manage": "Buka dan tutup shift"
+    },
+    "privilegeHints": {
+      "backoffice_view": "Wajib untuk akses Back Office; membaca katalog dan outlet.",
+      "reports_view": "Dasbor, laporan, aktivitas, dan melihat stok.",
+      "library_manage": "Item, kategori, modifier, paket, promo, diskon, pajak.",
+      "inventory_manage": "Bahan, resep, PO, transfer, penyesuaian.",
+      "customers_manage": "Pelanggan, program loyalty, balas masukan.",
+      "employees_manage": "Karyawan, PIN, dan peran ini.",
+      "outlets_manage": "Tambah dan ubah outlet.",
+      "settings_manage": "Perangkat kasir, checkout, struk, pembayaran, audit.",
+      "tables_manage": "Grup meja dan denah.",
+      "pos_sell": "Wajib untuk akses aplikasi kasir.",
+      "pos_discount": "Memilih diskon di keranjang.",
+      "pos_refund": "Tanpa hak ini kasir butuh PIN atasan untuk refund.",
+      "pos_void": "Tanpa hak ini kasir butuh PIN atasan untuk membatalkan bill atau menghapus item tersimpan.",
+      "shift_manage": "Buka/tutup shift dan kas masuk/keluar."
     }
   },
   "errors": {
@@ -567,7 +626,8 @@
       "card": "Kartu",
       "qris": "QRIS",
       "ewallet": "E-wallet",
-      "transfer": "Transfer"
+      "transfer": "Transfer",
+      "other": "Lainnya"
     },
     "openBills": "Bill terbuka",
     "paidBills": "Sudah dibayar",
@@ -1138,5 +1198,97 @@
     "reply": "Balas",
     "replyPlaceholder": "Tulis balasan",
     "repliedBy": "Dibalas oleh {name}"
+  },
+  "settings": {
+    "cashRequired": "Metode tunai tidak boleh dimatikan",
+    "systemMethod": "Metode bawaan tidak bisa dihapus (cukup dimatikan)",
+    "noRecipients": "Isi minimal satu alamat email penerima",
+    "splitOff": "Pisah bayar dimatikan di pengaturan checkout",
+    "methodUnavailable": "Metode pembayaran tidak tersedia di outlet ini",
+    "slotsFull": "Slot karyawan penuh; naikkan kuota atau nonaktifkan karyawan lain",
+    "checkout": {
+      "title": "Pengaturan Checkout",
+      "subtitle": "Aturan yang berlaku di semua outlet dan kasir",
+      "tax": "Hitung pajak",
+      "taxHint": "Bila dimatikan, pajak tidak dihitung di semua outlet (mis. usaha yang belum memungut pajak).",
+      "gratuity": "Hitung service charge",
+      "gratuityHint": "Bila dimatikan, service charge tidak dihitung walau sudah tertaut ke tipe penjualan.",
+      "split": "Izinkan pisah bayar",
+      "splitHint": "Satu bill boleh dibayar dengan lebih dari satu metode.",
+      "perOutlet": "Harga termasuk pajak, pembulatan, penggabungan diskon, dan batas stok diatur per outlet di halaman Outlet."
+    },
+    "receipt": {
+      "title": "Desain Struk",
+      "subtitle": "Atur isi struk dan lihat pratinjaunya langsung",
+      "header": "Teks di bagian atas",
+      "headerHint": "Satu baris per baris teks (mis. jam buka, slogan).",
+      "website": "Situs web",
+      "instagram": "Media sosial",
+      "footer": "Catatan kaki",
+      "footerHint": "Kosongkan untuk teks bawaan.",
+      "noFooter": "Tanpa catatan kaki",
+      "paper": "Lebar kertas",
+      "show": "Tampilkan",
+      "preview": "Pratinjau (data contoh)",
+      "toggles": {
+        "showOutletName": "Nama outlet",
+        "showOutletAddress": "Alamat outlet",
+        "showOutletPhone": "Telepon outlet",
+        "showCashier": "Nama kasir",
+        "showTable": "Nomor meja",
+        "showCustomer": "Pelanggan dan poin",
+        "showTaxBreakdown": "Rincian pajak dan service"
+      },
+      "sampleOutlet": "Outlet Contoh",
+      "sampleAddress": "Jl. Melati No. 8, Jakarta",
+      "sampleCashier": "Kasir Contoh",
+      "sampleItem1": "Kopi Susu",
+      "sampleItem2": "Roti Bakar",
+      "sampleMod": "Extra shot",
+      "sampleService": "Service 5%",
+      "sampleCustomer": "Pelanggan Contoh"
+    },
+    "payments": {
+      "title": "Metode Pembayaran",
+      "subtitle": "Metode yang bisa dipilih kasir. Tunai selalu aktif karena menentukan kembalian.",
+      "add": "Tambah metode",
+      "availability": "Tersedia di",
+      "builtIn": "Bawaan",
+      "cashTag": "Tunai",
+      "outletCount": "{count} outlet",
+      "up": "Naikkan",
+      "down": "Turunkan",
+      "nameHint": "Mis. GoPay, OVO, Kartu kredit. Metode kustom selalu non-tunai (tanpa kembalian).",
+      "displayName": "Nama tampilan",
+      "displayNameHint": "Kosongkan untuk memakai nama bawaan.",
+      "availabilityHint": "Kosong = semua outlet.",
+      "deleteHint": "Transaksi lama tetap mencatat metode ini."
+    },
+    "notifications": {
+      "title": "Notifikasi Email",
+      "subtitle": "Penerima ringkasan penjualan harian dan peringatan stok",
+      "notice": "Pengiriman email belum tersedia (belum ada penyedia email). Pesan hanya dicatat; pengaturan ini disimpan untuk saat pengiriman diaktifkan.",
+      "daily": "Ringkasan penjualan harian",
+      "dailyHint": "Penjualan kemarin untuk semua outlet.",
+      "lowStock": "Peringatan stok menipis",
+      "lowStockHint": "Daftar item dan bahan di bawah batas peringatan.",
+      "recipients": "Penerima",
+      "recipientsHint": "Satu email per baris (maksimal 10).",
+      "test": "Buat pesan contoh",
+      "loggedOnly": "Dicatat di antrean pesan keluar, belum dikirim."
+    },
+    "account": {
+      "title": "Akun dan Slot Karyawan",
+      "business": "Bisnis",
+      "currency": "Mata uang",
+      "activeEmployees": "Karyawan aktif",
+      "slots": "Batas karyawan aktif",
+      "slotsHint": "Kosongkan untuk tanpa batas. Karyawan nonaktif tidak memakai slot."
+    }
+  },
+  "receipt": {
+    "defaultFooter": "Terima kasih",
+    "taxAndService": "Pajak dan service",
+    "table": "Meja {name}"
   }
 }
