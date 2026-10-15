@@ -44,6 +44,8 @@ const body = z.object({
   /** Kelipatan pembulatan total dalam satuan terkecil; 0 = tanpa pembulatan. */
   roundingStep: z.number().int().min(0).max(1_000_000).default(0),
   roundingMode: z.enum(["nearest", "up", "down"]).default("nearest"),
+  /** Cara diskon digabung: berurutan, kombinasi, atau salah satu. */
+  discountMode: z.enum(["sequential", "stack", "exclusive"]).default("sequential"),
 });
 
 const createBody = body.extend({
@@ -63,6 +65,7 @@ type OutletRow = {
   taxOnGratuity: boolean;
   roundingStep: number;
   roundingMode: "nearest" | "up" | "down";
+  discountMode: "sequential" | "stack" | "exclusive";
   createdAt: Date;
   updatedAt: Date;
 };
@@ -79,6 +82,7 @@ const present = (o: OutletRow) => ({
   taxOnGratuity: o.taxOnGratuity,
   roundingStep: o.roundingStep,
   roundingMode: o.roundingMode,
+  discountMode: o.discountMode,
   createdAt: iso(o.createdAt),
   updatedAt: iso(o.updatedAt),
 });
@@ -97,6 +101,7 @@ const snapshot = (o: OutletRow) => ({
   taxOnGratuity: o.taxOnGratuity,
   roundingStep: o.roundingStep,
   roundingMode: o.roundingMode,
+  discountMode: o.discountMode,
 });
 
 export const outletRoutes = () => {
@@ -157,7 +162,7 @@ export const outletRoutes = () => {
             entityId: id,
             action: "update",
             summary: after.name,
-            changes: { before: snapshot(before), after: snapshot(after), taxModeChanged: before.pricesIncludeTax !== after.pricesIncludeTax || before.pricesIncludeGratuity !== after.pricesIncludeGratuity || before.taxOnGratuity !== after.taxOnGratuity || before.roundingStep !== after.roundingStep || before.roundingMode !== after.roundingMode },
+            changes: { before: snapshot(before), after: snapshot(after), taxModeChanged: before.pricesIncludeTax !== after.pricesIncludeTax || before.pricesIncludeGratuity !== after.pricesIncludeGratuity || before.taxOnGratuity !== after.taxOnGratuity || before.roundingStep !== after.roundingStep || before.roundingMode !== after.roundingMode || before.discountMode !== after.discountMode },
           });
         });
       } catch (error) {

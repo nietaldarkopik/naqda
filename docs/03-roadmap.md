@@ -56,7 +56,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 ## Fase 2. Kasir inti (4–5 sesi) — SELESAI UNTUK ALUR UTAMA 15 Okt 2026 (dengan batas di bawah)
 
-**Berjalan dan teruji** (237 tes otomatis: 116 unit tanpa database + 121 API; 21 pemeriksaan di browser sungguhan):
+**Berjalan dan teruji** (249 tes otomatis: 124 unit tanpa database + 125 API; 21 pemeriksaan di browser sungguhan):
 - Mesin hitung total (`computeOrder`): diskon berlapis, service charge, pajak eksklusif/inklusif, pajak atas service, pembulatan; semua per pengaturan outlet (`pricesIncludeTax`, `pricesIncludeGratuity`, `taxOnGratuity`, `roundingStep`, `roundingMode`), kini juga diatur di formulir outlet.
 - Mesin promo (`applyPromos`), penyelesaian pembayaran (`settle`), pisah bill (`splitLines`), rekonsiliasi kas shift, kebijakan PIN.
 - **Perangkat kasir**: didaftarkan dari Back Office (kode aktivasi 8 karakter, berlaku 15 menit, sekali pakai), memakai token perangkat; dicabut atau dipasangkan ulang langsung memutus perangkat lama. Aktivasi dibatasi laju.
@@ -70,7 +70,8 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 - Aturan lengkap dan asumsi yang belum dikonfirmasi: doc 02 bagian 1h.
 
 **Catatan dan batas** (jangan dianggap ada):
-- **Belum dikonfirmasi dengan akuntan/toko**: urutan hitung (diskon → service → pajak → pembulatan) dan arti promo persen ("beli minimal N → semua unit memenuhi syarat didiskon").
+- Urutan hitung (diskon → service → pajak → pembulatan) **ditetapkan sementara** atas keputusan pemilik produk; pajak atas service charge dan dasar service charge tetap perlu dicek akuntan sebelum uang sungguhan.
+- **Diskon**: lingkup umum vs item/kategori, dan mode gabung per outlet (berurutan, kombinasi, salah satu); lihat doc 02 bagian 1h. Arti promo persen ("beli minimal N → semua unit memenuhi syarat didiskon") masih perlu disetujui pemilik toko.
 - Bill yang **sudah lunas** belum bisa dibatalkan atau di-refund (Fase 3); kas shift belum punya jalur refund.
 - Tab **Favorit/Custom** belum ada (hanya kategori dan pencarian). Metode pembayaran adalah daftar tetap (belum bisa diatur di Back Office; fase 7).
 - Struk dicetak lewat dialog cetak browser. **Belum ada** printer thermal/ESC-POS, laci kas otomatis, atau pengiriman struk email/SMS (tabel `receipt_outbox` sudah ada, belum ada endpoint).

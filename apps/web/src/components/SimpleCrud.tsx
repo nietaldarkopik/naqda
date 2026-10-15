@@ -11,7 +11,7 @@ import { useList } from "@/lib/useList";
 import { TranslationFields, useTranslationDraft } from "./TranslationFields";
 import { Button, Card, CheckList, DataTable, Field, Input, Modal, Pager, PageHeader, Select, useToast, type Column } from "./ui";
 
-export type FieldSpec =
+export type FieldSpec = Conditional & (
   | { key: string; kind: "text"; label: string }
   | { key: string; kind: "percent"; label: string }
   | { key: string; kind: "money"; label: string }
@@ -19,7 +19,11 @@ export type FieldSpec =
   | { key: string; kind: "dynamic"; label: string; kindKey: string }
   | { key: string; kind: "select"; label: string; options: Array<{ value: string; label: string }> }
   | { key: string; kind: "bool"; label: string }
-  | { key: string; kind: "multi"; label: string; endpoint: string };
+  | { key: string; kind: "multi"; label: string; endpoint: string }
+);
+
+/** Bidang hanya tampil (dan dikirim) bila bidang lain bernilai tertentu. Bidang daftar yang tersembunyi dikirim kosong. */
+type Conditional = { showWhen?: { key: string; equals: string } };
 
 export interface SimpleCrudProps<R extends { id: string; name: string }> {
   endpoint: string;
@@ -103,11 +107,17 @@ export function SimpleCrud<R extends Row>(props: SimpleCrudProps<R>) {
     setEditing(row);
   };
 
+  const visible = (f: FieldSpec) => !f.showWhen || String(form[f.showWhen.key] ?? "") === f.showWhen.equals;
+
   const buildBody = (): Record<string, unknown> | null => {
     const body: Record<string, unknown> = { name: String(form.name ?? "").trim() };
     const bad: Record<string, string> = {};
     for (const f of props.fields) {
       const v = form[f.key];
+      if (!visible(f)) {
+        if (f.kind === "multi") body[f.key] = [];
+        continue;
+      }
       if (f.kind === "dynamic") {
         const parsed = form[f.kindKey] === "percent" ? parsePercentBp(String(v)) : parseMajor(String(v), exponent);
         if (parsed === null) bad[f.key] = t("common.invalidNumber");
@@ -299,7 +309,7 @@ export function SimpleCrud<R extends Row>(props: SimpleCrudProps<R>) {
           <Field label={t("common.name")} error={errors.name}>
             {(id) => <Input id={id} value={String(form.name ?? "")} onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} invalid={Boolean(errors.name)} maxLength={191} required />}
           </Field>
-          {props.fields.map(field)}
+          {props.fields.filter(visible).map((f) => field(f))}
           {props.translatable ? <TranslationFields state={tr} /> : null}
         </form>
       </Modal>

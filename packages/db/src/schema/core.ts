@@ -53,6 +53,8 @@ export const outlets = mysqlTable(
     /** Kelipatan pembulatan total dalam satuan terkecil; 0 = tanpa pembulatan (rupiah biasanya 100). */
     roundingStep: int("rounding_step", { unsigned: true }).notNull().default(0),
     roundingMode: varchar("rounding_mode", { length: 8 }).$type<"nearest" | "up" | "down">().notNull().default("nearest"),
+    /** Cara beberapa diskon digabung: berurutan, kombinasi (stack), atau salah satu (exclusive). */
+    discountMode: varchar("discount_mode", { length: 12 }).$type<"sequential" | "stack" | "exclusive">().notNull().default("sequential"),
     status: varchar("status", { length: 16 }).$type<"active" | "inactive">().notNull().default("active"),
     ...timestamps,
     /** Kolom turunan agar nama unik hanya di antara baris yang belum dihapus (doc 02, bagian 3.0). */

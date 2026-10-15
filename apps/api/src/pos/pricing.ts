@@ -4,6 +4,8 @@ import {
   bundleOutlets,
   bundlePrices,
   bundles,
+  discountCategories,
+  discountItems,
   discountOutlets,
   discounts,
   gratuities,
@@ -83,8 +85,17 @@ export const outletDiscounts = async (db: Db, ctx: OutletContext) => {
     .innerJoin(discountOutlets, eq(discountOutlets.discountId, discounts.id))
     .where(and(eq(discounts.businessId, ctx.businessId), eq(discountOutlets.outletId, ctx.outletId), isNull(discounts.deletedAt), eq(discounts.status, "active")))
     .orderBy(asc(discounts.name));
-  return rows.map((r) => r.d);
+  const ids = rows.map((r) => r.d.id);
+  const itemLinks = ids.length ? await db.select().from(discountItems).where(inArray(discountItems.discountId, ids)) : [];
+  const catLinks = ids.length ? await db.select().from(discountCategories).where(inArray(discountCategories.discountId, ids)) : [];
+  return rows.map((r) => ({
+    ...r.d,
+    itemIds: itemLinks.filter((l) => l.discountId === r.d.id).map((l) => l.itemId),
+    categoryIds: catLinks.filter((l) => l.discountId === r.d.id).map((l) => l.categoryId),
+  }));
 };
+
+export type OutletDiscount = Awaited<ReturnType<typeof outletDiscounts>>[number];
 
 export const loadOutletContext = async (db: Db, businessId: string, outletId: string): Promise<OutletContext> => {
   const [o] = await db.select().from(outlets).where(and(eq(outlets.id, outletId), eq(outlets.businessId, businessId))).limit(1);
@@ -99,6 +110,7 @@ export const loadOutletContext = async (db: Db, businessId: string, outletId: st
       taxOnGratuity: o.taxOnGratuity,
       roundingStep: o.roundingStep,
       roundingMode: o.roundingMode,
+      discountMode: o.discountMode,
     },
   };
 };
@@ -209,16 +221,23 @@ const fail = (field: string, key = "errors.notFound"): never => {
  * Memilih diskon dari daftar diskon outlet. Nilai bebas hanya untuk diskon `customizable`;
  * diskon persen dibatasi 100%. Wajib punya hak pos.discount.
  */
+type DiscountUse = { kind: "order" } | { kind: "line"; itemId: string | null; categoryId: string | null };
+
 const resolveDiscount = (
   pick: { discountId: string; value?: number | undefined } | null | undefined,
-  available: Map<string, typeof discounts.$inferSelect>,
+  available: Map<string, OutletDiscount>,
   canDiscount: boolean,
   field: string,
+  use: DiscountUse,
 ): StoredDiscount | null => {
   if (!pick) return null;
   if (!canDiscount) throw new AppError("forbidden");
   const d = available.get(pick.discountId);
   if (!d) return fail(field);
+  // Diskon umum hanya untuk pesanan; diskon item hanya untuk item/kategori sasarannya.
+  if (use.kind === "order" ? d.scope !== "order" : d.scope !== "item" || !((use.itemId && d.itemIds.includes(use.itemId)) || (use.categoryId && d.categoryIds.includes(use.categoryId)))) {
+    return fail(field, "pos.discountScope");
+  }
   const value = pick.value !== undefined && d.customizable ? pick.value : d.value;
   if (pick.value !== undefined && !d.customizable && pick.value !== d.value) return fail(field, "pos.discountFixed");
   if (d.kind === "percent" && value > 10_000) return fail(field, "pos.discountRange");
@@ -233,7 +252,7 @@ export const resolveCart = async (
   canDiscount: boolean,
 ): Promise<{ lines: ResolvedLine[]; orderDiscount: StoredDiscount | null }> => {
   const availableDiscounts = new Map((await outletDiscounts(db, ctx)).map((d) => [d.id, d]));
-  const orderDiscount = resolveDiscount(cart.orderDiscount, availableDiscounts, canDiscount, "orderDiscount");
+  const orderDiscount = resolveDiscount(cart.orderDiscount, availableDiscounts, canDiscount, "orderDiscount", { kind: "order" });
 
   const itemLines = cart.lines.flatMap((l, i) => (l.kind === "item" ? [{ l, i }] : []));
   const bundleLines = cart.lines.flatMap((l, i) => (l.kind === "bundle" ? [{ l, i }] : []));
@@ -311,7 +330,7 @@ export const resolveCart = async (
         basePrice: base,
         cost: row.v.cost,
         quantity: l.quantity,
-        discount: resolveDiscount(l.discount, availableDiscounts, canDiscount, `lines.${i}.discount`),
+        discount: resolveDiscount(l.discount, availableDiscounts, canDiscount, `lines.${i}.discount`, { kind: "line", itemId: row.item.id, categoryId: row.item.categoryId }),
         note: l.note ?? null,
         modifiers: picked.map((o) => ({ optionId: o.id, name: o.name, price: o.price })),
       };
@@ -344,7 +363,7 @@ export const resolveCart = async (
         basePrice: price,
         cost: 0,
         quantity: l.quantity,
-        discount: resolveDiscount(l.discount, availableDiscounts, canDiscount, `lines.${i}.discount`),
+        discount: resolveDiscount(l.discount, availableDiscounts, canDiscount, `lines.${i}.discount`, { kind: "line", itemId: null, categoryId: null }),
         note: l.note ?? null,
         modifiers: [],
       };

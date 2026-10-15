@@ -90,7 +90,7 @@ export const simpleRoutes = (cfg: SimpleConfig) => {
     const id = newId();
     const db = c.get("db");
     const auth = c.get("auth");
-    const invalid = cfg.check?.(values);
+    const invalid = cfg.check?.({ ...values, ...linkValues });
     if (invalid) throw new AppError("validation", { fields: invalid });
     try {
       await db.transaction(async (tx) => {
@@ -118,7 +118,7 @@ export const simpleRoutes = (cfg: SimpleConfig) => {
       const auth = c.get("auth");
       const before = await genericRepo(db, auth.businessId, cfg.table, cfg.links).get(id);
       if (!before) throw new AppError("not_found");
-      const invalid = cfg.check?.({ ...before, ...values });
+      const invalid = cfg.check?.({ ...before, ...values, ...linkValues });
       if (invalid) throw new AppError("validation", { fields: invalid });
       await resolveLinks(c, data, linkValues);
       try {

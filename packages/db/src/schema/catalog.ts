@@ -130,6 +130,8 @@ export const discounts = mysqlTable(
     kind: varchar("kind", { length: 16 }).$type<"percent" | "amount">().notNull(),
     value: money("value").notNull(),
     /** Bila true, nilai boleh diisi kasir saat transaksi (value menjadi bawaan). */
+    /** order: diskon umum (seluruh pesanan). item: hanya untuk item/kategori yang ditautkan (discount_items, discount_categories). */
+    scope: varchar("scope", { length: 8 }).$type<"order" | "item">().notNull().default("order"),
     customizable: boolean("customizable").notNull().default(false),
     status: varchar("status", { length: 16 }).$type<"active" | "inactive">().notNull().default("active"),
     ...timestamps,
@@ -145,6 +147,24 @@ export const discountOutlets = mysqlTable(
     outletId: uuid("outlet_id").notNull().references(() => outlets.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.discountId, t.outletId] })],
+);
+
+export const discountItems = mysqlTable(
+  "discount_items",
+  {
+    discountId: uuid("discount_id").notNull().references(() => discounts.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id").notNull().references(() => items.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.discountId, t.itemId] })],
+);
+
+export const discountCategories = mysqlTable(
+  "discount_categories",
+  {
+    discountId: uuid("discount_id").notNull().references(() => discounts.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.discountId, t.categoryId] })],
 );
 
 export const items = mysqlTable(

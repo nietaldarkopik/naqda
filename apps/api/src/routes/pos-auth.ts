@@ -30,6 +30,7 @@ export const outletForPos = (o: OutletRow) => ({
     taxOnGratuity: o.taxOnGratuity,
     roundingStep: o.roundingStep,
     roundingMode: o.roundingMode,
+    discountMode: o.discountMode,
   },
 });
 

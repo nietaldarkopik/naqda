@@ -20,6 +20,8 @@ let jelly = "";
 let gula = "";
 let disc20 = "";
 let potong5 = "";
+let general10 = "";
+let kopiItem = "";
 let otherItemOption = "";
 
 const userId = async (email: string) => (await fx.handle.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1))[0]!.id;
@@ -73,14 +75,17 @@ beforeAll(async () => {
   });
   expect(k.status).toBe(201);
   kopi = k.json.variants[0].id;
+  kopiItem = k.json.id;
   const t = await call(fx.app, "POST", "/items", { token: A, body: { name: "Teh", variants: [{ name: "R", basePrice: 10000, sku: "TEH" }], modifierSetIds: [gm.json.id] } });
   teh = t.json.variants[0].id;
   otherItemOption = gm.json.options[1].id; // opsi milik Teh, bukan Kopi
   void keju;
 
-  const d1 = await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Karyawan 20%", kind: "percent", value: 2000, customizable: true, allOutlets: true } });
+  const d1 = await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Karyawan 20%", kind: "percent", value: 2000, customizable: true, scope: "item", itemIds: [kopiItem], allOutlets: true } });
   disc20 = d1.json.id;
-  const d2 = await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Potong 5rb", kind: "amount", value: 5000, allOutlets: true } });
+  const d2 = await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Potong 5rb", kind: "amount", value: 5000, scope: "item", itemIds: [kopiItem], allOutlets: true } });
+  const d3 = await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Umum 10%", kind: "percent", value: 1000, allOutlets: true } });
+  general10 = d3.json.id;
   potong5 = d2.json.id;
 
   cashier = await pairAndLogin(A, fx.a.outletIds[0]!, fx.a.cashierEmail, "482615");
@@ -156,6 +161,53 @@ describe("katalog dan harga", () => {
     expect(absurd.status).toBe(422);
     const unknown = await pos(admin, "POST", "/price", cart(dineIn, [kopiLine(1, { discount: { discountId: "018f0000-0000-7000-8000-000000000000" } })]));
     expect(unknown.status).toBe(422);
+  });
+});
+
+describe("lingkup dan penggabungan diskon", () => {
+  it("diskon item hanya untuk item sasarannya; diskon umum hanya untuk pesanan", async () => {
+    // Diskon umum dipakai di baris -> ditolak
+    expect((await pos(admin, "POST", "/price", cart(dineIn, [kopiLine(1, { discount: { discountId: general10 } })]))).status).toBe(422);
+    // Diskon item dipakai di item lain (Teh) -> ditolak
+    const onTeh = { kind: "item", variantId: teh, quantity: 1, modifierOptionIds: [gula], discount: { discountId: disc20 } };
+    expect((await pos(admin, "POST", "/price", cart(dineIn, [onTeh]))).status).toBe(422);
+    // Diskon item dipakai sebagai diskon pesanan -> ditolak
+    expect((await pos(admin, "POST", "/price", cart(dineIn, [kopiLine(1)], { orderDiscount: { discountId: disc20 } }))).status).toBe(422);
+    // Diskon umum sebagai diskon pesanan -> diterima: 10% x 40.000
+    const ok = await pos(admin, "POST", "/price", cart(dineIn, [kopiLine(2)], { orderDiscount: { discountId: general10 } }));
+    expect(ok.status).toBe(200);
+    expect(ok.json.totals.orderDiscount).toBe(4000);
+  });
+
+  it("katalog kasir memuat lingkup dan sasaran diskon", async () => {
+    const res = await pos(admin, "GET", "/catalog");
+    const d = res.json.discounts.find((x: any) => x.id === disc20);
+    expect(d).toMatchObject({ scope: "item", itemIds: [kopiItem] });
+    expect(res.json.discounts.find((x: any) => x.id === general10).scope).toBe("order");
+  });
+
+  it("mode berurutan, kombinasi, dan salah satu memberi total diskon berbeda sesuai hitungan tangan", async () => {
+    const outletId = fx.a.outletIds[0]!;
+    const body = cart(dineIn, [kopiLine(2, { discount: { discountId: disc20 } })], { orderDiscount: { discountId: general10 } });
+    const discountTotal = async (mode: string) => {
+      expect((await call(fx.app, "PATCH", `/outlets/${outletId}`, { token: A, body: { discountMode: mode } })).status).toBe(200);
+      return (await pos(admin, "POST", "/price", body)).json.totals.discountTotal as number;
+    };
+    try {
+      expect(await discountTotal("sequential")).toBe(8000 + 3200); // 20% x 40.000, lalu 10% x 32.000
+      expect(await discountTotal("stack")).toBe(8000 + 4000); // 10% dari harga awal 40.000
+      expect(await discountTotal("exclusive")).toBe(8000); // baris sudah berdiskon -> diskon pesanan tidak berlaku
+    } finally {
+      await call(fx.app, "PATCH", `/outlets/${outletId}`, { token: A, body: { discountMode: "sequential" } });
+    }
+    expect((await call(fx.app, "PATCH", `/outlets/${outletId}`, { token: A, body: { discountMode: "bogus" } })).status).toBe(422);
+  });
+
+  it("aturan master diskon: diskon item wajib punya sasaran, diskon umum tidak boleh", async () => {
+    expect((await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Tanpa sasaran", kind: "percent", value: 500, scope: "item", allOutlets: true } })).status).toBe(422);
+    expect((await call(fx.app, "POST", "/discounts", { token: A, body: { name: "Umum bersasaran", kind: "percent", value: 500, scope: "order", itemIds: [kopiItem], allOutlets: true } })).status).toBe(422);
+    const foreign = await call(fx.app, "POST", "/discounts", { token: B, body: { name: "Sasaran asing", kind: "percent", value: 500, scope: "item", itemIds: [kopiItem], allOutlets: true } });
+    expect(foreign.status).toBe(422); // item milik bisnis lain
   });
 });
 

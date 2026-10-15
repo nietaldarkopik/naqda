@@ -150,7 +150,7 @@ atau header klien; SVG dan lainnya ditolak. Disimpan di `STORAGE_DIR/<business_i
 
 ## 1h. Mesin hitung pesanan, promo, pembayaran, pisah bill, shift (Fase 2, bagian murni)
 
-Semua di `packages/domain` (TypeScript murni, tanpa DB/UI): server dan kasir offline memakai kode yang sama. Diuji 116 tes unit,
+Semua di `packages/domain` (TypeScript murni, tanpa DB/UI): server dan kasir offline memakai kode yang sama. Diuji 124 tes unit,
 termasuk sapuan 144.576 kombinasi pengaturan dan harga untuk mesin hitung.
 
 **Urutan hitung (`computeOrder`)** dan pengaturan per outlet:
@@ -173,9 +173,19 @@ Contoh (B = Rp100.000, service 5%, pajak 10% atas harga dan service): total eksk
 dalam harga menu = B, tidak ada komponen negatif, harga lebih tinggi tidak pernah menghasilkan total lebih rendah, selisih pembulatan komponen
 tertanam paling banyak 2 satuan terkecil.
 
-> **ASUMSI YANG BELUM DIKONFIRMASI** dengan akuntan/toko: (a) diskon dipotong sebelum service charge dan pajak; (b) pajak dikenakan atas service
-> charge; (c) service charge dihitung dari nilai barang sebelum pajak; (d) pembulatan di akhir. Semuanya sudah bisa diatur kecuali urutan dasar (a) dan (c).
-> Ubah hanya setelah dikonfirmasi; jangan memproses uang sungguhan sebelum itu.
+> **KEPUTUSAN (pemilik produk, 15 Okt 2026)**: urutan dasar diskon → service charge → pajak → pembulatan **dipakai** sebagai keputusan sementara,
+> diserahkan kepada saya untuk ditetapkan. Yang tetap perlu dicek akuntan sebelum uang sungguhan diproses: (b) pajak dikenakan atas service
+> charge; (c) service charge dihitung dari nilai barang sebelum pajak. Keduanya sudah bisa diatur per outlet (`taxOnGratuity`, `pricesIncludeGratuity`);
+> hanya urutan dasar yang tetap.
+
+**Lingkup dan penggabungan diskon (diputuskan 15 Okt 2026).**
+- *Lingkup* (`discounts.scope`): **umum** (`order`) hanya untuk seluruh pesanan; **item** (`item`) hanya untuk item atau kategori sasarannya
+  (`discount_items`, `discount_categories`). Diskon item wajib punya sasaran; diskon umum tidak boleh. Server menolak diskon yang dipakai di tempat
+  yang salah (diskon umum di baris, diskon item di item lain atau di pesanan, diskon item di paket/bundle). Promo otomatis sudah per item/kategori.
+- *Penggabungan* (`outlets.discount_mode`, per outlet): **berurutan** (bawaan): diskon baris, lalu promo, lalu diskon pesanan, masing-masing dari sisa harga;
+  **kombinasi**: semua diskon persen dihitung dari harga awal lalu dijumlahkan, tidak melebihi harga; **salah satu**: satu baris hanya menerima satu
+  diskon (yang terbesar antara diskon baris dan promo; seri memilih diskon baris), dan diskon pesanan hanya berlaku untuk baris yang belum berdiskon.
+  Bagian diskon pesanan dibagi ke baris sebanding sisa harga (`orderDiscountShare`, jumlah tepat). Diuji dengan contoh tangan dan sapuan lebih dari 1.500 kombinasi.
 
 **Promo (`applyPromos`).** Satu unit hanya menerima satu promo (berurutan sesuai daftar). Diskon persen: bila syarat jumlah terpenuhi, **semua** unit yang
 memenuhi syarat didiskon ("beli minimal N"); dengan `multiple`, hanya kelompok penuh. Diskon nominal: sekali, atau per kelipatan. Beli X gratis Y:

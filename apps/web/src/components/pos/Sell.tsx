@@ -195,6 +195,16 @@ export function Sell({
     }
   };
 
+  /** Diskon yang boleh dipilih: umum untuk pesanan; diskon item hanya untuk item/kategori sasarannya. */
+  const discountChoices = (target: number | "order") => {
+    const all = catalog?.discounts ?? [];
+    if (target === "order") return all.filter((d) => d.scope === "order");
+    const line = cart.lines[target];
+    const item = line?.kind === "item" ? catalog?.items.find((it) => it.variants.some((v) => v.id === line.variantId)) : undefined;
+    if (!item) return [];
+    return all.filter((d) => d.scope === "item" && (d.itemIds.includes(item.id) || (item.categoryId !== null && d.categoryIds.includes(item.categoryId))));
+  };
+
   const totals = priced?.totals;
   const empty = cart.lines.length === 0;
   const lineView = (i: number) => priced?.lines[i];
@@ -386,7 +396,7 @@ export function Sell({
       {discountOpen ? (
         <DiscountDialog
           ctx={ctx}
-          discounts={catalog?.discounts ?? []}
+          discounts={discountChoices(discountOpen.line)}
           current={discountOpen.line === "order" ? cart.orderDiscount : cart.lines[discountOpen.line]?.discount}
           onClose={() => setDiscountOpen(null)}
           onPick={(pick: DiscountPick | null) => {

@@ -82,7 +82,7 @@ export interface PosOutlet {
   id: string;
   name: string;
   timezone: string;
-  settings: { pricesIncludeTax: boolean; pricesIncludeGratuity: boolean; taxOnGratuity: boolean; roundingStep: number; roundingMode: string };
+  settings: { pricesIncludeTax: boolean; pricesIncludeGratuity: boolean; taxOnGratuity: boolean; roundingStep: number; roundingMode: string; discountMode: "sequential" | "stack" | "exclusive" };
 }
 export interface PosBusiness {
   id: string;
@@ -136,6 +136,9 @@ export interface PosDiscount {
   name: string;
   kind: "percent" | "amount";
   value: number;
+  scope: "order" | "item";
+  itemIds: string[];
+  categoryIds: string[];
   customizable: boolean;
 }
 export interface Catalog {

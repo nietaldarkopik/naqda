@@ -119,7 +119,16 @@
     "roundingMode": "Arah pembulatan",
     "roundNearest": "Terdekat",
     "roundUp": "Ke atas",
-    "roundDown": "Ke bawah"
+    "roundDown": "Ke bawah",
+    "discountMode": "Penggabungan diskon",
+    "discountSequential": "Berurutan",
+    "discountStack": "Kombinasi",
+    "discountExclusive": "Hanya salah satu",
+    "discountModeHint": {
+      "sequential": "Diskon item, lalu promo, lalu diskon pesanan dihitung dari sisa harga setelah diskon sebelumnya.",
+      "stack": "Semua diskon dihitung dari harga awal lalu dijumlahkan (tidak melebihi harga).",
+      "exclusive": "Satu item hanya mendapat satu diskon (yang terbesar). Diskon pesanan hanya untuk item yang belum berdiskon."
+    }
   },
   "employees": {
     "title": "Karyawan",
@@ -199,7 +208,12 @@
       "value": "Nilai",
       "percent": "Persen",
       "amount": "Nominal",
-      "customizable": "Nilai boleh diubah kasir"
+      "customizable": "Nilai boleh diubah kasir",
+      "scope": "Berlaku untuk",
+      "scopeOrder": "Seluruh pesanan (umum)",
+      "scopeItem": "Item/kategori tertentu",
+      "targetItems": "Item sasaran",
+      "targetCategories": "Kategori sasaran"
     },
     "items": {
       "title": "Item",
@@ -380,7 +394,8 @@
     "paymentInvalid": "Pembayaran tidak valid",
     "paymentShort": "Pembayaran kurang dari total tagihan",
     "splitInvalid": "Pilihan pisah bill tidak valid",
-    "cashShort": "Kas di laci tidak cukup"
+    "cashShort": "Kas di laci tidak cukup",
+    "discountScope": "Diskon ini tidak berlaku untuk item/pesanan tersebut"
   },
   "devices": {
     "title": "Perangkat Kasir",
@@ -531,5 +546,9 @@
     "receipt": "Struk",
     "print": "Cetak",
     "notPaid": "BELUM LUNAS"
+  },
+  "discounts": {
+    "targetRequired": "Pilih minimal satu item atau kategori sasaran",
+    "targetNotAllowed": "Diskon umum tidak boleh punya item atau kategori sasaran"
   }
 }

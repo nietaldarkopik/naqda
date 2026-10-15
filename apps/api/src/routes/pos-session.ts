@@ -124,7 +124,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     return c.json({
       categories: cats.map((x) => ({ id: x.id, name: x.name })),
       salesTypes: types.map((x) => ({ id: x.id, name: x.name })),
-      discounts: discs.map((d) => ({ id: d.id, name: d.name, kind: d.kind, value: d.value, customizable: d.customizable })),
+      discounts: discs.map((d) => ({ id: d.id, name: d.name, kind: d.kind, value: d.value, scope: d.scope, itemIds: d.itemIds, categoryIds: d.categoryIds, customizable: d.customizable })),
       items: itemRows.map(({ item }) => ({
         id: item.id,
         name: item.name,

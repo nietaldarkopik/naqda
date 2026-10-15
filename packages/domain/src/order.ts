@@ -28,7 +28,18 @@ export interface OrderSettings {
   /** Kelipatan pembulatan total (satuan terkecil); 0 = tanpa pembulatan. Mis. rupiah: 100. */
   roundingStep: number;
   roundingMode: "nearest" | "up" | "down";
+  /**
+   * Cara beberapa diskon (diskon baris, promo otomatis, diskon pesanan) digabung:
+   * - "sequential" (berurutan): diskon baris, lalu promo (dibatasi sisa), lalu diskon pesanan dari SISA harga.
+   * - "stack" (kombinasi): semua diskon persen dihitung dari harga awal lalu dijumlahkan, tidak melebihi harga.
+   * - "exclusive" (salah satu): satu baris hanya menerima satu diskon (yang terbesar antara diskon baris dan promo);
+   *   diskon pesanan hanya berlaku untuk baris yang belum punya diskon.
+   */
+  discountMode?: DiscountMode;
 }
+
+export type DiscountMode = "sequential" | "stack" | "exclusive";
+export const discountModes: readonly DiscountMode[] = ["sequential", "stack", "exclusive"];
 
 export const defaultOrderSettings: OrderSettings = {
   pricesIncludeTax: false,
@@ -36,6 +47,7 @@ export const defaultOrderSettings: OrderSettings = {
   taxOnGratuity: true,
   roundingStep: 0,
   roundingMode: "nearest",
+  discountMode: "sequential",
 };
 
 export interface OrderLineInput {
@@ -64,6 +76,8 @@ export interface OrderLineResult {
   promoDiscount: Minor;
   /** gross - diskon baris - promo (sebelum diskon pesanan). */
   afterDiscount: Minor;
+  /** Bagian diskon pesanan yang dibebankan ke baris ini (jumlah seluruh baris = orderDiscount). */
+  orderDiscountShare: Minor;
 }
 
 export interface OrderTotals {
@@ -112,6 +126,25 @@ export const discountAmount = (base: Minor, d: DiscountInput | null | undefined)
 
 const E8 = 100_000_000;
 
+/** Membagi `total` sebanding `weights` (bilangan bulat); sisa dibagikan ke pecahan terbesar. Jumlah hasil = total. */
+export const allocateProportional = (total: Minor, weights: readonly number[]): Minor[] => {
+  const W = weights.reduce((a, b) => a + b, 0);
+  if (total === 0 || W === 0) return weights.map(() => 0);
+  const T = BigInt(total);
+  const BW = BigInt(W);
+  const parts = weights.map((w, i) => ({ i, base: (T * BigInt(w)) / BW, rem: (T * BigInt(w)) % BW }));
+  let left = Number(T - parts.reduce((a, p) => a + p.base, 0n));
+  const out = parts.map((p) => Number(p.base));
+  for (const p of [...parts].sort((a, b) => (a.rem === b.rem ? a.i - b.i : a.rem > b.rem ? -1 : 1))) {
+    if (left <= 0) break;
+    if (weights[p.i]! > 0) {
+      out[p.i] = out[p.i]! + 1;
+      left--;
+    }
+  }
+  return out;
+};
+
 export const computeOrder = (input: OrderInput): OrderTotals => {
   const { settings: s } = input;
   assertRates(input.taxRatesBp, "tarif pajak");
@@ -119,22 +152,44 @@ export const computeOrder = (input: OrderInput): OrderTotals => {
   if (!Number.isInteger(s.roundingStep) || s.roundingStep < 0) throw new RangeError("roundingStep harus integer >= 0");
 
   // 1-2. Baris dan diskon
+  const mode: DiscountMode = s.discountMode ?? "sequential";
   const lines: OrderLineResult[] = input.lines.map((l) => {
     assertMoney(l.unitPrice, "harga satuan");
     if (!Number.isInteger(l.quantity) || l.quantity < 1) throw new RangeError("jumlah harus integer >= 1");
     const gross = l.unitPrice * l.quantity;
-    const discount = discountAmount(gross, l.discount);
-    const room = gross - discount;
-    const promoDiscount = Math.min(Math.max(l.promoDiscount ?? 0, 0), room);
-    assertMoney(promoDiscount, "diskon promo");
-    return { id: l.id, gross, discount, promoDiscount, afterDiscount: room - promoDiscount };
+    const lineDiscount = discountAmount(gross, l.discount);
+    const promoRaw = Math.max(l.promoDiscount ?? 0, 0);
+    assertMoney(promoRaw, "diskon promo");
+    let discount = lineDiscount;
+    let promoDiscount = Math.min(promoRaw, gross - lineDiscount);
+    if (mode === "exclusive") {
+      // Hanya satu diskon per baris: yang lebih besar menang (seri: diskon baris).
+      if (lineDiscount >= Math.min(promoRaw, gross)) promoDiscount = 0;
+      else {
+        discount = 0;
+        promoDiscount = Math.min(promoRaw, gross);
+      }
+    }
+    return { id: l.id, gross, discount, promoDiscount, afterDiscount: gross - discount - promoDiscount, orderDiscountShare: 0 };
   });
 
   const subtotal = lines.reduce((a, l) => a + l.gross, 0);
   const lineDiscountTotal = lines.reduce((a, l) => a + l.discount, 0);
   const promoDiscountTotal = lines.reduce((a, l) => a + l.promoDiscount, 0);
   const afterLines = subtotal - lineDiscountTotal - promoDiscountTotal;
-  const orderDiscount = discountAmount(afterLines, input.orderDiscount);
+  // Diskon pesanan menurut mode; dibagi ke baris yang berhak (sebanding dengan sisa harganya).
+  const eligible = lines.map((l) => (mode === "exclusive" ? l.discount === 0 && l.promoDiscount === 0 : true));
+  const eligibleAfter = lines.reduce((a, l, i) => a + (eligible[i] ? l.afterDiscount : 0), 0);
+  const eligibleGross = lines.reduce((a, l, i) => a + (eligible[i] ? l.gross : 0), 0);
+  let orderDiscount: Minor;
+  if (mode === "stack") orderDiscount = Math.min(afterLines, discountAmount(subtotal, input.orderDiscount));
+  else if (mode === "exclusive") orderDiscount = discountAmount(eligibleGross, input.orderDiscount);
+  else orderDiscount = discountAmount(afterLines, input.orderDiscount);
+  orderDiscount = Math.min(orderDiscount, eligibleAfter);
+  const shares = allocateProportional(orderDiscount, lines.map((l, i) => (eligible[i] ? l.afterDiscount : 0)));
+  lines.forEach((l, i) => {
+    l.orderDiscountShare = shares[i]!;
+  });
   const discountTotal = lineDiscountTotal + promoDiscountTotal + orderDiscount;
   const base = afterLines - orderDiscount;
 

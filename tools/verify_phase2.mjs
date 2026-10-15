@@ -84,6 +84,16 @@ check("kode aktivasi tampil (format XXXX-XXXX)", /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.tes
 await bo.screenshot({ path: `${out}/02-device-code.png` });
 await bo.getByRole("button", { name: "Tutup" }).first().click();
 
+// Form diskon: sasaran hanya tampil untuk lingkup "item"
+await bo.goto(`${base}/id/discounts`, { waitUntil: "networkidle" });
+await bo.getByRole("button", { name: /Tambah diskon|Buat diskon/i }).first().click();
+const targetVisible = () => bo.getByText("Item sasaran").isVisible();
+check("form diskon umum tidak menampilkan item sasaran", !(await targetVisible()));
+await bo.getByLabel("Berlaku untuk").selectOption("item");
+check("memilih lingkup item menampilkan item dan kategori sasaran", (await targetVisible()) && (await bo.getByText("Kategori sasaran").isVisible()));
+await bo.screenshot({ path: `${out}/02b-discount-scope.png` });
+await bo.keyboard.press("Escape");
+
 // ============================================================ Kasir (tablet)
 const cashierCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const pos = await cashierCtx.newPage();

@@ -19,6 +19,7 @@ interface Outlet {
   taxOnGratuity: boolean;
   roundingStep: number;
   roundingMode: "nearest" | "up" | "down";
+  discountMode: "sequential" | "stack" | "exclusive";
 }
 
 const emptyForm = {
@@ -32,6 +33,7 @@ const emptyForm = {
   taxOnGratuity: true,
   roundingStep: 0,
   roundingMode: "nearest" as Outlet["roundingMode"],
+  discountMode: "sequential" as Outlet["discountMode"],
   assignCatalog: true,
 };
 const zones = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Riyadh", "Asia/Dubai", "Asia/Singapore", "UTC"];
@@ -81,7 +83,7 @@ export default function OutletsPage() {
     setEditing("new");
   };
   const openEdit = (o: Outlet) => {
-    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, pricesIncludeGratuity: o.pricesIncludeGratuity, taxOnGratuity: o.taxOnGratuity, roundingStep: o.roundingStep, roundingMode: o.roundingMode, assignCatalog: true });
+    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, pricesIncludeGratuity: o.pricesIncludeGratuity, taxOnGratuity: o.taxOnGratuity, roundingStep: o.roundingStep, roundingMode: o.roundingMode, discountMode: o.discountMode, assignCatalog: true });
     setOriginalTaxMode(o.pricesIncludeTax);
     setErrors({});
     setEditing(o);
@@ -303,6 +305,15 @@ export default function OutletsPage() {
                 )}
               </Field>
             </div>
+            <Field label={t("outlets.discountMode")} hint={t(`outlets.discountModeHint.${form.discountMode}`)} error={errors.discountMode}>
+              {(id) => (
+                <Select id={id} value={form.discountMode} onChange={(e) => setForm((f) => ({ ...f, discountMode: e.target.value as Outlet["discountMode"] }))}>
+                  <option value="sequential">{t("outlets.discountSequential")}</option>
+                  <option value="stack">{t("outlets.discountStack")}</option>
+                  <option value="exclusive">{t("outlets.discountExclusive")}</option>
+                </Select>
+              )}
+            </Field>
             {editing !== "new" && form.pricesIncludeTax !== originalTaxMode ? (
               <p role="status" className="rounded-md bg-warn-soft px-3 py-2 text-xs">
                 {t("outlets.taxModeChangeWarning")}

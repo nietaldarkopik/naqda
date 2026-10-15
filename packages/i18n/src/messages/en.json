@@ -119,7 +119,16 @@
     "roundingMode": "Rounding direction",
     "roundNearest": "Nearest",
     "roundUp": "Up",
-    "roundDown": "Down"
+    "roundDown": "Down",
+    "discountMode": "Discount combination",
+    "discountSequential": "Sequential",
+    "discountStack": "Combined (stack)",
+    "discountExclusive": "Only one",
+    "discountModeHint": {
+      "sequential": "Item discount, then promo, then order discount, each calculated on the price left after the previous one.",
+      "stack": "All discounts are calculated on the original price and added together (never above the price).",
+      "exclusive": "An item gets only one discount (the largest). The order discount only applies to items without a discount."
+    }
   },
   "employees": {
     "title": "Employees",
@@ -199,7 +208,12 @@
       "value": "Value",
       "percent": "Percent",
       "amount": "Amount",
-      "customizable": "Cashier can change the value"
+      "customizable": "Cashier can change the value",
+      "scope": "Applies to",
+      "scopeOrder": "Whole order (general)",
+      "scopeItem": "Specific items/categories",
+      "targetItems": "Target items",
+      "targetCategories": "Target categories"
     },
     "items": {
       "title": "Items",
@@ -380,7 +394,8 @@
     "paymentInvalid": "Invalid payment",
     "paymentShort": "Payment is less than the amount due",
     "splitInvalid": "Invalid split selection",
-    "cashShort": "Not enough cash in the drawer"
+    "cashShort": "Not enough cash in the drawer",
+    "discountScope": "This discount does not apply to that item/order"
   },
   "devices": {
     "title": "POS Devices",
@@ -531,5 +546,9 @@
     "receipt": "Receipt",
     "print": "Print",
     "notPaid": "UNPAID"
+  },
+  "discounts": {
+    "targetRequired": "Choose at least one target item or category",
+    "targetNotAllowed": "A general discount cannot have target items or categories"
   }
 }
