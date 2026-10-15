@@ -1,5 +1,6 @@
 "use client";
 
+import { Logo } from "@/components/Logo";
 import {
   Activity,
   BarChart3,
@@ -172,9 +173,12 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col bg-side text-side-text">
-        <div className="px-5 py-5">
-          <div className="text-xl font-bold tracking-wide text-white">{t("app.name")}</div>
-          <div className="mt-1 truncate text-xs opacity-70">{business?.name}</div>
+        <div className="flex items-center gap-3 px-5 py-5">
+          <Logo size={36} framed />
+          <div className="min-w-0">
+            <div className="text-xl font-bold tracking-wide text-white">{t("app.name")}</div>
+            <div className="truncate text-xs opacity-70">{business?.name}</div>
+          </div>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Menu">
           {nav.filter((entry) => (!entry.privilege || can(entry.privilege)) && (!entry.any || entry.any.some(can))).map((entry) => {

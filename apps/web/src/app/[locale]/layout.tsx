@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: { default: t("name"), template: `%s | ${t("name")}` },
     description: t("tagline"),
     manifest: "/manifest.webmanifest",
-    icons: { icon: "/icon.svg", apple: "/icon.svg" },
+    icons: { icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/logo.png", sizes: "96x96", type: "image/png" }], apple: "/apple-touch-icon.png" },
     appleWebApp: { capable: true, title: "Naqdi", statusBarStyle: "default" },
   };
 }

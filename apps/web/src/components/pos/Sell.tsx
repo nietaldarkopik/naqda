@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CartError, PaymentError, priceCartOffline, settle, type CartInput, type PricingPack } from "@naqdi/domain";
 import { buildSaleOp } from "@naqdi/sync";
 import { Button, Input, Select, useToast } from "@/components/ui";
+import { Logo } from "@/components/Logo";
 import { getEngine, loadRef, saveRef, useOfflineStatus } from "@/lib/offline/engine";
 import { newUuid, offlineOrderView } from "@/lib/offline/receipt";
 import { useFullscreen, useWakeLock } from "@/lib/useDevice";
@@ -444,9 +445,12 @@ export function Sell({
   return (
     <div className="flex h-dvh flex-col bg-bg pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <header className="flex items-center justify-between gap-2 border-b border-line bg-surface px-3 py-2 sm:px-4">
-        <div className="min-w-0">
-          <div className="truncate font-semibold">{ctx.session.outlet.name}</div>
-          <div className="truncate text-xs text-muted">{ctx.session.user.name}</div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Logo size={34} />
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{ctx.session.outlet.name}</div>
+            <div className="truncate text-xs text-muted">{ctx.session.user.name}</div>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <SyncBadge status={offline} onOpen={() => setSyncOpen(true)} />

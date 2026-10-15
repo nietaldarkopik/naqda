@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState, type FormEvent } from "react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Logo } from "@/components/Logo";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import { ApiError } from "@/lib/api";
@@ -39,9 +40,12 @@ export default function LoginPage() {
     <div className="grid min-h-screen place-items-center p-4">
       <div className="w-full max-w-sm space-y-5">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-2xl font-bold text-brand">{t("app.name")}</div>
-            <div className="text-sm text-muted">{t("app.tagline")}</div>
+          <div className="flex items-center gap-3">
+            <Logo size={56} />
+            <div>
+              <div className="text-2xl font-bold text-brand">{t("app.name")}</div>
+              <div className="text-sm text-muted">{t("app.tagline")}</div>
+            </div>
           </div>
           <LanguageSwitcher />
         </div>

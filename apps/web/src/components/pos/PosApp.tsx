@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { Locale } from "@naqdi/i18n";
 import { Badge, Button, Field, Input, useToast } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Logo } from "@/components/Logo";
 import { formatMinor, parseMajor } from "@/lib/money";
 import {
   getDeviceToken,
@@ -173,6 +174,9 @@ function PosFlow() {
 const Frame = ({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) => (
   <div className="grid min-h-screen place-items-center p-4">
     <div className="w-full max-w-md space-y-5 rounded-2xl border border-line bg-surface p-6 shadow-sm">
+      <div className="flex justify-center">
+        <Logo size={64} />
+      </div>
       {children}
       <div className="flex justify-center">{footer ?? <LanguageSwitcher />}</div>
     </div>

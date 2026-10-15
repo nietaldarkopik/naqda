@@ -6,11 +6,13 @@
  * - Halaman kasir: jaringan dulu (agar pembaruan langsung terpakai), salinan terakhir bila jaringan gagal.
  * - Aset /_next/static/ (nama berkas memuat hash isi): salinan dulu, selamanya valid.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGES = `naqdi-pages-${VERSION}`;
 const ASSETS = `naqdi-assets-${VERSION}`;
 const POS_PAGE = /^\/(id|en|ar)\/pos\/?$/;
 const NETWORK_TIMEOUT_MS = 5000;
+// Berkas merek kecil yang tampil di layar kasir: disimpan agar tidak menjadi gambar rusak saat offline.
+const BRAND_FILES = new Set(["/logo.png", "/icon-192.png", "/icon-512.png"]);
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -60,7 +62,7 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   if (request.mode === "navigate" && POS_PAGE.test(url.pathname)) {
     event.respondWith(networkFirstPage(request, url));
-  } else if (url.pathname.startsWith("/_next/static/")) {
+  } else if (url.pathname.startsWith("/_next/static/") || BRAND_FILES.has(url.pathname)) {
     event.respondWith(cacheFirst(request));
   }
 });
@@ -76,7 +78,7 @@ self.addEventListener("message", (event) => {
           const url = new URL(raw, self.location.origin);
           if (url.origin !== self.location.origin) continue;
           const isPage = POS_PAGE.test(url.pathname);
-          if (!isPage && !url.pathname.startsWith("/_next/static/")) continue;
+          if (!isPage && !url.pathname.startsWith("/_next/static/") && !BRAND_FILES.has(url.pathname)) continue;
           const cache = await caches.open(isPage ? PAGES : ASSETS);
           const key = isPage ? pageKey(url) : url.href;
           if (await cache.match(key)) continue;

@@ -15,7 +15,7 @@ export function RegisterSw() {
       .then(() => navigator.serviceWorker.ready)
       .then((reg) => {
         if (cancelled) return;
-        const urls = [location.href, ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.includes("/_next/static/"))];
+        const urls = [location.href, "/logo.png", ...performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.includes("/_next/static/"))];
         reg.active?.postMessage({ type: "cache-urls", urls });
       })
       .catch(() => undefined);
