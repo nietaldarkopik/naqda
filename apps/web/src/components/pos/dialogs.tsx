@@ -231,7 +231,7 @@ export function PayDialog({
   ctx: Ctx;
   total: number;
   onClose: () => void;
-  onPay: (payments: { method: string; amount: number; reference?: string | null }[]) => Promise<boolean>;
+  onPay: (payments: { method: string; amount: number; reference?: string | null }[], stockOverride?: boolean) => Promise<boolean>;
 }) {
   const t = useTranslations("cashier");
   const unit = 10 ** ctx.exponent;

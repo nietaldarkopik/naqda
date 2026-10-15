@@ -76,7 +76,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 - Tab **Favorit/Custom** belum ada (hanya kategori dan pencarian). Metode pembayaran adalah daftar tetap (belum bisa diatur di Back Office; fase 7).
 - Struk dicetak lewat dialog cetak browser. **Belum ada** printer thermal/ESC-POS, laci kas otomatis, atau pengiriman struk email/SMS (tabel `receipt_outbox` sudah ada, belum ada endpoint).
 - **Belum offline**: kasir butuh koneksi ke server. Sesi kasir hanya di memori, jadi memuat ulang halaman meminta PIN lagi (perangkat tetap terdaftar).
-- Stok belum berkurang saat jual (fase 5); promo dievaluasi saat bill disimpan, bukan saat dibayar (bill yang disimpan sebelum promo berakhir tetap memakai promo itu).
+- (Stok kini berkurang saat jual: lihat Fase 5.) Promo dievaluasi saat bill disimpan, bukan saat dibayar (bill yang disimpan sebelum promo berakhir tetap memakai promo itu).
 - Diskon pesanan tidak ikut terbawa ke bill baru saat pisah bill; promo dihitung ulang untuk kedua bill.
 - Rute kasir belum dibatasi laju selain aktivasi dan login PIN.
 
@@ -95,7 +95,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Catatan dan batas** (jangan dianggap ada):
 - **Kirim ulang struk** (email/SMS) **belum dikerjakan**: butuh penyedia email/SMS. Cetak ulang struk dari daftar bill sudah ada.
-- Refund dihitung dari total pesanan secara proporsional; **pajak dan service tidak dilaporkan terpisah per refund** (laporan di Fase 4 yang menentukan penyajiannya). Stok belum dikembalikan (Fase 5).
+- Refund dihitung dari total pesanan secara proporsional; **pajak dan service tidak dilaporkan terpisah per refund** (laporan di Fase 4 yang menentukan penyajiannya). Pengembalian ke stok tersedia sebagai opsi refund (Fase 5).
 - Refund ke metode berbeda dari yang dipakai saat bayar, dan refund pada bill yang dibayar di shift yang sudah lama, belum diatur khusus (batas waktu refund belum ada).
 - Tidak ada **gabung meja/bill** dan tidak ada reservasi. Denah memakai kisi tetap 24 x 14 sel dan meja berbentuk persegi/bulat saja.
 - Aktivitas belum bisa difilter menurut tanggal atau pengguna, dan belum ada ekspor.
@@ -116,7 +116,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 **Catatan dan batas** (jangan dianggap ada):
 - **Invoices** (faktur B2B) tidak dibuat: belum ada fitur faktur/pelanggan korporat (fase 6+). Ekspor ke Google Sheets tidak ada; hanya CSV.
 - Laporan dihitung langsung dari tabel transaksi (tanpa tabel agregat harian). Cukup untuk puluhan ribu transaksi per rentang; di atas itu perlu tabel agregat `daily_sales` (doc 02 bagian 8).
-- **HPP paket (bundle) belum dihitung**, jadi laba kotor paket terlalu tinggi; HPP item memakai modal varian yang dibekukan saat transaksi.
+- HPP dibekukan saat transaksi: dari resep/biaya rata-rata bahan bila ada, kalau tidak dari modal varian; HPP paket = jumlah HPP komponen (Fase 5).
 - Nilai refund di laporan item/kategori termasuk bagian pajak/service; kolom penjualan bersih memakai bagian nilai barang.
 - Pajak dan service pada laporan Pajak/Service Charge adalah yang dipungut **sebelum refund** (ringkasan sudah memotongnya).
 - Tidak ada pembanding periode sebelumnya, grafik per meja/kasir, laporan terjadwal lewat email, atau batas waktu zona waktu campuran dalam satu tabel (waktu ditampilkan dalam zona outlet pertama).
@@ -124,12 +124,29 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: angka laporan cocok dengan data uji dan rumus doc 02 bagian 8. Tercapai.
 
-## Fase 5. Stok dan ingredient (4–5 sesi)
-- Stock level + movement, pengurangan saat jual, stock limit.
-- Ingredient raw/semi-finished, resep, produce, biaya rata-rata, COGS.
-- Supplier, PO (Simple lalu Advanced), transfer, adjustment, inventory summary.
-- Modifier stock.
-- **Selesai bila**: tes alur stok (jual, refund, PO, transfer, adjustment) lulus semua.
+## Fase 5. Stok dan ingredient — SELESAI 15 Okt 2026 (dengan batas di bawah)
+
+**Berjalan dan teruji** (317 tes otomatis: 148 unit + 169 API; 85 pemeriksaan browser di `tools/verify_phase2/3/4/5.mjs`):
+- **Buku besar stok** (`stock_movements`, hanya menambah) + saldo per outlet (`stock_levels`). Jumlah berskala 3 desimal, biaya **rata-rata tertimbang** per outlet; setiap baris mencatat saldo sesudahnya. Invarian diuji: untuk setiap objek, jumlah seluruh pergerakan = saldo, dan rantai saldo tidak patah, termasuk saat 5 pembayaran berjalan bersamaan (baris saldo dikunci dengan urutan tetap).
+- **Bahan** (mentah dan setengah jadi), **resep setengah jadi** (hasil per produksi, resep bertingkat, siklus ditolak), **resep varian item**, **stok modifier** (bahan terpotong per opsi), dan komponen **paket**. Tombol **Produksi** memotong bahan dan menghitung biaya hasil = nilai bahan / jumlah hasil.
+- **Penjualan memotong stok** saat dibayar (varian item yang dilacak, bahan resep, bahan modifier, komponen paket). **HPP kini dari resep**: biaya rata-rata bahan di outlet ini + modifier; tanpa resep memakai modal manual; paket = jumlah komponen. Nilai persediaan yang keluar sama dengan HPP di laporan.
+- **Batas stok per outlet**: tanpa batas (boleh minus), tolak, atau tolak tetapi kasir boleh menjual tetap (dengan peringatan item apa yang kurang). Bill tetap terbuka bila ditolak; tidak ada pembayaran setengah jalan.
+- **Refund dengan opsi "kembalikan ke stok"**: sebanding unit yang di-refund dan dengan biaya saat dijual; refund tanpa restock lalu dengan restock tidak mengembalikan lebih dari bagian unitnya.
+- **Pemasok, PO** (nomor berurutan per outlet; terima sebagian atau seluruhnya; biaya rata-rata diperbarui saat barang diterima; batal bila belum ada yang diterima), **transfer antar outlet** (stok keluar saat dikirim, masuk saat diterima dengan biaya asal; terima sebagian, selisih dianggap hilang; batal mengembalikan ke asal), **penyesuaian / stok opname** (selisih terhadap saldo sistem beserta nilainya), peringatan stok menipis per outlet, riwayat pergerakan per objek.
+- **Ringkasan Inventori** (awal, pembelian, penjualan, transfer, penyesuaian, produksi, akhir, nilai) dengan filter tanggal/outlet dan ekspor CSV; angka akhir sama dengan saldo stok.
+- Halaman Back Office: Bahan, Resep dan Stok Modifier, Stok, PO, Transfer, Penyesuaian, Pemasok; kasir menampilkan sisa stok di tombol item.
+
+**Catatan dan batas** (jangan dianggap ada):
+- **PO/Transfer "Advanced"** (persetujuan berjenjang, pengiriman terpisah) **tidak dibuat**; hanya alur sederhana, dengan penerimaan sebagian. Tidak ada email PO ke pemasok.
+- **Satu satuan per bahan**: tidak ada konversi satuan (beli per kg, resep per gram) — isi PO dalam satuan yang sama dengan resep. Tidak ada impor/ekspor bahan.
+- Stok varian dilacak di tingkat **item** ("lacak stok" berlaku untuk semua varian item). Batas peringatan diatur di halaman Stok per outlet, bukan di form item.
+- Pemotongan terjadi saat **dibayar**, bukan saat bill disimpan; dua bill terbuka bisa sama-sama "melihat" stok yang sama sampai salah satu dibayar.
+- Refund tanpa "kembalikan ke stok" (mis. makanan terbuang) tidak mengubah stok dan tidak mencatat kerugian; catat lewat Penyesuaian bila perlu.
+- Stok bahan yang dipakai resep tetapi `lacak stok` dimatikan tidak dipotong (hanya menjadi HPP).
+- Nilai (Rp) per baris dibulatkan; jumlah seluruh baris bisa berbeda satu-dua satuan dari nilai saldo × biaya rata-rata.
+- Notifikasi email stok menipis belum ada (hanya indikator di halaman Stok).
+
+**Selesai bila**: tes alur stok (jual, refund, PO, transfer, adjustment) lulus semua. Tercapai.
 
 ## Fase 6. Pelanggan dan loyalty (2–3 sesi)
 - Customer list, tambah pelanggan di kasir, feedback.

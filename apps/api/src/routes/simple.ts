@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z, type ZodObject, type ZodRawShape } from "zod";
 import { newId } from "@naqdi/db";
 import { AppError, duplicateKey } from "../errors";
+import type { Privilege } from "@naqdi/domain";
 import { iso, patchSchema, requirePrivilege, validate, type AppEnv } from "../http";
 import { activeOutletIds, genericRepo, type LinkSpec } from "../repo/generic";
 import { writeAudit } from "../repo/audit";
@@ -27,6 +28,8 @@ export interface SimpleConfig {
   fields: string[];
   /** Aturan lintas bidang; menerima data gabungan (data lama + perubahan). Mengembalikan galat per bidang atau null. */
   check?: (merged: Record<string, unknown>) => Record<string, string> | null;
+  /** Hak untuk menulis (bawaan library.manage). */
+  writePrivilege?: Privilege;
 }
 
 /** Membuat router CRUD untuk entitas bernama milik bisnis. Hak tulis: library.manage. */
@@ -83,7 +86,7 @@ export const simpleRoutes = (cfg: SimpleConfig) => {
     return c.json(present(row));
   });
 
-  app.post("/", requirePrivilege("library.manage"), validate("json", bodySchema), async (c) => {
+  app.post("/", requirePrivilege(cfg.writePrivilege ?? "library.manage"), validate("json", bodySchema), async (c) => {
     const data = c.req.valid("json") as Record<string, unknown>;
     const { values, linkValues } = split(data);
     await resolveLinks(c, data, linkValues);
@@ -107,7 +110,7 @@ export const simpleRoutes = (cfg: SimpleConfig) => {
 
   app.patch(
     "/:id",
-    requirePrivilege("library.manage"),
+    requirePrivilege(cfg.writePrivilege ?? "library.manage"),
     validate("param", idParam),
     validate("json", patchSchema(bodySchema)),
     async (c) => {
@@ -136,7 +139,7 @@ export const simpleRoutes = (cfg: SimpleConfig) => {
     },
   );
 
-  app.delete("/:id", requirePrivilege("library.manage"), validate("param", idParam), async (c) => {
+  app.delete("/:id", requirePrivilege(cfg.writePrivilege ?? "library.manage"), validate("param", idParam), async (c) => {
     const { id } = c.req.valid("param");
     const db = c.get("db");
     const auth = c.get("auth");

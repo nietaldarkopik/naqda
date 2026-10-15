@@ -12,6 +12,7 @@ import {
   outlets,
   salesTypeGratuities,
   salesTypes,
+  suppliers,
   taxes,
   taxOutlets,
 } from "@naqdi/db";
@@ -97,4 +98,22 @@ export const discountRoutes = () =>
     ],
     outletField: "outletIds",
     fields: ["kind", "value", "scope", "customizable", "status"],
+  });
+
+const optText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => (v ? v : null));
+
+/** Pemasok untuk pembelian (PO). Menulis butuh inventory.manage. */
+export const supplierRoutes = () =>
+  simpleRoutes({
+    entity: "supplier",
+    table: suppliers,
+    schema: z.object({ name, phone: optText(32), email: optText(191), address: optText(500), city: optText(120), postalCode: optText(16) }),
+    fields: ["phone", "email", "address", "city", "postalCode"],
+    writePrivilege: "inventory.manage",
   });

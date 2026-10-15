@@ -50,6 +50,20 @@
       "when": 1792044619644,
       "tag": "0006_boring_kate_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1792056184459,
+      "tag": "0007_clumsy_captain_midlands",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1792056257683,
+      "tag": "0008_dazzling_sumo",
+      "breakpoints": true
     }
   ]
 }

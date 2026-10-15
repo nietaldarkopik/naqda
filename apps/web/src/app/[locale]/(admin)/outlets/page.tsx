@@ -20,6 +20,7 @@ interface Outlet {
   roundingStep: number;
   roundingMode: "nearest" | "up" | "down";
   discountMode: "sequential" | "stack" | "exclusive";
+  stockMode: "off" | "block" | "override";
 }
 
 const emptyForm = {
@@ -34,6 +35,7 @@ const emptyForm = {
   roundingStep: 0,
   roundingMode: "nearest" as Outlet["roundingMode"],
   discountMode: "sequential" as Outlet["discountMode"],
+  stockMode: "off" as Outlet["stockMode"],
   assignCatalog: true,
 };
 const zones = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Riyadh", "Asia/Dubai", "Asia/Singapore", "UTC"];
@@ -83,7 +85,7 @@ export default function OutletsPage() {
     setEditing("new");
   };
   const openEdit = (o: Outlet) => {
-    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, pricesIncludeGratuity: o.pricesIncludeGratuity, taxOnGratuity: o.taxOnGratuity, roundingStep: o.roundingStep, roundingMode: o.roundingMode, discountMode: o.discountMode, assignCatalog: true });
+    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, pricesIncludeGratuity: o.pricesIncludeGratuity, taxOnGratuity: o.taxOnGratuity, roundingStep: o.roundingStep, roundingMode: o.roundingMode, discountMode: o.discountMode, stockMode: o.stockMode, assignCatalog: true });
     setOriginalTaxMode(o.pricesIncludeTax);
     setErrors({});
     setEditing(o);
@@ -311,6 +313,15 @@ export default function OutletsPage() {
                   <option value="sequential">{t("outlets.discountSequential")}</option>
                   <option value="stack">{t("outlets.discountStack")}</option>
                   <option value="exclusive">{t("outlets.discountExclusive")}</option>
+                </Select>
+              )}
+            </Field>
+            <Field label={t("outlets.stockMode")} hint={t(`outlets.stockModeHint.${form.stockMode}`)} error={errors.stockMode}>
+              {(id) => (
+                <Select id={id} value={form.stockMode} onChange={(e) => setForm((f) => ({ ...f, stockMode: e.target.value as Outlet["stockMode"] }))}>
+                  <option value="off">{t("outlets.stockOff")}</option>
+                  <option value="block">{t("outlets.stockBlock")}</option>
+                  <option value="override">{t("outlets.stockOverride")}</option>
                 </Select>
               )}
             </Field>

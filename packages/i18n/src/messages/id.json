@@ -51,7 +51,8 @@
     "yes": "Ya",
     "no": "Tidak",
     "back": "Kembali",
-    "continue": "Lanjut"
+    "continue": "Lanjut",
+    "view": "Lihat"
   },
   "auth": {
     "title": "Masuk ke Back Office",
@@ -104,7 +105,15 @@
     "rGratuity": "Service Charge",
     "rCollectedBy": "Dikumpulkan Oleh",
     "rTables": "Laporan Meja",
-    "rOutlets": "Perbandingan Outlet"
+    "rOutlets": "Perbandingan Outlet",
+    "iIngredients": "Bahan (Ingredient)",
+    "iRecipes": "Resep dan Stok Modifier",
+    "iStock": "Stok",
+    "iPo": "Pembelian (PO)",
+    "iTransfers": "Transfer",
+    "iAdjustments": "Penyesuaian Stok",
+    "iSuppliers": "Pemasok",
+    "iSummary": "Ringkasan Inventori"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -144,6 +153,15 @@
       "sequential": "Diskon item, lalu promo, lalu diskon pesanan dihitung dari sisa harga setelah diskon sebelumnya.",
       "stack": "Semua diskon dihitung dari harga awal lalu dijumlahkan (tidak melebihi harga).",
       "exclusive": "Satu item hanya mendapat satu diskon (yang terbesar). Diskon pesanan hanya untuk item yang belum berdiskon."
+    },
+    "stockMode": "Batas stok saat menjual",
+    "stockOff": "Tanpa batas (boleh minus)",
+    "stockBlock": "Tolak bila stok kurang",
+    "stockOverride": "Tolak, kasir boleh menjual tetap",
+    "stockModeHint": {
+      "off": "Penjualan tidak pernah ditolak; stok bisa menjadi minus.",
+      "block": "Penjualan ditolak bila stok item/bahan tidak cukup.",
+      "override": "Kasir diperingatkan dan boleh mengonfirmasi untuk menjual tetap."
     }
   },
   "employees": {
@@ -420,7 +438,8 @@
     "notPaid": "Bill ini belum dibayar",
     "refundMethod": "Pilih metode yang dipakai saat membayar",
     "refundInvalid": "Jumlah refund tidak valid atau melebihi sisa",
-    "refundZero": "Nilai refund nol"
+    "refundZero": "Nilai refund nol",
+    "stockShort": "Stok tidak cukup untuk beberapa item"
   },
   "devices": {
     "title": "Perangkat Kasir",
@@ -597,7 +616,16 @@
     "refundConfirm": "Refund",
     "refundDone": "Refund {amount} berhasil",
     "refunded": "Di-refund",
-    "cashRefunds": "Refund tunai"
+    "cashRefunds": "Refund tunai",
+    "stockShortTitle": "Stok tidak cukup",
+    "stockNeeded": "butuh {needed}, ada {available}",
+    "stockOverrideHelp": "Stok akan menjadi minus bila dijual. Jual tetap?",
+    "stockBlockedHelp": "Outlet ini menolak penjualan saat stok kurang. Kurangi jumlah atau tambah stok.",
+    "sellAnyway": "Jual tetap",
+    "soldOut": "Habis",
+    "stockLeft": "Sisa {count}",
+    "refundRestock": "Kembalikan ke stok",
+    "refundRestockHint": "Centang bila barang masih layak jual. Bahan/stok dikembalikan sebanding jumlah yang di-refund."
   },
   "discounts": {
     "targetRequired": "Pilih minimal satu item atau kategori sasaran",
@@ -694,7 +722,15 @@
       "expectedCash": "Seharusnya",
       "actualCash": "Hitungan aktual",
       "difference": "Selisih",
-      "subtotal": "Subtotal"
+      "subtotal": "Subtotal",
+      "unit": "Satuan",
+      "beginning": "Awal",
+      "purchase": "Pembelian",
+      "sales": "Penjualan",
+      "transfer": "Transfer",
+      "adjustment": "Penyesuaian",
+      "production": "Produksi",
+      "ending": "Akhir"
     },
     "metrics": {
       "orders": "Jumlah transaksi",
@@ -755,7 +791,8 @@
       "tables": "Laporan Meja",
       "shifts": "Shift",
       "transactions": "Transaksi",
-      "refunds": "Refund"
+      "refunds": "Refund",
+      "inventory": "Ringkasan Inventori"
     },
     "kindHints": {
       "summary": "Penjualan kotor sampai total diterima",
@@ -772,7 +809,8 @@
       "collected-by": "Penjualan dan refund per kasir",
       "tables": "Pax, durasi, dan pendapatan per pax",
       "shifts": "Uang seharusnya, hitungan aktual, dan selisih per shift",
-      "transactions": "Daftar transaksi, bill dibatalkan, dan item dihapus"
+      "transactions": "Daftar transaksi, bill dibatalkan, dan item dihapus",
+      "inventory": "Awal, pembelian, penjualan, transfer, penyesuaian, produksi, dan akhir per objek"
     },
     "tabs": {
       "success": "Berhasil",
@@ -796,5 +834,160 @@
     },
     "summaryNote": "Penjualan bersih = nilai barang sebelum pajak dan service, setelah diskon dan refund. Total diterima = penjualan bersih + service + pajak + pembulatan. Refund dihitung pada hari refund. Jam dan hari mengikuti zona waktu tiap outlet.",
     "itemNote": "Penjualan kotor dan diskon sebelum refund; penjualan bersih, HPP, dan jumlah terjual sudah dikurangi refund. Nilai refund termasuk bagian pajak/service. HPP paket belum dihitung."
+  },
+  "inventory": {
+    "recipeCycle": "Resep tidak boleh melingkar (bahan memakai dirinya sendiri)",
+    "rawNoRecipe": "Bahan mentah tidak punya resep",
+    "ingredientInUse": "Bahan masih dipakai di resep atau stok modifier",
+    "notTracked": "Objek ini tidak dilacak stoknya",
+    "notSemi": "Pilih bahan setengah jadi",
+    "noRecipe": "Bahan setengah jadi belum punya resep",
+    "insufficient": "Stok tidak cukup",
+    "overReceive": "Jumlah diterima melebihi sisa",
+    "poClosed": "PO sudah selesai atau dibatalkan",
+    "sameOutlet": "Outlet asal dan tujuan harus berbeda",
+    "transferClosed": "Transfer sudah selesai atau dibatalkan",
+    "note": "Catatan",
+    "quantity": "Jumlah",
+    "unitCost": "Biaya per satuan",
+    "remove": "Hapus",
+    "system": "Sistem",
+    "addSubject": "Cari item atau bahan untuk ditambahkan",
+    "noLines": "Belum ada baris. Cari item atau bahan di atas.",
+    "noSubjects": "Tidak ada item terlacak stok atau bahan yang cocok. Aktifkan 'lacak stok' di item.",
+    "closeList": "Tutup daftar",
+    "kind": {
+      "variant": "Item",
+      "ingredient": "Bahan"
+    },
+    "suppliers": {
+      "title": "Pemasok",
+      "create": "Tambah pemasok",
+      "edit": "Ubah pemasok",
+      "city": "Kota",
+      "postalCode": "Kode pos"
+    },
+    "ingredients": {
+      "title": "Bahan (Ingredient)",
+      "create": "Tambah bahan",
+      "edit": "Ubah bahan",
+      "kind": "Jenis",
+      "allKinds": "Semua jenis",
+      "raw": "Mentah",
+      "semi": "Setengah jadi",
+      "unit": "Satuan",
+      "unitHint": "Mis. g, ml, pcs, kg.",
+      "category": "Kategori",
+      "trackStock": "Lacak stok",
+      "notTracked": "Tanpa stok",
+      "defaultCost": "Biaya awal per satuan",
+      "defaultCostHint": "Dipakai sampai ada pembelian di outlet. Boleh 3 desimal.",
+      "recipe": "Resep",
+      "yield": "Hasil satu kali produksi ({unit})",
+      "component": "Bahan",
+      "quantity": "Jumlah",
+      "addComponent": "Tambah bahan",
+      "produce": "Produksi",
+      "batches": "Jumlah produksi (kali)",
+      "produceHelp": "Satu kali produksi menghasilkan {yield} {unit}. Bahan resep dipotong dari stok outlet dan biaya dihitung dari bahan itu.",
+      "produced": "Menghasilkan {qty} {unit}"
+    },
+    "recipes": {
+      "title": "Resep dan Stok Modifier",
+      "subtitle": "Bahan yang terpotong setiap item atau pilihan modifier terjual. Biaya pokok (HPP) dihitung dari biaya rata-rata bahan.",
+      "variants": "Resep item",
+      "options": "Stok modifier",
+      "item": "Item",
+      "variant": "Varian",
+      "option": "Opsi",
+      "set": "Set modifier",
+      "ingredients": "Bahan",
+      "count": "{count} bahan",
+      "variantHelp": "Bahan untuk SATU unit item terjual. Item tanpa resep memakai modal manual.",
+      "optionHelp": "Bahan tambahan untuk SATU unit item bila opsi ini dipilih.",
+      "costNote": "Item ini belum melacak stok sendiri. Bahan resep tetap terpotong dan menjadi HPP."
+    },
+    "stock": {
+      "title": "Stok",
+      "subtitle": "Saldo per outlet, nilai persediaan (rata-rata tertimbang), dan peringatan stok menipis",
+      "type": "Jenis",
+      "allTypes": "Semua jenis",
+      "allStatus": "Semua status",
+      "status": {
+        "out": "Habis",
+        "low": "Menipis",
+        "ok": "Aman"
+      },
+      "quantity": "Stok",
+      "avgCost": "Biaya rata-rata",
+      "alert": "Batas peringatan",
+      "alertLevel": "Peringatkan bila stok <= ({unit})",
+      "alertHint": "0 = tanpa peringatan.",
+      "history": "Riwayat",
+      "change": "Perubahan",
+      "balance": "Saldo",
+      "totalValue": "Total nilai persediaan",
+      "empty": "Belum ada item terlacak atau bahan. Aktifkan 'lacak stok' di item atau tambah bahan."
+    },
+    "movement": {
+      "purchase": "Pembelian",
+      "sale": "Penjualan",
+      "refund": "Kembali ke stok (refund)",
+      "transfer_out": "Transfer keluar",
+      "transfer_in": "Transfer masuk",
+      "transfer_cancel": "Transfer dibatalkan",
+      "adjustment": "Penyesuaian",
+      "production_out": "Bahan dipakai produksi",
+      "production_in": "Hasil produksi"
+    },
+    "po": {
+      "title": "Pembelian (PO)",
+      "subtitle": "Pesan ke pemasok, lalu terima barang (boleh bertahap). Biaya rata-rata stok diperbarui saat barang diterima.",
+      "create": "Buat PO",
+      "number": "No. PO",
+      "supplier": "Pemasok",
+      "allStatus": "Semua status",
+      "status": {
+        "waiting": "Menunggu",
+        "partial": "Sebagian diterima",
+        "completed": "Selesai",
+        "cancelled": "Dibatalkan"
+      },
+      "createAndReceive": "Buat dan langsung terima semua",
+      "receive": "Terima barang",
+      "receiveNow": "Terima sekarang",
+      "receivedQty": "Diterima",
+      "received": "Barang diterima",
+      "cancel": "Batalkan PO"
+    },
+    "transfers": {
+      "title": "Transfer",
+      "subtitle": "Kirim stok antar outlet. Stok keluar dari outlet asal saat dikirim dan masuk ke tujuan saat diterima.",
+      "create": "Buat transfer",
+      "send": "Kirim",
+      "from": "Dari outlet",
+      "to": "Ke outlet",
+      "status": {
+        "in_transit": "Dalam perjalanan",
+        "received": "Diterima",
+        "cancelled": "Dibatalkan"
+      },
+      "receive": "Terima",
+      "cancel": "Batalkan (kembali ke asal)",
+      "sent": "Transfer dikirim",
+      "receivedDone": "Transfer diterima",
+      "sentQty": "Dikirim",
+      "shortHint": "Jumlah diterima boleh lebih kecil dari yang dikirim; selisihnya dianggap hilang."
+    },
+    "adjustments": {
+      "title": "Penyesuaian Stok",
+      "subtitle": "Stok opname: masukkan hitungan aktual, sistem mencatat selisihnya beserta nilainya.",
+      "create": "Buat penyesuaian",
+      "actual": "Hitungan aktual",
+      "costIfUp": "Biaya (bila stok naik)",
+      "help": "Isi hitungan aktual tiap objek. Selisih terhadap saldo sistem dicatat sebagai penyesuaian.",
+      "items": "Objek",
+      "valueChange": "Selisih nilai"
+    }
   }
 }

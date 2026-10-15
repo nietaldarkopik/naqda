@@ -87,8 +87,26 @@ const nav: NavItem[] = [
       { key: "brands", href: "/brands", icon: Tag },
     ],
   },
-  { key: "ingredient", icon: Carrot },
-  { key: "inventory", icon: Boxes },
+  {
+    key: "ingredient",
+    icon: Carrot,
+    children: [
+      { key: "iIngredients", href: "/ingredients", icon: Carrot },
+      { key: "iRecipes", href: "/recipes", icon: Layers },
+    ],
+  },
+  {
+    key: "inventory",
+    icon: Boxes,
+    children: [
+      { key: "iStock", href: "/inventory/stock", icon: Boxes },
+      { key: "iPo", href: "/inventory/purchase-orders", icon: Receipt },
+      { key: "iTransfers", href: "/inventory/transfers", icon: Truck },
+      { key: "iAdjustments", href: "/inventory/adjustments", icon: Wrench },
+      { key: "iSuppliers", href: "/suppliers", icon: Store },
+      { key: "iSummary", href: "/reports/inventory", icon: BarChart3 },
+    ],
+  },
   { key: "onlineChannels", icon: Globe },
   { key: "customers", icon: UserRound },
   { key: "outlets", href: "/outlets", icon: Store },

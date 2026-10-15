@@ -13,7 +13,7 @@ import { employeeRoutes } from "./routes/employees";
 import { meRoutes } from "./routes/misc";
 import { outletRoutes } from "./routes/outlets";
 import { bundleRoutes } from "./routes/bundles";
-import { brandRoutes, categoryRoutes, discountRoutes, gratuityRoutes, salesTypeRoutes, taxRoutes } from "./routes/catalog-simple";
+import { brandRoutes, categoryRoutes, discountRoutes, gratuityRoutes, salesTypeRoutes, supplierRoutes, taxRoutes } from "./routes/catalog-simple";
 import { itemRoutes } from "./routes/items";
 import { modifierRoutes } from "./routes/modifiers";
 import { promoRoutes } from "./routes/promos";
@@ -25,6 +25,8 @@ import { deviceRoutes } from "./routes/devices";
 import { tableRoutes } from "./routes/tables";
 import { activityRoutes } from "./routes/activities";
 import { reportRoutes } from "./routes/reports";
+import { ingredientRoutes } from "./routes/ingredients";
+import { inventoryRoutes } from "./routes/inventory";
 import { posRoutes } from "./routes/pos-session";
 
 export interface AppDeps {
@@ -97,6 +99,9 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   secured.route("/tables", tableRoutes());
   secured.route("/activities", activityRoutes());
   secured.route("/reports", reportRoutes());
+  secured.route("/ingredients", ingredientRoutes());
+  secured.route("/suppliers", supplierRoutes());
+  secured.route("/inventory", inventoryRoutes());
   v1.route("/", secured);
 
   app.route("/api/v1", v1);

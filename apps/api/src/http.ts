@@ -66,6 +66,15 @@ export const requirePrivilege =
     await next();
   };
 
+/** Cukup salah satu hak (mis. melihat stok boleh inventory.manage atau reports.view). */
+export const requireAnyPrivilege =
+  (...options: Privilege[]): MiddlewareHandler<AppEnv> =>
+  async (c, next) => {
+    const have = new Set(c.get("auth").privileges);
+    if (!options.some((p) => have.has(p))) throw new AppError("forbidden");
+    await next();
+  };
+
 export const clientIp = (c: Context): string =>
   c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "local";
 

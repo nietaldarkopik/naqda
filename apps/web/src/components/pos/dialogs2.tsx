@@ -280,6 +280,7 @@ export function RefundDialog({ ctx, order, onClose, onDone }: { ctx: Ctx; order:
   const [qty, setQty] = useState<Record<string, number>>({});
   const [method, setMethod] = useState(methods[0] ?? "cash");
   const [reason, setReason] = useState("");
+  const [restock, setRestock] = useState(false);
   const [approverId, setApproverId] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -310,7 +311,7 @@ export function RefundDialog({ ctx, order, onClose, onDone }: { ctx: Ctx; order:
     try {
       const res = await posApi<{ order: OrderView; refund: { total: number } }>(`/orders/${order.id}/refund`, {
         method: "POST",
-        json: { lines: selection, method, reason: reason.trim(), approval: needApproval ? { userId: approverId, pin } : null },
+        json: { lines: selection, method, reason: reason.trim(), restock, approval: needApproval ? { userId: approverId, pin } : null },
       });
       toast(t("refundDone", { amount: ctx.fmt(res.refund.total) }));
       onDone(res.order);
@@ -377,6 +378,13 @@ export function RefundDialog({ ctx, order, onClose, onDone }: { ctx: Ctx; order:
           </Select>
         )}
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={restock} onChange={(e) => setRestock(e.target.checked)} data-testid="refund-restock" />
+        <span>
+          <span className="font-medium">{t("refundRestock")}</span>
+          <span className="block text-xs text-muted">{t("refundRestockHint")}</span>
+        </span>
+      </label>
       <ApprovalFields ctx={ctx} privilege="pos.refund" needApproval={needApproval} reason={reason} onReason={setReason} approverId={approverId} onApprover={setApproverId} pin={pin} onPin={setPin} error={error} />
     </Modal>
   );

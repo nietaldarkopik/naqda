@@ -1,0 +1,1 @@
+ALTER TABLE `order_items` ADD `restocked_quantity` int unsigned DEFAULT 0 NOT NULL;

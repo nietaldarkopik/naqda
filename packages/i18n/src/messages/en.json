@@ -51,7 +51,8 @@
     "yes": "Yes",
     "no": "No",
     "back": "Back",
-    "continue": "Continue"
+    "continue": "Continue",
+    "view": "View"
   },
   "auth": {
     "title": "Sign in to Back Office",
@@ -104,7 +105,15 @@
     "rGratuity": "Service Charge",
     "rCollectedBy": "Collected By",
     "rTables": "Table Report",
-    "rOutlets": "Outlet Comparison"
+    "rOutlets": "Outlet Comparison",
+    "iIngredients": "Ingredients",
+    "iRecipes": "Recipes and Modifier Stock",
+    "iStock": "Stock",
+    "iPo": "Purchase Orders",
+    "iTransfers": "Transfers",
+    "iAdjustments": "Stock Adjustments",
+    "iSuppliers": "Suppliers",
+    "iSummary": "Inventory Summary"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -144,6 +153,15 @@
       "sequential": "Item discount, then promo, then order discount, each calculated on the price left after the previous one.",
       "stack": "All discounts are calculated on the original price and added together (never above the price).",
       "exclusive": "An item gets only one discount (the largest). The order discount only applies to items without a discount."
+    },
+    "stockMode": "Stock limit when selling",
+    "stockOff": "No limit (can go negative)",
+    "stockBlock": "Reject when stock is short",
+    "stockOverride": "Reject, cashier may sell anyway",
+    "stockModeHint": {
+      "off": "Sales are never rejected; stock can go negative.",
+      "block": "Sales are rejected when item/ingredient stock is not enough.",
+      "override": "The cashier is warned and may confirm to sell anyway."
     }
   },
   "employees": {
@@ -420,7 +438,8 @@
     "notPaid": "This bill has not been paid",
     "refundMethod": "Choose a method used when paying",
     "refundInvalid": "Refund quantity is invalid or exceeds what remains",
-    "refundZero": "Refund amount is zero"
+    "refundZero": "Refund amount is zero",
+    "stockShort": "Not enough stock for some items"
   },
   "devices": {
     "title": "POS Devices",
@@ -597,7 +616,16 @@
     "refundConfirm": "Refund",
     "refundDone": "Refund of {amount} completed",
     "refunded": "Refunded",
-    "cashRefunds": "Cash refunds"
+    "cashRefunds": "Cash refunds",
+    "stockShortTitle": "Not enough stock",
+    "stockNeeded": "needs {needed}, have {available}",
+    "stockOverrideHelp": "Stock will go negative if sold. Sell anyway?",
+    "stockBlockedHelp": "This outlet rejects sales when stock is short. Reduce the quantity or add stock.",
+    "sellAnyway": "Sell anyway",
+    "soldOut": "Sold out",
+    "stockLeft": "{count} left",
+    "refundRestock": "Return to stock",
+    "refundRestockHint": "Tick if the goods are still sellable. Stock is returned in proportion to the refunded quantity."
   },
   "discounts": {
     "targetRequired": "Choose at least one target item or category",
@@ -694,7 +722,15 @@
       "expectedCash": "Expected",
       "actualCash": "Counted",
       "difference": "Difference",
-      "subtotal": "Subtotal"
+      "subtotal": "Subtotal",
+      "unit": "Unit",
+      "beginning": "Beginning",
+      "purchase": "Purchase",
+      "sales": "Sales",
+      "transfer": "Transfer",
+      "adjustment": "Adjustment",
+      "production": "Production",
+      "ending": "Ending"
     },
     "metrics": {
       "orders": "Transactions",
@@ -755,7 +791,8 @@
       "tables": "Table Report",
       "shifts": "Shifts",
       "transactions": "Transactions",
-      "refunds": "Refunds"
+      "refunds": "Refunds",
+      "inventory": "Inventory Summary"
     },
     "kindHints": {
       "summary": "From gross sales to total collected",
@@ -772,7 +809,8 @@
       "collected-by": "Sales and refunds per cashier",
       "tables": "Pax, duration and revenue per pax",
       "shifts": "Expected cash, counted cash and difference per shift",
-      "transactions": "Transactions, cancelled bills and removed items"
+      "transactions": "Transactions, cancelled bills and removed items",
+      "inventory": "Beginning, purchase, sales, transfer, adjustment, production and ending per item"
     },
     "tabs": {
       "success": "Successful",
@@ -796,5 +834,160 @@
     },
     "summaryNote": "Net sales = value of goods before tax and service, after discounts and refunds. Total collected = net sales + service + tax + rounding. Refunds count on the day of the refund. Hours and days follow each outlet's time zone.",
     "itemNote": "Gross sales and discounts are before refunds; net sales, COGS and quantity sold are after refunds. Refund amounts include their tax/service share. Bundle COGS is not tracked."
+  },
+  "inventory": {
+    "recipeCycle": "A recipe cannot be circular (an ingredient using itself)",
+    "rawNoRecipe": "Raw ingredients have no recipe",
+    "ingredientInUse": "The ingredient is still used in a recipe or modifier stock",
+    "notTracked": "This item does not track stock",
+    "notSemi": "Choose a semi-finished ingredient",
+    "noRecipe": "The semi-finished ingredient has no recipe yet",
+    "insufficient": "Not enough stock",
+    "overReceive": "Received quantity exceeds what remains",
+    "poClosed": "The PO is already completed or cancelled",
+    "sameOutlet": "Source and destination outlets must differ",
+    "transferClosed": "The transfer is already completed or cancelled",
+    "note": "Note",
+    "quantity": "Quantity",
+    "unitCost": "Cost per unit",
+    "remove": "Remove",
+    "system": "System",
+    "addSubject": "Search an item or ingredient to add",
+    "noLines": "No lines yet. Search an item or ingredient above.",
+    "noSubjects": "No stock-tracked item or ingredient matches. Turn on 'track stock' on the item.",
+    "closeList": "Close list",
+    "kind": {
+      "variant": "Item",
+      "ingredient": "Ingredient"
+    },
+    "suppliers": {
+      "title": "Suppliers",
+      "create": "Add supplier",
+      "edit": "Edit supplier",
+      "city": "City",
+      "postalCode": "Postal code"
+    },
+    "ingredients": {
+      "title": "Ingredients",
+      "create": "Add ingredient",
+      "edit": "Edit ingredient",
+      "kind": "Type",
+      "allKinds": "All types",
+      "raw": "Raw",
+      "semi": "Semi-finished",
+      "unit": "Unit",
+      "unitHint": "E.g. g, ml, pcs, kg.",
+      "category": "Category",
+      "trackStock": "Track stock",
+      "notTracked": "No stock",
+      "defaultCost": "Initial cost per unit",
+      "defaultCostHint": "Used until there is a purchase at the outlet. Up to 3 decimals.",
+      "recipe": "Recipe",
+      "yield": "Yield of one production ({unit})",
+      "component": "Ingredient",
+      "quantity": "Quantity",
+      "addComponent": "Add ingredient",
+      "produce": "Produce",
+      "batches": "Batches",
+      "produceHelp": "One batch yields {yield} {unit}. Recipe ingredients are deducted from the outlet's stock and the cost is derived from them.",
+      "produced": "Produced {qty} {unit}"
+    },
+    "recipes": {
+      "title": "Recipes and Modifier Stock",
+      "subtitle": "Ingredients deducted whenever an item or modifier option is sold. Cost of goods (COGS) comes from the ingredients' average cost.",
+      "variants": "Item recipes",
+      "options": "Modifier stock",
+      "item": "Item",
+      "variant": "Variant",
+      "option": "Option",
+      "set": "Modifier set",
+      "ingredients": "Ingredients",
+      "count": "{count} ingredients",
+      "variantHelp": "Ingredients for ONE unit of the item sold. Items without a recipe use the manual cost.",
+      "optionHelp": "Extra ingredients for ONE unit of the item when this option is chosen.",
+      "costNote": "This item does not track its own stock. Recipe ingredients are still deducted and become COGS."
+    },
+    "stock": {
+      "title": "Stock",
+      "subtitle": "Balances per outlet, inventory value (weighted average) and low-stock alerts",
+      "type": "Type",
+      "allTypes": "All types",
+      "allStatus": "All statuses",
+      "status": {
+        "out": "Out",
+        "low": "Low",
+        "ok": "OK"
+      },
+      "quantity": "Stock",
+      "avgCost": "Average cost",
+      "alert": "Alert level",
+      "alertLevel": "Alert when stock <= ({unit})",
+      "alertHint": "0 = no alert.",
+      "history": "History",
+      "change": "Change",
+      "balance": "Balance",
+      "totalValue": "Total inventory value",
+      "empty": "No tracked items or ingredients yet. Turn on 'track stock' on an item or add an ingredient."
+    },
+    "movement": {
+      "purchase": "Purchase",
+      "sale": "Sale",
+      "refund": "Returned to stock (refund)",
+      "transfer_out": "Transfer out",
+      "transfer_in": "Transfer in",
+      "transfer_cancel": "Transfer cancelled",
+      "adjustment": "Adjustment",
+      "production_out": "Used in production",
+      "production_in": "Production output"
+    },
+    "po": {
+      "title": "Purchase Orders",
+      "subtitle": "Order from a supplier, then receive the goods (partially if needed). Average stock cost updates on receipt.",
+      "create": "Create PO",
+      "number": "PO no.",
+      "supplier": "Supplier",
+      "allStatus": "All statuses",
+      "status": {
+        "waiting": "Waiting",
+        "partial": "Partly received",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "createAndReceive": "Create and receive everything now",
+      "receive": "Receive goods",
+      "receiveNow": "Receive now",
+      "receivedQty": "Received",
+      "received": "Goods received",
+      "cancel": "Cancel PO"
+    },
+    "transfers": {
+      "title": "Transfers",
+      "subtitle": "Send stock between outlets. Stock leaves the source outlet when sent and enters the destination when received.",
+      "create": "Create transfer",
+      "send": "Send",
+      "from": "From outlet",
+      "to": "To outlet",
+      "status": {
+        "in_transit": "In transit",
+        "received": "Received",
+        "cancelled": "Cancelled"
+      },
+      "receive": "Receive",
+      "cancel": "Cancel (return to source)",
+      "sent": "Transfer sent",
+      "receivedDone": "Transfer received",
+      "sentQty": "Sent",
+      "shortHint": "The received quantity may be lower than sent; the difference is written off."
+    },
+    "adjustments": {
+      "title": "Stock Adjustments",
+      "subtitle": "Stock take: enter the actual count and the system records the difference and its value.",
+      "create": "Create adjustment",
+      "actual": "Actual count",
+      "costIfUp": "Cost (if stock goes up)",
+      "help": "Enter the actual count for each item. The difference from the system balance is recorded as an adjustment.",
+      "items": "Items",
+      "valueChange": "Value change"
+    }
   }
 }

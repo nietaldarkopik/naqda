@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { formatMinor } from "@/lib/money";
 import { useReportFilters, type Cell, type Col, type ReportTable } from "@/lib/reports";
 
-const kinds = ["summary", "outlets", "payments", "sales-types", "items", "categories", "brands", "modifiers", "discounts", "taxes", "gratuity", "collected-by", "tables", "shifts"] as const;
+const kinds = ["summary", "outlets", "payments", "sales-types", "items", "categories", "brands", "modifiers", "discounts", "taxes", "gratuity", "collected-by", "tables", "shifts", "inventory"] as const;
 const countMetrics = new Set(["orders", "itemsSold"]);
 
 export default function ReportPage() {
@@ -29,6 +29,7 @@ export default function ReportPage() {
 
   const money = useCallback((v: number) => formatMinor(v, business?.currencyExponent ?? 0, business?.currency ?? "IDR", locale), [business, locale]);
   const num = useMemo(() => new Intl.NumberFormat(intlTags[locale]), [locale]);
+  const qtyFmt = useMemo(() => new Intl.NumberFormat(intlTags[locale], { maximumFractionDigits: 3 }), [locale]);
 
   useEffect(() => {
     if (!valid || !allowed) return;
@@ -53,6 +54,8 @@ export default function ReportPage() {
       case "int":
       case "minutes":
         return num.format(Number(v));
+      case "qty":
+        return qtyFmt.format(Number(v));
       case "percent":
         return `${(Number(v) / 100).toFixed(1)}%`;
       case "datetime":

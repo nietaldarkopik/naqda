@@ -109,6 +109,8 @@ export interface CatalogVariant {
   sku: string | null;
   basePrice: number;
   prices: Record<string, number>;
+  /** Sisa stok outlet ini; null bila item tidak melacak stok. */
+  stock: number | null;
 }
 export interface CatalogModifierSet {
   id: string;
@@ -142,6 +144,7 @@ export interface PosDiscount {
   customizable: boolean;
 }
 export interface Catalog {
+  stockMode: "off" | "block" | "override";
   categories: { id: string; name: string }[];
   salesTypes: { id: string; name: string }[];
   discounts: PosDiscount[];

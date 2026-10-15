@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, index, int, json, mysqlTable, primaryKey, smallint, tinyint, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { bigint, boolean, index, int, json, mysqlTable, primaryKey, smallint, tinyint, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 import { dt, idColumn, timestamps } from "./columns";
 import { itemVariants, items, modifierOptions, salesTypes } from "./catalog";
 import { businesses, outlets, users } from "./core";
@@ -201,6 +201,8 @@ export const orderItems = mysqlTable(
     /** Bagian diskon pesanan yang dibebankan ke baris ini (dasar pembagian refund). */
     orderDiscountShare: money("order_discount_share").notNull().default(0),
     refundedQuantity: int("refunded_quantity", { unsigned: true }).notNull().default(0),
+    /** Unit yang sudah dikembalikan ke stok lewat refund (<= refundedQuantity). */
+    restockedQuantity: int("restocked_quantity", { unsigned: true }).notNull().default(0),
     promoDiscount: money("promo_discount").notNull().default(0),
     promoId: uuid("promo_id"),
     note: varchar("note", { length: 255 }),
@@ -268,6 +270,8 @@ export const refunds = mysqlTable(
     approvedBy: uuid("approved_by").references(() => users.id),
     method: varchar("method", { length: 24 }).notNull(),
     total: money("total").notNull(),
+    /** Barang dikembalikan ke stok saat refund. */
+    restock: boolean("restock").notNull().default(false),
     /** Rincian refund (jumlah tiga kolom = total): bagian nilai barang, service, dan pajak dari total pesanan. */
     netAmount: money("net_amount").notNull().default(0),
     gratuityAmount: money("gratuity_amount").notNull().default(0),

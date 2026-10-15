@@ -54,6 +54,8 @@ export const outlets = mysqlTable(
     roundingStep: int("rounding_step", { unsigned: true }).notNull().default(0),
     roundingMode: varchar("rounding_mode", { length: 8 }).$type<"nearest" | "up" | "down">().notNull().default("nearest"),
     /** Cara beberapa diskon digabung: berurutan, kombinasi (stack), atau salah satu (exclusive). */
+    /** Batas stok saat menjual: off = boleh minus, block = tolak, override = tolak kecuali kasir mengonfirmasi. */
+    stockMode: varchar("stock_mode", { length: 10 }).$type<"off" | "block" | "override">().notNull().default("off"),
     discountMode: varchar("discount_mode", { length: 12 }).$type<"sequential" | "stack" | "exclusive">().notNull().default("sequential"),
     status: varchar("status", { length: 16 }).$type<"active" | "inactive">().notNull().default("active"),
     ...timestamps,

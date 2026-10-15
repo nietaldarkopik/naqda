@@ -36,6 +36,7 @@ import {
   type PromoDef,
 } from "@naqdi/domain";
 import { AppError } from "../errors";
+import { buildCostModel } from "../inventory/recipes";
 
 type Db = DbHandle["db"];
 
@@ -74,6 +75,7 @@ export interface OutletContext {
   outletId: string;
   businessId: string;
   timezone: string;
+  stockMode: "off" | "block" | "override";
   settings: OrderSettings;
 }
 
@@ -104,6 +106,7 @@ export const loadOutletContext = async (db: Db, businessId: string, outletId: st
     outletId,
     businessId,
     timezone: o.timezone,
+    stockMode: o.stockMode,
     settings: {
       pricesIncludeTax: o.pricesIncludeTax,
       pricesIncludeGratuity: o.pricesIncludeGratuity,
@@ -370,6 +373,14 @@ export const resolveCart = async (
       };
     }
   }
+
+  // Biaya pokok per unit: resep dan stok modifier bila ada, kalau tidak modal manual varian; paket = jumlah komponennya.
+  const model = await buildCostModel(db, ctx.outletId, {
+    variantIds: out.flatMap((l) => (l?.variantId ? [l.variantId] : [])),
+    optionIds: out.flatMap((l) => (l ? l.modifiers.flatMap((m) => (m.optionId ? [m.optionId] : [])) : [])),
+    bundleIds: out.flatMap((l) => (l?.bundleId ? [l.bundleId] : [])),
+  });
+  for (const l of out) l.cost = model.unitCost({ variantId: l.variantId, bundleId: l.bundleId, optionIds: l.modifiers.map((m) => m.optionId), manualCost: l.cost });
 
   return { lines: out, orderDiscount };
 };

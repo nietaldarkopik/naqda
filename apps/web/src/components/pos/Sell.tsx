@@ -64,6 +64,7 @@ export function Sell({
   const [floor, setFloor] = useState<FloorMap | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
   const [refunding, setRefunding] = useState<OrderView | null>(null);
+  const [stockShort, setStockShort] = useState<{ short: { name: string; needed: number; available: number }[]; canOverride: boolean; payments: { method: string; amount: number; reference?: string | null }[] } | null>(null);
   const [approval, setApproval] = useState<{ privilege: "pos.void" | "pos.refund"; title: string; run: (input: ApprovalInput) => Promise<string | null>; done: (ok: boolean) => void } | null>(null);
 
   /** Menunggu atasan/alasan: dialog tetap terbuka sampai permintaan berhasil atau dibatalkan. */
@@ -306,6 +307,11 @@ export function Sell({
                 <span className="line-clamp-2 font-medium">{i.name}</span>
                 <span className="mt-2 flex items-center justify-between text-sm text-muted">
                   <span className="tabular-nums">{ctx.fmt(priceOf(i))}</span>
+                  {i.variants.length === 1 && i.variants[0]!.stock !== null ? (
+                    <span className={`text-xs font-medium ${i.variants[0]!.stock! <= 0 ? "text-danger" : "text-muted"}`} data-testid={`stock-${i.name}`}>
+                      {i.variants[0]!.stock! <= 0 ? t("soldOut") : t("stockLeft", { count: i.variants[0]!.stock! })}
+                    </span>
+                  ) : null}
                   {i.variants.length > 1 || i.modifierSets.length > 0 ? <Plus size={14} aria-hidden /> : null}
                 </span>
               </button>
@@ -466,11 +472,11 @@ export function Sell({
           ctx={ctx}
           total={totals.total}
           onClose={() => setPayOpen(false)}
-          onPay={async (payments) => {
+          onPay={async (payments, stockOverride = false) => {
             const saved = dirty || !orderId ? await save() : ({ id: orderId } as OrderView);
             if (!saved) return false;
             try {
-              const res = await posApi<{ order: OrderView }>(`/orders/${saved.id}/pay`, { method: "POST", json: { payments } });
+              const res = await posApi<{ order: OrderView }>(`/orders/${saved.id}/pay`, { method: "POST", json: { payments, ...(stockOverride ? { stockOverride: true } : {}) } });
               setPayOpen(false);
               setReceipt(res.order);
               reset();
@@ -481,6 +487,10 @@ export function Sell({
               }
               return true;
             } catch (e) {
+              if (e instanceof PosError && e.status === 409 && Array.isArray(e.extra?.short)) {
+                setStockShort({ short: e.extra.short as never, canOverride: e.extra.canOverride === true, payments });
+                return false;
+              }
               toast(e instanceof PosError ? (e.fields?.payments ?? e.message) : t("network"), "error");
               return false;
             }
@@ -488,6 +498,51 @@ export function Sell({
         />
       ) : null}
 
+      {stockShort ? (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-4" role="alertdialog" aria-label={t("stockShortTitle")} data-testid="stock-short">
+          <div className="w-full max-w-md space-y-4 rounded-xl border border-line bg-surface p-5 shadow-xl">
+            <h2 className="font-semibold">{t("stockShortTitle")}</h2>
+            <ul className="divide-y divide-line rounded-lg border border-line text-sm">
+              {stockShort.short.map((s) => (
+                <li key={s.name} className="flex justify-between gap-3 px-3 py-2">
+                  <span>{s.name}</span>
+                  <span className="tabular-nums text-danger">
+                    {t("stockNeeded", { needed: s.needed, available: s.available })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted">{stockShort.canOverride ? t("stockOverrideHelp") : t("stockBlockedHelp")}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setStockShort(null)}>
+                {t("back")}
+              </Button>
+              {stockShort.canOverride ? (
+                <Button
+                  variant="danger"
+                  data-testid="stock-override"
+                  onClick={async () => {
+                    const p = stockShort.payments;
+                    setStockShort(null);
+                    const orderToPay = orderId;
+                    if (!orderToPay) return;
+                    try {
+                      const res = await posApi<{ order: OrderView }>(`/orders/${orderToPay}/pay`, { method: "POST", json: { payments: p, stockOverride: true } });
+                      setPayOpen(false);
+                      setReceipt(res.order);
+                      reset();
+                    } catch (e) {
+                      toast(e instanceof PosError ? e.message : t("network"), "error");
+                    }
+                  }}
+                >
+                  {t("sellAnyway")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {billsOpen ? <BillsDialog ctx={ctx} onClose={() => setBillsOpen(false)} onOpen={(id) => void openBill(id)} /> : null}
       {shiftOpen ? <ShiftDialog ctx={ctx} shift={shift} onShift={onShift} onClose={() => setShiftOpen(false)} onClosed={onShiftClosed} /> : null}
       {receipt ? <ReceiptDialog ctx={ctx} order={receipt} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}

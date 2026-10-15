@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
-export type ColType = "text" | "int" | "money" | "percent" | "datetime" | "minutes";
+export type ColType = "text" | "int" | "qty" | "money" | "percent" | "datetime" | "minutes";
 export interface Col {
   key: string;
   type: ColType;

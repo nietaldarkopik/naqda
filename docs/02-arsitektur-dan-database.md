@@ -198,6 +198,18 @@ lunas ditolak; pembayaran sebagian diizinkan. **Pisah bill (`splitLines`)**: dis
 tertinggal), diskon persen ikut, promo dihitung ulang setelah dipisah. **Kas shift**: diharapkan = modal + tunai bersih - refund tunai + kas masuk - kas keluar.
 **PIN**: 4-6 digit, PIN lemah (0000, 1234, 1212) ditolak, penguncian setelah 5 kesalahan (30 detik, berlipat dua, maksimal 30 menit).
 
+## 1i. Stok, resep, dan HPP (Fase 5)
+
+- **Skala**: jumlah = integer x 1000 (3 desimal); biaya per satuan = integer x 1000 dalam satuan terkecil mata uang; nilai = jumlah x biaya, dibulatkan setengah ke atas (`packages/domain/src/stock.ts`, BigInt untuk produk besar).
+- **Buku besar**: `stock_movements` (hanya menambah; kind purchase, sale, refund, transfer_out/in/cancel, adjustment, production_out/in; `delta`, `unit_cost`, `value`, `balance_after`, rujukan dokumen dan baris pesanan). Saldo di `stock_levels(outlet, subject_type, subject_id)`, diubah hanya lewat `applyMove` di dalam transaksi setelah barisnya **dikunci** (`SELECT ... FOR UPDATE`, urutan tetap: varian lalu bahan, urut id).
+- **Objek stok**: varian item (bila item `track_stock`) dan bahan (`ingredients`, mentah atau setengah jadi). **Biaya rata-rata tertimbang** per outlet: penerimaan menimbang ulang; pengeluaran memakai biaya rata-rata saat itu; saldo nol/negatif memakai biaya masuk yang baru.
+- **Resep**: `variant_recipe_lines` (bahan per SATU unit varian), `modifier_option_ingredients` (bahan per opsi modifier per unit), `ingredient_recipe_lines` (komponen per SATU kali produksi bahan setengah jadi, hasil di `yield_qty`; siklus ditolak), `bundle_items` untuk paket.
+- **HPP satu unit** = (resep varian bila ada, kalau tidak `item_variants.cost`) + bahan modifier; HPP paket = jumlah HPP komponen. Dibekukan di `order_items.cost` saat bill disimpan.
+- **Penjualan** (`inventory/sales.ts`): saat bayar, kebutuhan semua baris digabung, saldo dikunci, mode stok outlet diperiksa (`off` | `block` | `override`), lalu tiap baris menulis pergerakan `sale` (bahan terpotong sama persis dengan yang dihitung sebagai HPP).
+- **Refund + restock**: pergerakan `refund` sebanding unit (`restocked_quantity` per baris, pembagian kumulatif sehingga unit terakhir menerima sisa), dengan biaya saat dijual.
+- **Dokumen**: PO (`purchase_orders`/`_lines`, status waiting/partial/completed/cancelled), transfer (in_transit/received/cancelled; biaya dibawa dari asal), penyesuaian (`stock_adjustments`, baris disimpan sebagai JSON). Nomor dokumen berurutan per outlet lewat `counters` (kind po/tr/adj).
+- **Ringkasan inventori** dihitung dari buku besar: awal = jumlah pergerakan sebelum rentang (zona waktu outlet); akhir = awal + semua pergerakan rentang; nilai = jumlah `value`.
+
 ## 1b. Perangkat keras yang didukung
 
 Standar: **ESC/POS** (printer thermal). Semua perangkat di bawah dicapai lewat antarmuka `Hardware`

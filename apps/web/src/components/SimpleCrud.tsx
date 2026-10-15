@@ -38,6 +38,8 @@ export interface SimpleCrudProps<R extends { id: string; name: string }> {
   defaults?: Record<string, unknown>;
   /** Jenis entitas untuk terjemahan nama (mis. "category"); kosong = tanpa terjemahan. */
   translatable?: string;
+  /** Hak untuk menambah/mengubah/menghapus (bawaan library.manage). */
+  writePrivilege?: string;
 }
 
 type Row = { id: string; name: string } & Record<string, unknown>;
@@ -48,7 +50,7 @@ export function SimpleCrud<R extends Row>(props: SimpleCrudProps<R>) {
   const locale = useLocale() as Locale;
   const toast = useToast();
   const { can, business } = useAuth();
-  const manage = can("library.manage");
+  const manage = can(props.writePrivilege ?? "library.manage");
   const exponent = business?.currencyExponent ?? 0;
   const currency = business?.currency ?? "IDR";
 

@@ -26,6 +26,7 @@ import {
   roles,
   salesTypes,
   shifts,
+  stockLevels,
   tables,
   tableGroups,
   userOutlets,
@@ -40,6 +41,7 @@ import { AppError, duplicateKey } from "../errors";
 import { iso, validate } from "../http";
 import { requireDevice, requirePos, requirePosPrivilege, type PosEnv } from "../pos/context";
 import { privilegesOfRole, verifyPin } from "../pos/pin";
+import { deductForOrder, restockForRefund } from "../inventory/sales";
 import {
   cartSchema,
   fromDiscountInput,
@@ -220,8 +222,18 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     const bIds = bundleRows.map((r) => r.b.id);
     const bPrices = bIds.length ? await db.select().from(bundlePrices).where(inArray(bundlePrices.bundleId, bIds)) : [];
 
+    const trackedItems = new Set(itemRows.filter((r) => r.item.trackStock).map((r) => r.item.id));
+    const stockOf = new Map<string, number>();
+    const trackedVariantIds = variants.filter((v) => trackedItems.has(v.itemId)).map((v) => v.id);
+    if (trackedVariantIds.length) {
+      for (const r of await db
+        .select({ id: stockLevels.subjectId, q: stockLevels.quantity })
+        .from(stockLevels)
+        .where(and(eq(stockLevels.outletId, pos.outletId), eq(stockLevels.subjectType, "variant"), inArray(stockLevels.subjectId, trackedVariantIds)))) stockOf.set(r.id, r.q / 1000);
+    }
     const priceMap = (rows: { salesTypeId: string; price: number }[]) => Object.fromEntries(rows.map((r) => [r.salesTypeId, r.price]));
     return c.json({
+      stockMode: ctx.stockMode,
       categories: cats.map((x) => ({ id: x.id, name: x.name })),
       salesTypes: types.map((x) => ({ id: x.id, name: x.name })),
       discounts: discs.map((d) => ({ id: d.id, name: d.name, kind: d.kind, value: d.value, scope: d.scope, itemIds: d.itemIds, categoryIds: d.categoryIds, customizable: d.customizable })),
@@ -232,7 +244,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         imageUrl: item.imageUrl,
         variants: variants
           .filter((v) => v.itemId === item.id)
-          .map((v) => ({ id: v.id, name: v.name, sku: v.sku, basePrice: v.basePrice, prices: priceMap(vPrices.filter((p) => p.variantId === v.id)) })),
+          .map((v) => ({ id: v.id, name: v.name, sku: v.sku, basePrice: v.basePrice, prices: priceMap(vPrices.filter((p) => p.variantId === v.id)), stock: trackedItems.has(item.id) ? (stockOf.get(v.id) ?? 0) : null })),
         modifierSets: links
           .filter((l) => l.itemId === item.id)
           .flatMap((l) => {
@@ -564,6 +576,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         lines: z.array(z.object({ lineId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1).max(200),
         method: z.enum(methods),
         reason: z.string().trim().min(1).max(255),
+        restock: z.boolean().default(false),
         approval: approvalSchema.nullish(),
       }),
     ),
@@ -617,6 +630,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           userId: pos.userId,
           approvedBy,
           method: body.method,
+          restock: body.restock,
           total: result.total,
           ...(() => {
             const parts = splitRefund(result.total, order);
@@ -628,6 +642,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           await tx.insert(refundItems).values({ id: newId(), refundId, orderItemId: l.lineId, quantity: l.quantity, amount: l.amount });
           await tx.update(orderItems).set({ refundedQuantity: sql`${orderItems.refundedQuantity} + ${l.quantity}` }).where(eq(orderItems.id, l.lineId));
         }
+        if (body.restock) await restockForRefund(tx, { businessId: pos.businessId, outletId: pos.outletId, userId: pos.userId }, refundId, result.lines.map((l) => ({ orderItemId: l.lineId, quantity: l.quantity })));
         await tx.update(orders).set({ refundedTotal: sql`${orders.refundedTotal} + ${result.total}` }).where(eq(orders.id, id));
         await logActivity(tx, pos, id, "refund", { total: result.total, method: body.method, reason: body.reason, lines: result.lines.length }, approvedBy);
       });
@@ -645,6 +660,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     validate(
       "json",
       z.object({
+        stockOverride: z.boolean().optional(),
         payments: z
           .array(z.object({ method: z.enum(methods), amount: z.number().int().min(1).max(1_000_000_000_000), reference: z.string().trim().max(120).nullish() }))
           .max(10),
@@ -654,6 +670,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       const pos = c.get("pos");
       const { id } = c.req.valid("param");
       const input = c.req.valid("json").payments;
+      const stockOverride = c.req.valid("json").stockOverride === true;
       const shift = await requireShift(db, pos.userId, pos.outletId);
 
       await db.transaction(async (t) => {
@@ -702,6 +719,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
             createdBy: pos.userId,
           });
         }
+        await deductForOrder(tx, { businessId: pos.businessId, outletId: pos.outletId, userId: pos.userId }, id, stockOverride);
       });
       const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
       return c.json({ order: await presentOrder(db, row!) });

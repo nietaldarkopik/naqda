@@ -46,6 +46,8 @@ const body = z.object({
   roundingMode: z.enum(["nearest", "up", "down"]).default("nearest"),
   /** Cara diskon digabung: berurutan, kombinasi, atau salah satu. */
   discountMode: z.enum(["sequential", "stack", "exclusive"]).default("sequential"),
+  /** Batas stok saat menjual: off = boleh minus, block = tolak, override = tolak kecuali kasir mengonfirmasi. */
+  stockMode: z.enum(["off", "block", "override"]).default("off"),
 });
 
 const createBody = body.extend({
@@ -66,6 +68,7 @@ type OutletRow = {
   roundingStep: number;
   roundingMode: "nearest" | "up" | "down";
   discountMode: "sequential" | "stack" | "exclusive";
+  stockMode: "off" | "block" | "override";
   createdAt: Date;
   updatedAt: Date;
 };
@@ -83,6 +86,7 @@ const present = (o: OutletRow) => ({
   roundingStep: o.roundingStep,
   roundingMode: o.roundingMode,
   discountMode: o.discountMode,
+  stockMode: o.stockMode,
   createdAt: iso(o.createdAt),
   updatedAt: iso(o.updatedAt),
 });
@@ -102,6 +106,7 @@ const snapshot = (o: OutletRow) => ({
   roundingStep: o.roundingStep,
   roundingMode: o.roundingMode,
   discountMode: o.discountMode,
+  stockMode: o.stockMode,
 });
 
 export const outletRoutes = () => {

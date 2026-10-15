@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
@@ -19,21 +19,24 @@ import {
   refunds,
   salesTypes,
   shifts,
+  stockMovements,
   tables,
   userOutlets,
   users,
   type DbHandle,
 } from "@naqdi/db";
-import { addDays, daysBetween, isLocalDate, localMoment, toCsv } from "@naqdi/domain";
+import { addDays, daysBetween, fromScaled, isLocalDate, localMoment, localRangeUtc, toCsv } from "@naqdi/domain";
 import { translate } from "@naqdi/i18n";
 import { AppError, requestLocale } from "../errors";
 import { iso, requirePrivilege, validate, type AppEnv } from "../http";
+import { subjectNames } from "./inventory";
+import { keyOf } from "../inventory/ledger";
 import { loadDataset, RangeTooLarge, windowCondition, chunk, type ReportOutlet, type ReportScope } from "../reports/dataset";
 import { charges, collectedBy, daily, discountUsage, groupLines, groupOrders, hourly, paymentMethods, summarize, tableStats, weekday, type Dataset } from "../reports/engine";
 
 type Db = DbHandle["db"];
 
-type ColType = "text" | "int" | "money" | "percent" | "datetime" | "minutes";
+type ColType = "text" | "int" | "qty" | "money" | "percent" | "datetime" | "minutes";
 interface Col {
   key: string;
   type: ColType;
@@ -470,6 +473,63 @@ export const reportRoutes = () => {
         activities: acts.map((a) => ({ id: a.id, kind: a.kind, at: iso(a.createdAt), by: n.users.get(a.userId) ?? "-", approvedBy: a.approvedBy ? (n.users.get(a.approvedBy) ?? "-") : null, detail: a.detail })),
       },
     });
+  });
+
+  // ---------------------------------------------------------------- ringkasan inventori
+  app.get("/inventory", async (c) => {
+    const x = await context(c);
+    type Acc = { type: "variant" | "ingredient"; id: string; beginning: number; purchase: number; sales: number; transfer: number; adjustment: number; production: number; value: number };
+    const acc = new Map<string, Acc>();
+    const at = (type: "variant" | "ingredient", id: string) => {
+      const k = `${type}:${id}`;
+      let r = acc.get(k);
+      if (!r) acc.set(k, (r = { type, id, beginning: 0, purchase: 0, sales: 0, transfer: 0, adjustment: 0, production: 0, value: 0 }));
+      return r;
+    };
+    for (const o of x.scope.outlets) {
+      const r = localRangeUtc(x.scope.from, x.scope.to, o.timezone);
+      const before = await x.db
+        .select({ type: stockMovements.subjectType, id: stockMovements.subjectId, d: sql<string>`SUM(${stockMovements.delta})`, v: sql<string>`SUM(${stockMovements.value})` })
+        .from(stockMovements)
+        .where(and(eq(stockMovements.outletId, o.id), lt(stockMovements.createdAt, r.start)))
+        .groupBy(stockMovements.subjectType, stockMovements.subjectId);
+      for (const b of before) {
+        const a = at(b.type, b.id);
+        a.beginning += Number(b.d);
+        a.value += Number(b.v);
+      }
+      const within = await x.db
+        .select({ type: stockMovements.subjectType, id: stockMovements.subjectId, kind: stockMovements.kind, d: sql<string>`SUM(${stockMovements.delta})`, v: sql<string>`SUM(${stockMovements.value})` })
+        .from(stockMovements)
+        .where(and(eq(stockMovements.outletId, o.id), gte(stockMovements.createdAt, r.start), lt(stockMovements.createdAt, r.end)))
+        .groupBy(stockMovements.subjectType, stockMovements.subjectId, stockMovements.kind);
+      for (const w of within) {
+        const a = at(w.type, w.id);
+        const d = Number(w.d);
+        a.value += Number(w.v);
+        if (w.kind === "purchase") a.purchase += d;
+        else if (w.kind === "sale" || w.kind === "refund") a.sales += d;
+        else if (w.kind === "transfer_in" || w.kind === "transfer_out" || w.kind === "transfer_cancel") a.transfer += d;
+        else if (w.kind === "adjustment") a.adjustment += d;
+        else a.production += d;
+      }
+    }
+    const names = await subjectNames(x.db, x.scope.businessId, [...acc.values()].map((a) => ({ subjectType: a.type, subjectId: a.id })));
+    const rows = [...acc.values()]
+      .map((a) => {
+        const info = names.get(keyOf({ subjectType: a.type, subjectId: a.id }));
+        const ending = a.beginning + a.purchase + a.sales + a.transfer + a.adjustment + a.production;
+        return { name: info?.name ?? "?", unit: info?.unit ?? "", beginning: fromScaled(a.beginning), purchase: fromScaled(a.purchase), sales: fromScaled(a.sales), transfer: fromScaled(a.transfer), adjustment: fromScaled(a.adjustment), production: fromScaled(a.production), ending: fromScaled(ending), value: a.value, _zero: ending === 0 && a.beginning === 0 && a.purchase === 0 && a.sales === 0 && a.transfer === 0 && a.adjustment === 0 && a.production === 0 };
+      })
+      .filter((r) => !r._zero)
+      .map(({ _zero, ...r }) => r)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const qtyKeys = ["beginning", "purchase", "sales", "transfer", "adjustment", "production", "ending"];
+    return respond(
+      x,
+      { columns: [{ key: "name", type: "text" }, { key: "unit", type: "text" }, ...qtyKeys.map((k) => ({ key: k, type: "qty" as ColType })), { key: "value", type: "money" }], rows, totals: sumRows(rows, ["value"]) },
+      "inventory",
+    );
   });
 
   // ---------------------------------------------------------------- shift
