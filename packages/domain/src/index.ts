@@ -5,6 +5,7 @@ export * from "./pricing";
 export * from "./tax";
 export * from "./order";
 export * from "./refund";
+export * from "./report";
 export * from "./promo";
 export * from "./payment";
 export * from "./split";

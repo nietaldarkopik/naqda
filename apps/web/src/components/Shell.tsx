@@ -28,6 +28,7 @@ import {
   Tablet,
   UserRound,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -48,7 +49,28 @@ interface NavItem {
 // Hanya halaman yang sudah dibangun yang punya href. Sisanya tampil nonaktif ("Segera hadir").
 const nav: NavItem[] = [
   { key: "dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { key: "reports", icon: BarChart3 },
+  {
+    key: "reports",
+    icon: BarChart3,
+    privilege: "reports.view",
+    children: [
+      { key: "rSummary", href: "/reports/summary", icon: BarChart3 },
+      { key: "rTransactions", href: "/reports/transactions", icon: Receipt },
+      { key: "rShifts", href: "/reports/shifts", icon: Wallet },
+      { key: "rPayments", href: "/reports/payments", icon: CreditCard },
+      { key: "rSalesTypes", href: "/reports/sales-types", icon: Truck },
+      { key: "rItems", href: "/reports/items", icon: ShoppingBag },
+      { key: "rCategories", href: "/reports/categories", icon: Tags },
+      { key: "rBrands", href: "/reports/brands", icon: Tag },
+      { key: "rModifiers", href: "/reports/modifiers", icon: Layers },
+      { key: "rDiscounts", href: "/reports/discounts", icon: Percent },
+      { key: "rTaxes", href: "/reports/taxes", icon: Receipt },
+      { key: "rGratuity", href: "/reports/gratuity", icon: Wrench },
+      { key: "rCollectedBy", href: "/reports/collected-by", icon: Users },
+      { key: "rTables", href: "/reports/tables", icon: Table2 },
+      { key: "rOutlets", href: "/reports/outlets", icon: Store },
+    ],
+  },
   {
     key: "library",
     icon: Library,

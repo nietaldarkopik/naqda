@@ -268,6 +268,10 @@ export const refunds = mysqlTable(
     approvedBy: uuid("approved_by").references(() => users.id),
     method: varchar("method", { length: 24 }).notNull(),
     total: money("total").notNull(),
+    /** Rincian refund (jumlah tiga kolom = total): bagian nilai barang, service, dan pajak dari total pesanan. */
+    netAmount: money("net_amount").notNull().default(0),
+    gratuityAmount: money("gratuity_amount").notNull().default(0),
+    taxAmount: money("tax_amount").notNull().default(0),
     reason: varchar("reason", { length: 255 }).notNull(),
     createdAt: dt("created_at").notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   },

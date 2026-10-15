@@ -43,6 +43,13 @@
       "when": 1792043237296,
       "tag": "0005_lazy_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1792044619644,
+      "tag": "0006_boring_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

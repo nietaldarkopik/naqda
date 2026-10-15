@@ -554,3 +554,9 @@ Mulai dengan query langsung ke `orders`/`order_items`/`payments`. Bila lambat, t
 `daily_sales(outlet_id, date, ...)` yang diisi saat order ditutup. Semua laporan memakai zona waktu outlet.
 Definisi angka: **Gross Sales** = subtotal sebelum diskon; **Net Sales** = gross − diskon − refund;
 **Gross Profit** = net − COGS; **Total Collected** = net + gratuity + pajak + pembulatan.
+
+**Yang diimplementasikan (Fase 4).** Gross Sales = subtotal; Discounts = diskon baris + promo + diskon pesanan; *Included tax/service* = base − net (bukan nol hanya bila harga menu sudah memuat pajak/service,
+sehingga Gross − Discounts − Included = nilai barang bersih); Net Sales = net pesanan − bagian nilai barang dari refund (refund menyimpan rincian net/service/pajak: `refunds.net_amount`,
+`gratuity_amount`, `tax_amount`, jumlahnya tepat sama dengan refund); Total Collected = total pesanan − total refund, sehingga **Net + Service + Pajak + Pembulatan = Total Collected** selalu berlaku.
+Transaksi dikelompokkan menurut waktu bayar, refund menurut waktu refund, keduanya dalam zona waktu outlet. Nilai barang per baris (laporan item) = net pesanan dibagi ke baris sebanding harga
+setelah diskon (jumlah tepat). COGS = modal varian yang dibekukan x jumlah terjual dikurangi yang di-refund.

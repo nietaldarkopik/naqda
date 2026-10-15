@@ -24,6 +24,7 @@ import { localStorageDriver } from "./storage";
 import { deviceRoutes } from "./routes/devices";
 import { tableRoutes } from "./routes/tables";
 import { activityRoutes } from "./routes/activities";
+import { reportRoutes } from "./routes/reports";
 import { posRoutes } from "./routes/pos-session";
 
 export interface AppDeps {
@@ -95,6 +96,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   secured.route("/devices", deviceRoutes());
   secured.route("/tables", tableRoutes());
   secured.route("/activities", activityRoutes());
+  secured.route("/reports", reportRoutes());
   v1.route("/", secured);
 
   app.route("/api/v1", v1);

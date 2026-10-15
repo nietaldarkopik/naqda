@@ -32,7 +32,7 @@ import {
   users,
   type DbHandle,
 } from "@naqdi/db";
-import { PaymentError, RefundError, SplitError, cashDifference, computeRefund, expectedCash, settle, splitLines, type OrderLineInput, type Privilege } from "@naqdi/domain";
+import { PaymentError, RefundError, SplitError, cashDifference, computeRefund, expectedCash, settle, splitLines, splitRefund, type OrderLineInput, type Privilege } from "@naqdi/domain";
 import type { PosAuthContext } from "../auth/tokens";
 import type { LoginLimiter } from "../auth/limiter";
 import type { Config } from "../config";
@@ -618,6 +618,10 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           approvedBy,
           method: body.method,
           total: result.total,
+          ...(() => {
+            const parts = splitRefund(result.total, order);
+            return { netAmount: parts.net, gratuityAmount: parts.gratuity, taxAmount: parts.tax };
+          })(),
           reason: body.reason,
         });
         for (const l of result.lines) {

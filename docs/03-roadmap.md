@@ -103,11 +103,26 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: alur dine-in lengkap termasuk refund berjalan. Tercapai (lihat `tools/verify_phase3.mjs`).
 
-## Fase 4. Laporan dan dashboard (3–4 sesi)
-- Dashboard (Summary dan Outlet Comparison).
-- Sales (semua sub-laporan), Transactions, Invoices, Shift, Table Report.
-- Export CSV.
-- **Selesai bila**: angka laporan cocok dengan data uji dan dihitung dengan rumus di doc 02 bagian 8.
+## Fase 4. Laporan dan dashboard — SELESAI 15 Okt 2026 (dengan batas di bawah)
+
+**Berjalan dan teruji** (289 tes otomatis: 137 unit + 152 API; 66 pemeriksaan browser di `tools/verify_phase2/3/4.mjs`):
+- **Dasbor**: kartu (penjualan kotor, diskon, refund, penjualan bersih, laba kotor, total diterima, jumlah transaksi), grafik penjualan harian, per jam, per hari-minggu, porsi kategori, item teratas, ringkasan meja (pax, pendapatan per pax, durasi), dan **perbandingan outlet**.
+- **Laporan** (semua dengan filter rentang tanggal + outlet dan **ekspor CSV**): Ringkasan Penjualan, Transaksi (berhasil, dibatalkan, item dihapus + rincian struk), Shift, Metode Pembayaran, Tipe Penjualan, Penjualan Item/Kategori/Brand/Modifier, Diskon (diskon terdaftar, promo, manual), Pajak, Service Charge, Dikumpulkan Oleh, Laporan Meja, Perbandingan Outlet.
+- **Definisi angka** (doc 02 bagian 8, domain `report.ts`): penjualan kotor = subtotal; penjualan bersih = nilai barang sebelum pajak/service setelah diskon dan refund; total diterima = total - refund. Identitas **bersih + service + pajak + pembulatan = total diterima** diuji untuk pajak ditambahkan, harga sudah termasuk pajak/service, pembulatan, dengan dan tanpa refund; tabel item/kategori menjumlah tepat ke ringkasan; contoh tangan di tes API mencocokkan setiap angka.
+- **Zona waktu outlet**: batas hari (termasuk detik 23:59:59 dan 00:00:00), jam, dan hari-minggu mengikuti zona waktu tiap outlet; DST diuji. Refund dihitung pada hari refund (rincian nilai barang/service/pajak disimpan saat refund).
+- **Akses**: butuh `reports.view`; pengguna hanya melihat outlet yang ditugaskan kepadanya (outlet lain ditolak), dan tidak pernah bisnis lain. Rentang maksimal 366 hari dan 100.000 transaksi per permintaan.
+- CSV: BOM UTF-8 (Excel), judul kolom mengikuti bahasa permintaan, uang tanpa pemisah ribuan, baris total, perlindungan injeksi rumus.
+
+**Catatan dan batas** (jangan dianggap ada):
+- **Invoices** (faktur B2B) tidak dibuat: belum ada fitur faktur/pelanggan korporat (fase 6+). Ekspor ke Google Sheets tidak ada; hanya CSV.
+- Laporan dihitung langsung dari tabel transaksi (tanpa tabel agregat harian). Cukup untuk puluhan ribu transaksi per rentang; di atas itu perlu tabel agregat `daily_sales` (doc 02 bagian 8).
+- **HPP paket (bundle) belum dihitung**, jadi laba kotor paket terlalu tinggi; HPP item memakai modal varian yang dibekukan saat transaksi.
+- Nilai refund di laporan item/kategori termasuk bagian pajak/service; kolom penjualan bersih memakai bagian nilai barang.
+- Pajak dan service pada laporan Pajak/Service Charge adalah yang dipungut **sebelum refund** (ringkasan sudah memotongnya).
+- Tidak ada pembanding periode sebelumnya, grafik per meja/kasir, laporan terjadwal lewat email, atau batas waktu zona waktu campuran dalam satu tabel (waktu ditampilkan dalam zona outlet pertama).
+- Kartu "Laba kotor" bergantung pada modal item yang diisi pemilik; item tanpa modal menghasilkan laba = penjualan bersih.
+
+**Selesai bila**: angka laporan cocok dengan data uji dan rumus doc 02 bagian 8. Tercapai.
 
 ## Fase 5. Stok dan ingredient (4–5 sesi)
 - Stock level + movement, pengurangan saat jual, stock limit.
