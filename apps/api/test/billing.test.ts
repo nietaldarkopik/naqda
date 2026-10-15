@@ -40,7 +40,7 @@ describe("status langganan terlihat oleh klien", () => {
     const b = await makeTrialBusiness("tampil");
     const me = await call(fx.app, "GET", "/me", { token: b.token });
     expect(me.json.business.billing).toMatchObject({ status: "trial", level: "full", reason: "trial", plan: "basic", daysLeft: 14 });
-    expect(me.json.business.billing.limits).toMatchObject({ maxOutlets: 1, maxDevices: 3, maxEmployees: 10 });
+    expect(me.json.business.billing.limits).toMatchObject({ maxOutlets: 1, maxDevices: 2, maxEmployees: 10 });
     const lg = await call(fx.app, "POST", "/auth/login", { body: { email: b.email, password: "KataSandiKuat1!" } });
     expect(lg.json.business.billing.status).toBe("trial");
   });
@@ -120,10 +120,10 @@ describe("batas paket", () => {
     expect(outlet.json.extra).toMatchObject({ kind: "outlets", max: 1, used: 1, plan: "basic" });
     expect(outlet.json.message).toMatch(/batas paket/i);
 
-    for (let i = 0; i < 3; i++) expect((await call(fx.app, "POST", "/devices", { token: b.token, body: { outletId: b.outletId, name: `T${i}` } })).status).toBe(201);
+    for (let i = 0; i < 2; i++) expect((await call(fx.app, "POST", "/devices", { token: b.token, body: { outletId: b.outletId, name: `T${i}` } })).status).toBe(201);
     const fourth = await call(fx.app, "POST", "/devices", { token: b.token, body: { outletId: b.outletId, name: "T4" } });
     expect(fourth.status).toBe(409);
-    expect(fourth.json.extra).toMatchObject({ kind: "devices", max: 3 });
+    expect(fourth.json.extra).toMatchObject({ kind: "devices", max: 2 });
 
     // mencabut perangkat membebaskan slot
     const list = await call(fx.app, "GET", "/devices", { token: b.token });
@@ -154,7 +154,7 @@ describe("batas paket", () => {
     expect((await call(fx.app, "GET", "/me", { token: b.token })).json.business.billing.limits.maxOutlets).toBe(3);
 
     const pro = await makeTrialBusiness("pro", "pro");
-    for (let i = 0; i < 4; i++) expect((await call(fx.app, "POST", "/outlets", { token: pro.token, body: { name: `C${i}` } })).status).toBe(201);
+    for (let i = 0; i < 2; i++) expect((await call(fx.app, "POST", "/outlets", { token: pro.token, body: { name: `C${i}` } })).status).toBe(201);
     expect((await call(fx.app, "POST", "/outlets", { token: pro.token, body: { name: "C5" } })).status).toBe(409);
   });
 

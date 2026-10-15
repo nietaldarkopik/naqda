@@ -85,7 +85,7 @@ describe("daftar dan detail bisnis", () => {
     expect(row).toMatchObject({ plan: "basic", status: "trial", currency: "IDR" });
     expect(row.owner.email).toBe(b.email);
     expect(row.usage).toEqual({ outlets: 1, devices: 1, employees: 1 });
-    expect(row.limits).toMatchObject({ maxOutlets: 1, maxDevices: 3, maxEmployees: 10 });
+    expect(row.limits).toMatchObject({ maxOutlets: 1, maxDevices: 2, maxEmployees: 10 });
     expect(row.access).toMatchObject({ level: "full", reason: "trial", daysLeft: 5 });
     expect(row.orders30d).toBe(0);
     expect(row.lastOrderAt).toBeNull();
@@ -174,7 +174,7 @@ describe("mengubah bisnis", () => {
     expect(cleared.json.business.limits.maxOutlets).toBe(1);
     expect(cleared.json.usage.outlets).toBe(2); // pemakaian sudah di atas batas: tidak ada yang dihapus
     await P(OWNER, "PATCH", `/businesses/${b.businessId}`, { plan: "pro" });
-    expect((await call(fx.app, "GET", "/me", { token: b.token })).json.business.billing.limits.maxOutlets).toBe(5);
+    expect((await call(fx.app, "GET", "/me", { token: b.token })).json.business.billing.limits.maxOutlets).toBe(3);
     expect((await P(OWNER, "PATCH", `/businesses/${b.businessId}`, { plan: "gratis-selamanya" })).status).toBe(422);
     expect((await P(OWNER, "PATCH", `/businesses/${b.businessId}`, { limits: { maxOutlets: 0 } })).status).toBe(422);
     expect((await P(OWNER, "PATCH", `/businesses/${b.businessId}`, {})).status).toBe(422);

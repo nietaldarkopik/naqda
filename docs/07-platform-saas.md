@@ -48,11 +48,13 @@ Batas diterapkan **di server** saat menambah outlet, perangkat kasir, dan karyaw
 
 | Paket | Outlet | Perangkat | Karyawan |
 |---|---:|---:|---:|
-| `basic` | 1 | 3 | 10 |
-| `pro` | 5 | 15 | 50 |
-| `unlimited` | tanpa batas | tanpa batas | tanpa batas |
+| `basic` (Starter) | 1 | 2 | 10 |
+| `pro` (Pro) | 3 | 6 | 30 |
+| `unlimited` (Enterprise) | tanpa batas | tanpa batas | tanpa batas |
 
-**Angka ini sementara.** Harga dan paket final belum diputuskan; jangan dipromosikan. `unlimited` dipakai bisnis lama, bisnis demo, dan yang dikelola manual. Batas item belum diterapkan.
+Sumber angka: https://nqd.my.id/pricing (dibaca 2026-10-16). Harga (IDR): Starter Rp 149.000/bln atau Rp 1.490.000/thn; Pro Rp 299.000/bln atau Rp 2.990.000/thn; Enterprise Rp 599.000/bln atau Rp 5.990.000/thn (tombol "Hubungi sales"). Uji coba 14 hari tanpa kartu. Pembayaran di halaman itu: transfer bank + unggah bukti di Back Office, diverifikasi tim (cocok dengan 12D tahap manual; perlu harga per mata uang untuk toko non-rupiah). `unlimited` juga dipakai bisnis lama, demo, dan yang dikelola manual.
+
+**Belum ditegakkan** (ada di halaman harga): batas basis data pelanggan (2.500 / 25.000), serta pembatasan fitur per paket (KDS, resep dan HPP, denah meja interaktif, transfer stok antar outlet hanya Pro ke atas, API dan webhook hanya Enterprise). Uji coba di halaman harga tertulis 2 perangkat / 5 staf / 500 pelanggan; di sistem uji coba memakai batas Starter.
 
 ## 5. Tahapan
 

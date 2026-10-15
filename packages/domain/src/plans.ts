@@ -34,12 +34,12 @@ export interface PlanLimits {
 }
 
 /**
- * Batas per paket. ANGKA DI SINI SEMENTARA: harga dan paket final belum diputuskan, jadi jangan dipromosikan.
+ * Batas per paket. Sumber: https://nqd.my.id/pricing (basic = Starter, pro = Pro, unlimited = Enterprise/dikelola manual). Batas basis data pelanggan dan fitur per paket (KDS, resep, dll.) di halaman itu BELUM ditegakkan.
  * `unlimited` dipakai bisnis yang sudah ada sebelum fitur ini dan bisnis yang dikelola manual.
  */
 export const planLimits = {
-  basic: { maxOutlets: 1, maxDevices: 3, maxEmployees: 10 },
-  pro: { maxOutlets: 5, maxDevices: 15, maxEmployees: 50 },
+  basic: { maxOutlets: 1, maxDevices: 2, maxEmployees: 10 },
+  pro: { maxOutlets: 3, maxDevices: 6, maxEmployees: 30 },
   unlimited: { maxOutlets: Number.MAX_SAFE_INTEGER, maxDevices: Number.MAX_SAFE_INTEGER, maxEmployees: Number.MAX_SAFE_INTEGER },
 } as const satisfies Record<string, PlanLimits>;
 
