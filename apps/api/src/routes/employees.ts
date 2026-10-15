@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { newId } from "@naqdi/db";
-import { hasBackofficeAccess } from "@naqdi/domain";
+import { newId, type DbHandle } from "@naqdi/db";
+import { hasBackofficeAccess, isValidPinFormat, isWeakPin } from "@naqdi/domain";
 import { locales } from "@naqdi/i18n";
 import { hashPasswordWith } from "../auth/password";
 import { AppError, duplicateKey } from "../errors";
 import { iso, patchSchema, requirePrivilege, validate, type AppEnv } from "../http";
+import { writeAudit } from "../repo/audit";
+import { tenantRepo } from "../repo/tenant";
 
 const idParam = z.object({ id: z.string().uuid() });
 
@@ -38,6 +40,7 @@ type UserRow = {
   locale: string | null;
   status: "active" | "inactive" | "invited";
   lastLoginAt: Date | null;
+  pinHash: string | null;
   createdAt: Date;
   role: { id: string; systemKey: string | null; name: string | null; accessType: string };
   outletIds: string[];
@@ -51,6 +54,7 @@ const present = (u: UserRow) => ({
   locale: u.locale,
   status: u.status,
   lastLoginAt: iso(u.lastLoginAt),
+  hasPin: Boolean(u.pinHash),
   createdAt: iso(u.createdAt),
   role: { id: u.role.id, systemKey: u.role.systemKey, name: u.role.name, accessType: u.role.accessType },
   outletIds: u.outletIds,
@@ -143,6 +147,37 @@ export const employeeRoutes = (bcryptCost: number) => {
     if (id === c.get("auth").userId) throw new AppError("conflict", { messageKey: "errors.forbidden" });
     const ok = await c.get("repo").users.softDelete(id);
     if (!ok) throw new AppError("not_found");
+    return c.body(null, 204);
+  });
+
+  // PIN kasir: hanya hash yang disimpan; PIN tidak pernah dikembalikan atau dicatat di audit.
+  app.post("/:id/pin", validate("param", idParam), validate("json", z.object({ pin: z.string().max(32) })), async (c) => {
+    const { id } = c.req.valid("param");
+    const { pin } = c.req.valid("json");
+    const auth = c.get("auth");
+    const user = await c.get("repo").users.get(id);
+    if (!user) throw new AppError("not_found");
+    if (!isValidPinFormat(pin)) throw new AppError("validation", { fields: { pin: "pos.pinFormat" } });
+    if (isWeakPin(pin)) throw new AppError("validation", { fields: { pin: "pos.pinWeak" } });
+    const pinHash = await hashPasswordWith(pin, bcryptCost);
+    await c.get("db").transaction(async (tx) => {
+      const t = tx as unknown as DbHandle["db"];
+      await tenantRepo(t, auth.businessId).users.update(id, { pinHash, pinFailures: 0, pinLockedUntil: null });
+      await writeAudit(t, auth, { entityType: "user_pin", entityId: id, action: "update", summary: user.name, changes: { pinSet: true } });
+    });
+    return c.body(null, 204);
+  });
+
+  app.delete("/:id/pin", validate("param", idParam), async (c) => {
+    const { id } = c.req.valid("param");
+    const auth = c.get("auth");
+    const user = await c.get("repo").users.get(id);
+    if (!user) throw new AppError("not_found");
+    await c.get("db").transaction(async (tx) => {
+      const t = tx as unknown as DbHandle["db"];
+      await tenantRepo(t, auth.businessId).users.update(id, { pinHash: null, pinFailures: 0, pinLockedUntil: null });
+      await writeAudit(t, auth, { entityType: "user_pin", entityId: id, action: "delete", summary: user.name, changes: { pinSet: false } });
+    });
     return c.body(null, 204);
   });
 

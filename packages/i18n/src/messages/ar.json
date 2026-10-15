@@ -342,5 +342,13 @@
       "outlet": "فرع",
       "translation": "ترجمة"
     }
+  },
+  "pos": {
+    "pinInvalid": "رمز PIN غير صحيح",
+    "pinLocked": "تم قفل رمز PIN مؤقتًا. حاول لاحقًا.",
+    "pinFormat": "يجب أن يتكون PIN من 4 إلى 6 أرقام",
+    "pinWeak": "رمز PIN سهل التخمين",
+    "deviceInvalid": "الجهاز غير معروف أو تم إلغاؤه",
+    "codeInvalid": "رمز التفعيل غير صالح أو منتهي"
   }
 }

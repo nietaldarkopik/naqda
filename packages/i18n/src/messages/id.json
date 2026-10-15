@@ -342,5 +342,13 @@
       "outlet": "Outlet",
       "translation": "Terjemahan"
     }
+  },
+  "pos": {
+    "pinInvalid": "PIN salah",
+    "pinLocked": "PIN terkunci sementara. Coba lagi nanti.",
+    "pinFormat": "PIN harus 4–6 angka",
+    "pinWeak": "PIN terlalu mudah ditebak",
+    "deviceInvalid": "Perangkat tidak dikenal atau sudah dicabut",
+    "codeInvalid": "Kode aktivasi tidak valid atau kedaluwarsa"
   }
 }

@@ -9,10 +9,11 @@ export type ErrorCode =
   | "validation"
   | "conflict"
   | "rate_limited"
+  | "locked"
   | "server";
 
 /** Pemetaan kode ke status HTTP dan kunci terjemahan pesan. */
-const meta: Record<ErrorCode, { status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500; key: string }> = {
+const meta: Record<ErrorCode, { status: 400 | 401 | 403 | 404 | 409 | 422 | 423 | 429 | 500; key: string }> = {
   unauthorized: { status: 401, key: "errors.unauthorized" },
   forbidden: { status: 403, key: "errors.forbidden" },
   no_backoffice_access: { status: 403, key: "auth.noAccess" },
@@ -20,6 +21,7 @@ const meta: Record<ErrorCode, { status: 400 | 401 | 403 | 404 | 409 | 422 | 429 
   validation: { status: 422, key: "errors.validation" },
   conflict: { status: 409, key: "errors.conflict" },
   rate_limited: { status: 429, key: "auth.tooMany" },
+  locked: { status: 423, key: "pos.pinLocked" },
   server: { status: 500, key: "errors.server" },
 };
 
@@ -27,10 +29,13 @@ export class AppError extends Error {
   readonly code: ErrorCode;
   readonly fields: Record<string, string> | undefined;
   readonly messageKey: string;
+  /** Data tambahan untuk klien (mis. sisa detik penguncian). */
+  readonly extra: Record<string, unknown> | undefined;
 
-  constructor(code: ErrorCode, options: { fields?: Record<string, string>; messageKey?: string } = {}) {
+  constructor(code: ErrorCode, options: { fields?: Record<string, string>; messageKey?: string; extra?: Record<string, unknown> } = {}) {
     super(code);
     this.code = code;
+    this.extra = options.extra;
     this.fields = options.fields;
     this.messageKey = options.messageKey ?? meta[code].key;
   }
@@ -56,11 +61,12 @@ export interface ErrorBody {
   code: ErrorCode;
   message: string;
   fields?: Record<string, string>;
+  extra?: Record<string, unknown>;
 }
 
 export const errorBody = (c: Context, err: AppError): ErrorBody => {
   const locale = requestLocale(c);
-  const body: ErrorBody = { code: err.code, message: translate(locale, err.messageKey) };
+  const body: ErrorBody = { code: err.code, message: translate(locale, err.messageKey), ...(err.extra ? { extra: err.extra } : {}) };
   if (err.fields) {
     body.fields = Object.fromEntries(
       Object.entries(err.fields).map(([field, key]) => [field, key.includes(".") ? translate(locale, key) : key]),

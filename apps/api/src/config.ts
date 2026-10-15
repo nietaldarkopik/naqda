@@ -13,6 +13,7 @@ const envSchema = z.object({
   ACCESS_TOKEN_TTL_MIN: z.coerce.number().int().min(1).default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).default(30),
   BCRYPT_COST: z.coerce.number().int().min(4).max(14).default(10),
+  POS_TOKEN_TTL_HOURS: z.coerce.number().int().min(1).max(72).default(12),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_DIR: z.string().default("./storage"),
 });
@@ -27,6 +28,7 @@ export interface Config {
   accessTtlSeconds: number;
   refreshTtlSeconds: number;
   bcryptCost: number;
+  posTokenTtlSeconds: number;
   isProduction: boolean;
   storageDir: string;
 }
@@ -59,6 +61,7 @@ export const parseConfig = (env: Record<string, string | undefined>): Config => 
     accessTtlSeconds: e.ACCESS_TOKEN_TTL_MIN * 60,
     refreshTtlSeconds: e.REFRESH_TOKEN_TTL_DAYS * 24 * 3600,
     bcryptCost: e.BCRYPT_COST,
+    posTokenTtlSeconds: e.POS_TOKEN_TTL_HOURS * 3600,
     isProduction: e.NODE_ENV === "production",
   };
 };

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  int,
   json,
   mysqlTable,
   primaryKey,
@@ -45,6 +46,13 @@ export const outlets = mysqlTable(
      * true: pajak dipisahkan dari harga (harga menu = harga bayar). false: pajak ditambahkan di atas harga.
      */
     pricesIncludeTax: boolean("prices_include_tax").notNull().default(false),
+    /** Harga menu sudah termasuk service charge/gratuity. */
+    pricesIncludeGratuity: boolean("prices_include_gratuity").notNull().default(false),
+    /** Pajak juga dikenakan atas service charge. */
+    taxOnGratuity: boolean("tax_on_gratuity").notNull().default(true),
+    /** Kelipatan pembulatan total dalam satuan terkecil; 0 = tanpa pembulatan (rupiah biasanya 100). */
+    roundingStep: int("rounding_step", { unsigned: true }).notNull().default(0),
+    roundingMode: varchar("rounding_mode", { length: 8 }).$type<"nearest" | "up" | "down">().notNull().default("nearest"),
     status: varchar("status", { length: 16 }).$type<"active" | "inactive">().notNull().default("active"),
     ...timestamps,
     /** Kolom turunan agar nama unik hanya di antara baris yang belum dihapus (doc 02, bagian 3.0). */
@@ -101,6 +109,9 @@ export const users = mysqlTable(
     phone: varchar("phone", { length: 32 }),
     passwordHash: varchar("password_hash", { length: 255 }),
     pinHash: varchar("pin_hash", { length: 255 }),
+    /** Kesalahan PIN beruntun dan batas kunci; direset saat PIN benar. */
+    pinFailures: int("pin_failures", { unsigned: true }).notNull().default(0),
+    pinLockedUntil: dt("pin_locked_until"),
     roleId: uuid("role_id")
       .notNull()
       .references(() => roles.id),

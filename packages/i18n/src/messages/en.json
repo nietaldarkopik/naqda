@@ -342,5 +342,13 @@
       "outlet": "Outlet",
       "translation": "Translation"
     }
+  },
+  "pos": {
+    "pinInvalid": "Incorrect PIN",
+    "pinLocked": "PIN temporarily locked. Try again later.",
+    "pinFormat": "PIN must be 4–6 digits",
+    "pinWeak": "PIN is too easy to guess",
+    "deviceInvalid": "Device not recognised or revoked",
+    "codeInvalid": "Activation code is invalid or expired"
   }
 }

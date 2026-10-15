@@ -37,6 +37,13 @@ const body = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
   /** Harga di outlet ini sudah termasuk pajak (true) atau pajak ditambahkan di atas harga (false). */
   pricesIncludeTax: z.boolean().default(false),
+  /** Harga menu sudah termasuk service charge/gratuity. */
+  pricesIncludeGratuity: z.boolean().default(false),
+  /** Pajak juga dikenakan atas service charge. */
+  taxOnGratuity: z.boolean().default(true),
+  /** Kelipatan pembulatan total dalam satuan terkecil; 0 = tanpa pembulatan. */
+  roundingStep: z.number().int().min(0).max(1_000_000).default(0),
+  roundingMode: z.enum(["nearest", "up", "down"]).default("nearest"),
 });
 
 const createBody = body.extend({
@@ -52,6 +59,10 @@ type OutletRow = {
   timezone: string;
   status: "active" | "inactive";
   pricesIncludeTax: boolean;
+  pricesIncludeGratuity: boolean;
+  taxOnGratuity: boolean;
+  roundingStep: number;
+  roundingMode: "nearest" | "up" | "down";
   createdAt: Date;
   updatedAt: Date;
 };
@@ -64,6 +75,10 @@ const present = (o: OutletRow) => ({
   timezone: o.timezone,
   status: o.status,
   pricesIncludeTax: o.pricesIncludeTax,
+  pricesIncludeGratuity: o.pricesIncludeGratuity,
+  taxOnGratuity: o.taxOnGratuity,
+  roundingStep: o.roundingStep,
+  roundingMode: o.roundingMode,
   createdAt: iso(o.createdAt),
   updatedAt: iso(o.updatedAt),
 });
@@ -78,6 +93,10 @@ const snapshot = (o: OutletRow) => ({
   status: o.status,
   timezone: o.timezone,
   pricesIncludeTax: o.pricesIncludeTax,
+  pricesIncludeGratuity: o.pricesIncludeGratuity,
+  taxOnGratuity: o.taxOnGratuity,
+  roundingStep: o.roundingStep,
+  roundingMode: o.roundingMode,
 });
 
 export const outletRoutes = () => {
@@ -138,7 +157,7 @@ export const outletRoutes = () => {
             entityId: id,
             action: "update",
             summary: after.name,
-            changes: { before: snapshot(before), after: snapshot(after), taxModeChanged: before.pricesIncludeTax !== after.pricesIncludeTax },
+            changes: { before: snapshot(before), after: snapshot(after), taxModeChanged: before.pricesIncludeTax !== after.pricesIncludeTax || before.pricesIncludeGratuity !== after.pricesIncludeGratuity || before.taxOnGratuity !== after.taxOnGratuity || before.roundingStep !== after.roundingStep || before.roundingMode !== after.roundingMode },
           });
         });
       } catch (error) {

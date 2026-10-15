@@ -21,6 +21,8 @@ import { auditRoutes } from "./routes/audit";
 import { fileRoutes, uploadRoutes } from "./routes/files";
 import { translationRoutes } from "./routes/translations";
 import { localStorageDriver } from "./storage";
+import { deviceRoutes } from "./routes/devices";
+import { posAuthRoutes } from "./routes/pos-auth";
 
 export interface AppDeps {
   handle: DbHandle;
@@ -62,6 +64,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   const storage = localStorageDriver(config.storageDir);
   v1.route("/auth", authRoutes(db, config, limiter));
   v1.route("/files", fileRoutes(storage));
+  v1.route("/pos", posAuthRoutes(db, config, limiter));
 
   const secured = new Hono<AppEnv>();
   secured.use("*", authenticate(config.jwtSecret));
@@ -87,6 +90,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   secured.route("/uploads", uploadRoutes(storage));
   secured.route("/translations", translationRoutes());
   secured.route("/audit", auditRoutes());
+  secured.route("/devices", deviceRoutes());
   v1.route("/", secured);
 
   app.route("/api/v1", v1);
