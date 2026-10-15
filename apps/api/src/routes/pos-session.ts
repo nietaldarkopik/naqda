@@ -265,7 +265,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         lineDiscount: l.lineDiscount,
         promoDiscount: l.promoDiscount,
         note: l.note,
-        modifiers: mods.filter((m) => m.orderItemId === l.id).map((m) => ({ name: m.name, price: m.price })),
+        modifiers: mods.filter((m) => m.orderItemId === l.id).map((m) => ({ optionId: m.optionId, name: m.name, price: m.price })),
       })),
       payments: pays.map((p) => ({ id: p.id, method: p.method, tendered: p.tendered, applied: p.applied, change: p.change, reference: p.reference, at: iso(p.createdAt) })),
     };

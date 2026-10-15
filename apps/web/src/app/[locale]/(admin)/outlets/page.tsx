@@ -15,6 +15,10 @@ interface Outlet {
   timezone: string;
   status: "active" | "inactive";
   pricesIncludeTax: boolean;
+  pricesIncludeGratuity: boolean;
+  taxOnGratuity: boolean;
+  roundingStep: number;
+  roundingMode: "nearest" | "up" | "down";
 }
 
 const emptyForm = {
@@ -24,6 +28,10 @@ const emptyForm = {
   timezone: "Asia/Jakarta",
   status: "active" as Outlet["status"],
   pricesIncludeTax: false,
+  pricesIncludeGratuity: false,
+  taxOnGratuity: true,
+  roundingStep: 0,
+  roundingMode: "nearest" as Outlet["roundingMode"],
   assignCatalog: true,
 };
 const zones = ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Riyadh", "Asia/Dubai", "Asia/Singapore", "UTC"];
@@ -73,7 +81,7 @@ export default function OutletsPage() {
     setEditing("new");
   };
   const openEdit = (o: Outlet) => {
-    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, assignCatalog: true });
+    setForm({ name: o.name, address: o.address ?? "", phone: o.phone ?? "", timezone: o.timezone, status: o.status, pricesIncludeTax: o.pricesIncludeTax, pricesIncludeGratuity: o.pricesIncludeGratuity, taxOnGratuity: o.taxOnGratuity, roundingStep: o.roundingStep, roundingMode: o.roundingMode, assignCatalog: true });
     setOriginalTaxMode(o.pricesIncludeTax);
     setErrors({});
     setEditing(o);
@@ -265,6 +273,36 @@ export default function OutletsPage() {
                 <span className="block text-xs text-muted">{t("outlets.pricesIncludeTaxHint")}</span>
               </span>
             </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={form.pricesIncludeGratuity} onChange={(e) => setForm((f) => ({ ...f, pricesIncludeGratuity: e.target.checked }))} />
+              <span>
+                <span className="font-medium">{t("outlets.pricesIncludeGratuity")}</span>
+                <span className="block text-xs text-muted">{t("outlets.pricesIncludeGratuityHint")}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={form.taxOnGratuity} onChange={(e) => setForm((f) => ({ ...f, taxOnGratuity: e.target.checked }))} />
+              <span>
+                <span className="font-medium">{t("outlets.taxOnGratuity")}</span>
+                <span className="block text-xs text-muted">{t("outlets.taxOnGratuityHint")}</span>
+              </span>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={t("outlets.roundingStep")} hint={t("outlets.roundingStepHint")} error={errors.roundingStep}>
+                {(id) => (
+                  <Input id={id} type="number" min={0} step={1} dir="ltr" className="text-start" value={form.roundingStep} onChange={(e) => setForm((f) => ({ ...f, roundingStep: Math.max(0, Math.trunc(Number(e.target.value) || 0)) }))} />
+                )}
+              </Field>
+              <Field label={t("outlets.roundingMode")} error={errors.roundingMode}>
+                {(id) => (
+                  <Select id={id} value={form.roundingMode} onChange={(e) => setForm((f) => ({ ...f, roundingMode: e.target.value as Outlet["roundingMode"] }))}>
+                    <option value="nearest">{t("outlets.roundNearest")}</option>
+                    <option value="up">{t("outlets.roundUp")}</option>
+                    <option value="down">{t("outlets.roundDown")}</option>
+                  </Select>
+                )}
+              </Field>
+            </div>
             {editing !== "new" && form.pricesIncludeTax !== originalTaxMode ? (
               <p role="status" className="rounded-md bg-warn-soft px-3 py-2 text-xs">
                 {t("outlets.taxModeChangeWarning")}

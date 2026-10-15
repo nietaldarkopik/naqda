@@ -54,21 +54,32 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 - Mode pajak diatur per outlet; belum ada nilai bawaan tingkat bisnis (outlet baru mulai dari "pajak ditambahkan").
 - Penampil audit hanya membaca (tanpa ekspor, tanpa kebijakan retensi).
 
-## Fase 2. Kasir inti (4–5 sesi) — SEDANG BERJALAN (14–15 Okt 2026)
+## Fase 2. Kasir inti (4–5 sesi) — SELESAI UNTUK ALUR UTAMA 15 Okt 2026 (dengan batas di bawah)
 
-**Selesai dan teruji (bagian murni, tanpa database; 116 tes unit):**
-- Mesin hitung total (`computeOrder`): diskon berlapis, service charge, pajak eksklusif/inklusif, pajak atas service, pembulatan; semua per pengaturan outlet.
-- Mesin promo (`applyPromos`): diskon per item, beli X gratis Y, jadwal di zona waktu outlet, satu unit satu promo.
-- Penyelesaian pembayaran (`settle`), pisah bill (`splitLines`), rekonsiliasi kas shift, kebijakan PIN dan penguncian.
+**Berjalan dan teruji** (237 tes otomatis: 116 unit tanpa database + 121 API; 21 pemeriksaan di browser sungguhan):
+- Mesin hitung total (`computeOrder`): diskon berlapis, service charge, pajak eksklusif/inklusif, pajak atas service, pembulatan; semua per pengaturan outlet (`pricesIncludeTax`, `pricesIncludeGratuity`, `taxOnGratuity`, `roundingStep`, `roundingMode`), kini juga diatur di formulir outlet.
+- Mesin promo (`applyPromos`), penyelesaian pembayaran (`settle`), pisah bill (`splitLines`), rekonsiliasi kas shift, kebijakan PIN.
+- **Perangkat kasir**: didaftarkan dari Back Office (kode aktivasi 8 karakter, berlaku 15 menit, sekali pakai), memakai token perangkat; dicabut atau dipasangkan ulang langsung memutus perangkat lama. Aktivasi dibatasi laju.
+- **Login PIN**: PIN 4–6 angka (PIN lemah ditolak), per-pengguna penguncian bertahap, waktu respons tidak membedakan "pengguna tidak ada" dari "PIN salah". Token kasir (`kind: pos`) terikat ke satu outlet dan satu perangkat, dan **tidak diterima** di API Back Office (sebaliknya juga).
+- **Harga selalu dihitung server dari katalog**; klien hanya mengirim id, jumlah, pilihan modifier, dan pilihan diskon (tidak ada harga yang bisa disuntik). Aturan modifier (min/maks), ketersediaan per outlet, dan hak `pos.discount` ditegakkan.
+- Bill: simpan, ubah isi, batalkan (bill belum dibayar), daftar bill terbuka lintas kasir di outlet, **pisah bill** (jumlah kedua bill selalu sama dengan bill asal).
+- Pembayaran: tunai/kartu/QRIS/e-wallet/transfer, **pisah bayar**, kembalian hanya dari tunai, nomor struk **berurutan tanpa celah per outlet** (diuji dengan 6 pembayaran paralel), bayar dua kali ditolak.
+- Shift: buka, kas masuk/keluar (laci tidak boleh minus), tutup dengan selisih; satu shift terbuka per kasir per outlet; shift yang masih terbuka dilanjutkan saat kasir login lagi.
+- Tampilan kasir tablet: aktivasi, PIN pad, buka shift, katalog (kategori, cari), dialog item (varian, modifier, catatan), keranjang, diskon, bayar (cepat, pisah), struk (cetak lewat dialog cetak browser), bill, pisah bill, shift. Tiga bahasa, RTL diverifikasi.
+- Back Office: halaman **Perangkat Kasir**, kolom **PIN** di formulir karyawan, pengaturan checkout baru di outlet.
 - Aturan lengkap dan asumsi yang belum dikonfirmasi: doc 02 bagian 1h.
 
-**Belum dikerjakan (butuh database yang berjalan untuk dibuktikan):**
-- Pengaturan outlet baru di database (`pricesIncludeGratuity`, `taxOnGratuity`, `roundingStep`, `roundingMode`) beserta formulirnya.
-- Skema dan API: perangkat dan login PIN, pesanan/bill, pembayaran, nomor struk berurutan tanpa celah, shift dan kas masuk/keluar, struk.
-- Tampilan kasir tablet (Favorit/Library/Custom, keranjang, dialog item, bayar, daftar bill, pisah bill, shift).
-- Pengisian "outbox" struk (email/SMS) dan cetak.
+**Catatan dan batas** (jangan dianggap ada):
+- **Belum dikonfirmasi dengan akuntan/toko**: urutan hitung (diskon → service → pajak → pembulatan) dan arti promo persen ("beli minimal N → semua unit memenuhi syarat didiskon").
+- Bill yang **sudah lunas** belum bisa dibatalkan atau di-refund (Fase 3); kas shift belum punya jalur refund.
+- Tab **Favorit/Custom** belum ada (hanya kategori dan pencarian). Metode pembayaran adalah daftar tetap (belum bisa diatur di Back Office; fase 7).
+- Struk dicetak lewat dialog cetak browser. **Belum ada** printer thermal/ESC-POS, laci kas otomatis, atau pengiriman struk email/SMS (tabel `receipt_outbox` sudah ada, belum ada endpoint).
+- **Belum offline**: kasir butuh koneksi ke server. Sesi kasir hanya di memori, jadi memuat ulang halaman meminta PIN lagi (perangkat tetap terdaftar).
+- Stok belum berkurang saat jual (fase 5); promo dievaluasi saat bill disimpan, bukan saat dibayar (bill yang disimpan sebelum promo berakhir tetap memakai promo itu).
+- Diskon pesanan tidak ikut terbawa ke bill baru saat pisah bill; promo dihitung ulang untuk kedua bill.
+- Rute kasir belum dibatasi laju selain aktivasi dan login PIN.
 
-**Selesai bila**: satu hari penjualan bisa disimulasikan dari buka sampai tutup shift (belum tercapai).
+**Selesai bila**: satu hari penjualan bisa disimulasikan dari buka sampai tutup shift. Tercapai untuk alur utama (lihat `tools/verify_phase2.mjs`); belum dengan refund, offline, dan printer nyata.
 
 ## Fase 3. Meja dan aktivitas (2–3 sesi)
 - Table group, table map (Back Office), denah di kasir, mulai bill dari meja.

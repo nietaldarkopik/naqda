@@ -89,3 +89,21 @@ body {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
+
+/* Struk: hanya area struk yang dicetak. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 72mm;
+    color: #000;
+  }
+}

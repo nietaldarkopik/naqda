@@ -1,0 +1,256 @@
+/**
+ * Klien API aplikasi kasir. Dua kredensial berbeda dari Back Office:
+ *  - token perangkat (localStorage): mengikat tablet ke satu outlet, bertahan sampai dicabut dari Back Office;
+ *  - token sesi kasir (memori saja): didapat dari PIN, hilang saat halaman dimuat ulang atau kasir keluar.
+ */
+
+export class PosError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    message: string,
+    public readonly fields?: Record<string, string>,
+    public readonly extra?: Record<string, unknown>,
+  ) {
+    super(message);
+  }
+}
+
+const DEVICE_KEY = "naqdi.pos.device";
+let sessionToken: string | null = null;
+let onDeviceLost: (() => void) | null = null;
+let onSessionLost: (() => void) | null = null;
+
+export const getDeviceToken = (): string | null => {
+  try {
+    return localStorage.getItem(DEVICE_KEY);
+  } catch {
+    return null;
+  }
+};
+export const setDeviceToken = (token: string | null) => {
+  try {
+    if (token) localStorage.setItem(DEVICE_KEY, token);
+    else localStorage.removeItem(DEVICE_KEY);
+  } catch {
+    /* penyimpanan diblokir: perangkat harus diaktifkan ulang setiap kali */
+  }
+};
+export const setSessionToken = (token: string | null) => {
+  sessionToken = token;
+};
+export const setPosLostHandlers = (device: (() => void) | null, session: (() => void) | null) => {
+  onDeviceLost = device;
+  onSessionLost = session;
+};
+
+export async function posApi<T>(path: string, init: { method?: string; json?: unknown; auth?: boolean } = {}): Promise<T> {
+  const headers = new Headers({ "x-client": "pos", "x-locale": document.documentElement.lang || "id" });
+  const device = getDeviceToken();
+  if (device) headers.set("x-device-token", device);
+  if (init.auth !== false && sessionToken) headers.set("authorization", `Bearer ${sessionToken}`);
+  let body: string | undefined;
+  if (init.json !== undefined) {
+    headers.set("content-type", "application/json");
+    body = JSON.stringify(init.json);
+  }
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1/pos${path}`, { method: init.method ?? "GET", headers, body });
+  } catch {
+    throw new PosError(0, "network", "network");
+  }
+  if (res.ok) return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  let data: { code?: string; message?: string; fields?: Record<string, string>; extra?: Record<string, unknown> } = {};
+  try {
+    data = await res.json();
+  } catch {
+    /* tubuh kosong */
+  }
+  const err = new PosError(res.status, data.code ?? "server", data.message ?? res.statusText, data.fields, data.extra);
+  // 401 pada perangkat = dicabut/tidak dikenal; 401 pada sesi = token kedaluwarsa. Pembedaan lewat ada/tidaknya token sesi.
+  if (res.status === 401 && path !== "/devices/activate" && path !== "/auth/pin") {
+    if (sessionToken) onSessionLost?.();
+    else onDeviceLost?.();
+  }
+  throw err;
+}
+
+// ---- tipe data
+
+export interface PosOutlet {
+  id: string;
+  name: string;
+  timezone: string;
+  settings: { pricesIncludeTax: boolean; pricesIncludeGratuity: boolean; taxOnGratuity: boolean; roundingStep: number; roundingMode: string };
+}
+export interface PosBusiness {
+  id: string;
+  name: string;
+  currency: string;
+  currencyExponent: number;
+  defaultLocale: string;
+}
+export interface PosUserLite {
+  id: string;
+  name: string;
+  role: { systemKey: string | null; name: string | null };
+  locked: boolean;
+}
+export interface PosSession {
+  accessToken: string;
+  user: { id: string; name: string; locale: string | null; privileges: string[]; role: { systemKey: string | null; name: string | null } };
+  outlet: PosOutlet;
+  business: PosBusiness;
+}
+export interface CatalogVariant {
+  id: string;
+  name: string;
+  sku: string | null;
+  basePrice: number;
+  prices: Record<string, number>;
+}
+export interface CatalogModifierSet {
+  id: string;
+  name: string;
+  minSelect: number;
+  maxSelect: number | null;
+  options: { id: string; name: string; price: number }[];
+}
+export interface CatalogItem {
+  id: string;
+  name: string;
+  categoryId: string | null;
+  imageUrl: string | null;
+  variants: CatalogVariant[];
+  modifierSets: CatalogModifierSet[];
+}
+export interface CatalogBundle {
+  id: string;
+  name: string;
+  price: number;
+  prices: Record<string, number>;
+}
+export interface PosDiscount {
+  id: string;
+  name: string;
+  kind: "percent" | "amount";
+  value: number;
+  customizable: boolean;
+}
+export interface Catalog {
+  categories: { id: string; name: string }[];
+  salesTypes: { id: string; name: string }[];
+  discounts: PosDiscount[];
+  items: CatalogItem[];
+  bundles: CatalogBundle[];
+}
+
+export type DiscountPick = { discountId: string; value?: number };
+export type CartLine =
+  | { kind: "item"; variantId: string; quantity: number; modifierOptionIds: string[]; note?: string | null; discount?: DiscountPick | null }
+  | { kind: "bundle"; bundleId: string; quantity: number; note?: string | null; discount?: DiscountPick | null };
+export interface Cart {
+  salesTypeId: string;
+  lines: CartLine[];
+  orderDiscount?: DiscountPick | null;
+  label?: string | null;
+  note?: string | null;
+}
+
+export interface Totals {
+  subtotal: number;
+  lineDiscountTotal: number;
+  promoDiscountTotal: number;
+  orderDiscount: number;
+  discountTotal: number;
+  base: number;
+  net: number;
+  gratuity: number;
+  tax: number;
+  rounding: number;
+  total: number;
+  lines: { id: string; gross: number; discount: number; promoDiscount: number; afterDiscount: number }[];
+}
+export interface PricedLine {
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  modifiers: { optionId: string | null; name: string; price: number }[];
+  gross: number;
+  discount: number;
+  promoDiscount: number;
+  afterDiscount: number;
+}
+export interface PriceResult {
+  totals: Totals;
+  lines: PricedLine[];
+  snapshot: { taxes: { name: string; rateBp: number; amount: number }[]; gratuities: { name: string; rateBp: number; amount: number }[] };
+}
+
+export interface OrderLineView {
+  id: string;
+  itemId: string | null;
+  variantId: string | null;
+  bundleId: string | null;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  discount: { kind: "percent" | "amount"; value: number; discountId?: string | null } | null;
+  lineDiscount: number;
+  promoDiscount: number;
+  note: string | null;
+  modifiers: { optionId: string | null; name: string; price: number }[];
+}
+export interface OrderView {
+  id: string;
+  status: "open" | "paid" | "void";
+  receiptNumber: number | null;
+  salesTypeId: string;
+  label: string | null;
+  note: string | null;
+  openedAt: string;
+  paidAt: string | null;
+  orderDiscount: { kind: "percent" | "amount"; value: number; discountId?: string | null } | null;
+  snapshot: PriceResult["snapshot"] | null;
+  totals: { subtotal: number; discountTotal: number; base: number; net: number; gratuity: number; tax: number; rounding: number; total: number; paid: number; change: number };
+  lines: OrderLineView[];
+  payments: { id: string; method: string; tendered: number; applied: number; change: number; reference: string | null }[];
+}
+export interface OrderSummary {
+  id: string;
+  status: string;
+  receiptNumber: number | null;
+  label: string | null;
+  total: number;
+  openedAt: string;
+}
+export interface ShiftView {
+  id: string;
+  openedAt: string;
+  closedAt: string | null;
+  openingCash: number;
+  cashSales: number;
+  nonCashSales: number;
+  orderCount: number;
+  cashIn: number;
+  cashOut: number;
+  expectedCash: number | null;
+  actualCash: number | null;
+  difference: number | null;
+  movements: { id: string; kind: "in" | "out"; amount: number; description: string; at: string }[];
+}
+
+/** Mengubah bill yang tersimpan menjadi isi keranjang yang bisa diubah lagi. */
+export const cartFromOrder = (o: OrderView): Cart => ({
+  salesTypeId: o.salesTypeId,
+  label: o.label,
+  note: o.note,
+  orderDiscount: o.orderDiscount?.discountId ? { discountId: o.orderDiscount.discountId, value: o.orderDiscount.value } : null,
+  lines: o.lines.map((l): CartLine => {
+    const discount = l.discount?.discountId ? { discountId: l.discount.discountId, value: l.discount.value } : null;
+    return l.bundleId
+      ? { kind: "bundle", bundleId: l.bundleId, quantity: l.quantity, note: l.note, discount }
+      : { kind: "item", variantId: l.variantId!, quantity: l.quantity, modifierOptionIds: l.modifiers.flatMap((m) => (m.optionId ? [m.optionId] : [])), note: l.note, discount };
+  }),
+});

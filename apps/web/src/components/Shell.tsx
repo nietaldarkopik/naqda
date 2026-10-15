@@ -24,6 +24,7 @@ import {
   Settings,
   Store,
   Table2,
+  Tablet,
   UserRound,
   Users,
   type LucideIcon,
@@ -72,6 +73,7 @@ const nav: NavItem[] = [
   { key: "tableManagement", icon: Table2 },
   { key: "payments", icon: CreditCard },
   { key: "accountSettings", icon: Settings },
+  { key: "devices", href: "/devices", icon: Tablet, privilege: "settings.manage" },
   { key: "audit", href: "/audit", icon: History, privilege: "settings.manage" },
 ];
 

@@ -23,6 +23,7 @@ interface Employee {
   status: "active" | "inactive" | "invited";
   role: Role;
   outletIds: string[];
+  hasPin?: boolean;
 }
 interface OutletLite {
   id: string;
@@ -57,6 +58,8 @@ export default function EmployeesPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Employee | null>(null);
+  const [pin, setPin] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
 
   const roleName = useCallback((r: Role) => (r.systemKey ? t(`roles.${r.systemKey}` as never) : (r.name ?? "-")), [t]);
 
@@ -85,12 +88,33 @@ export default function EmployeesPage() {
     return () => clearTimeout(id);
   }, [q]);
 
+  const savePin = async (remove: boolean) => {
+    if (!editing || editing === "new") return;
+    setPinBusy(true);
+    setErrors((e) => ({ ...e, pin: "" }));
+    try {
+      if (remove) await api(`/employees/${editing.id}/pin`, { method: "DELETE" });
+      else await api(`/employees/${editing.id}/pin`, { method: "POST", json: { pin } });
+      setEditing({ ...editing, hasPin: !remove });
+      setPin("");
+      toast(t(remove ? "employees.pinRemoved" : "employees.pinSaved"));
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.fields?.pin) setErrors((e) => ({ ...e, pin: err.fields!.pin! }));
+      else toast(err instanceof ApiError ? err.message : t("errors.network"), "error");
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
   const openNew = () => {
+    setPin("");
     setForm({ ...emptyForm, roleId: roles[0]?.id ?? "" });
     setErrors({});
     setEditing("new");
   };
   const openEdit = (u: Employee) => {
+    setPin("");
     setForm({
       name: u.name,
       email: u.email,
@@ -298,6 +322,29 @@ export default function EmployeesPage() {
               </Select>
             )}
           </Field>
+          {editing !== "new" && editing ? (
+            <fieldset className="space-y-2 rounded-lg border border-line p-3">
+              <legend className="px-1 text-sm font-semibold">{t("employees.pinTitle")}</legend>
+              <p className="text-xs text-muted">{editing.hasPin ? t("employees.pinSet") : t("employees.pinNotSet")}</p>
+              <div className="flex flex-wrap items-start gap-2">
+                <div className="min-w-40 flex-1">
+                  <Field label={t("employees.pinNew")} error={errors.pin || undefined} hint={t("employees.pinHint")}>
+                    {(id) => (
+                      <Input id={id} type="password" inputMode="numeric" autoComplete="off" dir="ltr" className="text-start" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} invalid={Boolean(errors.pin)} />
+                    )}
+                  </Field>
+                </div>
+                <Button type="button" variant="secondary" className="mt-6" disabled={pinBusy || pin.length < 4} onClick={() => void savePin(false)}>
+                  {t("employees.pinSave")}
+                </Button>
+                {editing.hasPin ? (
+                  <Button type="button" variant="ghost" className="mt-6" disabled={pinBusy} onClick={() => void savePin(true)}>
+                    {t("employees.pinRemove")}
+                  </Button>
+                ) : null}
+              </div>
+            </fieldset>
+          ) : null}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">{t("employees.assignedOutlets")}</legend>
             {errors.outletIds ? <p className="text-xs text-danger">{errors.outletIds}</p> : null}
