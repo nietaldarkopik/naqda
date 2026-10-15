@@ -15,7 +15,7 @@ export interface AuditEntry {
  * Mencatat jejak perubahan. Hanya menambah baris; tidak ada fungsi ubah atau hapus.
  * Dipanggil di dalam transaksi yang sama dengan perubahannya agar tidak ada perubahan tanpa jejak.
  */
-export const writeAudit = async (db: Db, auth: AuthContext, entry: AuditEntry): Promise<void> => {
+export const writeAudit = async (db: Db, auth: Pick<AuthContext, "userId" | "businessId">, entry: AuditEntry): Promise<void> => {
   await db.insert(auditLogs).values({
     id: newId(),
     businessId: auth.businessId,

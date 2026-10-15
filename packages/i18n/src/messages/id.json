@@ -349,6 +349,17 @@
     "pinFormat": "PIN harus 4–6 angka",
     "pinWeak": "PIN terlalu mudah ditebak",
     "deviceInvalid": "Perangkat tidak dikenal atau sudah dicabut",
-    "codeInvalid": "Kode aktivasi tidak valid atau kedaluwarsa"
+    "codeInvalid": "Kode aktivasi tidak valid atau kedaluwarsa",
+    "discountFixed": "Nilai diskon ini tidak bisa diubah",
+    "discountRange": "Diskon persen maksimal 100%",
+    "modifierLimit": "Jumlah pilihan modifier tidak sesuai aturan",
+    "noShift": "Belum ada shift yang dibuka",
+    "shiftOpen": "Shift sudah terbuka",
+    "orderNotOpen": "Bill ini sudah tidak terbuka",
+    "emptyOrder": "Pesanan masih kosong",
+    "paymentInvalid": "Pembayaran tidak valid",
+    "paymentShort": "Pembayaran kurang dari total tagihan",
+    "splitInvalid": "Pilihan pisah bill tidak valid",
+    "cashShort": "Kas di laci tidak cukup"
   }
 }

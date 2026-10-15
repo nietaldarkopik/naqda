@@ -1,0 +1,628 @@
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { z } from "zod";
+import {
+  bundleOutlets,
+  bundlePrices,
+  bundles,
+  cashMovements,
+  categories,
+  counters,
+  itemModifierSets,
+  itemOutlets,
+  itemVariantPrices,
+  itemVariants,
+  items,
+  modifierOptions,
+  modifierSets,
+  newId,
+  orderItemModifiers,
+  orderItems,
+  orders,
+  payments,
+  salesTypes,
+  shifts,
+  type DbHandle,
+} from "@naqdi/db";
+import { PaymentError, SplitError, cashDifference, expectedCash, settle, splitLines, type OrderLineInput } from "@naqdi/domain";
+import type { LoginLimiter } from "../auth/limiter";
+import type { Config } from "../config";
+import { AppError, duplicateKey } from "../errors";
+import { iso, validate } from "../http";
+import { requireDevice, requirePos, requirePosPrivilege, type PosEnv } from "../pos/context";
+import {
+  cartSchema,
+  fromDiscountInput,
+  loadOutletContext,
+  loadPromos,
+  loadRates,
+  loadSalesType,
+  outletDiscounts,
+  priceLines,
+  resolveCart,
+  toDiscountInput,
+  type OutletContext,
+  type PricedOrder,
+  type ResolvedLine,
+  type StoredDiscount,
+} from "../pos/pricing";
+import { posAuthRoutes } from "./pos-auth";
+
+type Db = DbHandle["db"];
+type OrderRow = typeof orders.$inferSelect;
+
+const idParam = z.object({ id: z.string().uuid() });
+const methods = ["cash", "card", "qris", "ewallet", "transfer", "other"] as const;
+
+const conflict = (messageKey: string): never => {
+  throw new AppError("conflict", { messageKey });
+};
+
+/** Semua rute kasir: /api/v1/pos/... Aktivasi dan login PIN ada di pos-auth.ts; sisanya butuh perangkat + sesi kasir. */
+export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
+  const app = new Hono<PosEnv>();
+  app.route("/", posAuthRoutes(db, config, limiter));
+
+  const session = new Hono<PosEnv>();
+  session.use("*", requireDevice(db), requirePos(db, config));
+  session.use("*", requirePosPrivilege("pos.sell"));
+
+  const openShiftOf = async (d: Db, userId: string, outletId: string) =>
+    (
+      await d
+        .select()
+        .from(shifts)
+        .where(and(eq(shifts.userId, userId), eq(shifts.outletId, outletId), isNull(shifts.closedAt)))
+        .limit(1)
+    )[0];
+
+  const requireShift = async (d: Db, userId: string, outletId: string) => {
+    const s = await openShiftOf(d, userId, outletId);
+    if (!s) return conflict("pos.noShift");
+    return s;
+  };
+
+  // ------------------------------------------------------------------ katalog
+  session.get("/catalog", async (c) => {
+    const pos = c.get("pos");
+    const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+    const [cats, types, discs] = await Promise.all([
+      db.select().from(categories).where(and(eq(categories.businessId, pos.businessId), isNull(categories.deletedAt))).orderBy(asc(categories.name)),
+      db.select().from(salesTypes).where(and(eq(salesTypes.businessId, pos.businessId), isNull(salesTypes.deletedAt), eq(salesTypes.status, "active"))).orderBy(asc(salesTypes.name)),
+      outletDiscounts(db, ctx),
+    ]);
+
+    const itemRows = await db
+      .select({ item: items })
+      .from(items)
+      .innerJoin(itemOutlets, and(eq(itemOutlets.itemId, items.id), eq(itemOutlets.outletId, pos.outletId), eq(itemOutlets.available, true)))
+      .where(and(eq(items.businessId, pos.businessId), isNull(items.deletedAt), eq(items.status, "active")))
+      .orderBy(asc(items.name));
+    const itemIds = itemRows.map((r) => r.item.id);
+    const variants = itemIds.length
+      ? await db.select().from(itemVariants).where(and(inArray(itemVariants.itemId, itemIds), isNull(itemVariants.deletedAt))).orderBy(asc(itemVariants.position), asc(itemVariants.name))
+      : [];
+    const vIds = variants.map((v) => v.id);
+    const vPrices = vIds.length ? await db.select().from(itemVariantPrices).where(inArray(itemVariantPrices.variantId, vIds)) : [];
+    const links = itemIds.length ? await db.select().from(itemModifierSets).where(inArray(itemModifierSets.itemId, itemIds)).orderBy(asc(itemModifierSets.position)) : [];
+    const setIds = [...new Set(links.map((l) => l.setId))];
+    const sets = setIds.length ? await db.select().from(modifierSets).where(and(inArray(modifierSets.id, setIds), isNull(modifierSets.deletedAt))) : [];
+    const opts = setIds.length
+      ? await db.select().from(modifierOptions).where(and(inArray(modifierOptions.setId, setIds), isNull(modifierOptions.deletedAt))).orderBy(asc(modifierOptions.position))
+      : [];
+
+    const bundleRows = await db
+      .select({ b: bundles })
+      .from(bundles)
+      .innerJoin(bundleOutlets, and(eq(bundleOutlets.bundleId, bundles.id), eq(bundleOutlets.outletId, pos.outletId)))
+      .where(and(eq(bundles.businessId, pos.businessId), isNull(bundles.deletedAt), eq(bundles.status, "active")))
+      .orderBy(asc(bundles.name));
+    const bIds = bundleRows.map((r) => r.b.id);
+    const bPrices = bIds.length ? await db.select().from(bundlePrices).where(inArray(bundlePrices.bundleId, bIds)) : [];
+
+    const priceMap = (rows: { salesTypeId: string; price: number }[]) => Object.fromEntries(rows.map((r) => [r.salesTypeId, r.price]));
+    return c.json({
+      categories: cats.map((x) => ({ id: x.id, name: x.name })),
+      salesTypes: types.map((x) => ({ id: x.id, name: x.name })),
+      discounts: discs.map((d) => ({ id: d.id, name: d.name, kind: d.kind, value: d.value, customizable: d.customizable })),
+      items: itemRows.map(({ item }) => ({
+        id: item.id,
+        name: item.name,
+        categoryId: item.categoryId,
+        imageUrl: item.imageUrl,
+        variants: variants
+          .filter((v) => v.itemId === item.id)
+          .map((v) => ({ id: v.id, name: v.name, sku: v.sku, basePrice: v.basePrice, prices: priceMap(vPrices.filter((p) => p.variantId === v.id)) })),
+        modifierSets: links
+          .filter((l) => l.itemId === item.id)
+          .flatMap((l) => {
+            const set = sets.find((s) => s.id === l.setId);
+            return set
+              ? [{ id: set.id, name: set.name, minSelect: set.minSelect, maxSelect: set.maxSelect, options: opts.filter((o) => o.setId === set.id).map((o) => ({ id: o.id, name: o.name, price: o.price })) }]
+              : [];
+          }),
+      })),
+      bundles: bundleRows.map(({ b }) => ({ id: b.id, name: b.name, price: b.price, prices: priceMap(bPrices.filter((p) => p.bundleId === b.id)) })),
+    });
+  });
+
+  // ------------------------------------------------------------------ pesanan: hitung & simpan
+  const hasDiscountPrivilege = (c: { get: (k: "pos") => { privileges: string[] } }) => c.get("pos").privileges.includes("pos.discount");
+
+  const priceCart = async (cart: z.infer<typeof cartSchema>, ctx: OutletContext, canDiscount: boolean) => {
+    await loadSalesType(db, ctx.businessId, cart.salesTypeId);
+    const [resolved, rates, promoDefs] = await Promise.all([resolveCart(db, ctx, cart, canDiscount), loadRates(db, ctx, cart.salesTypeId), loadPromos(db, ctx)]);
+    const priced = priceLines(resolved.lines, resolved.orderDiscount, ctx, rates, promoDefs, cart.salesTypeId);
+    return { ...resolved, priced, rates, promoDefs };
+  };
+
+  // Pratinjau harga untuk keranjang yang belum disimpan.
+  session.post("/price", validate("json", cartSchema), async (c) => {
+    const pos = c.get("pos");
+    const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+    const r = await priceCart(c.req.valid("json"), ctx, hasDiscountPrivilege(c));
+    return c.json({ totals: r.priced.totals, lines: r.lines.map((l, i) => ({ ...l, ...r.priced.totals.lines[i] })), snapshot: r.priced.snapshot });
+  });
+
+  const persistLines = async (tx: Db, order: { id: string; businessId: string }, lines: ResolvedLine[], priced: PricedOrder) => {
+    const existing = await tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, order.id));
+    if (existing.length) {
+      await tx.delete(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, existing.map((e) => e.id)));
+      await tx.delete(orderItems).where(eq(orderItems.orderId, order.id));
+    }
+    for (const [i, l] of lines.entries()) {
+      const r = priced.totals.lines[i]!;
+      const id = newId();
+      await tx.insert(orderItems).values({
+        id,
+        businessId: order.businessId,
+        orderId: order.id,
+        position: i,
+        itemId: l.itemId,
+        variantId: l.variantId,
+        bundleId: l.bundleId,
+        categoryId: l.categoryId,
+        name: l.name,
+        sku: l.sku,
+        unitPrice: l.unitPrice,
+        basePrice: l.basePrice,
+        cost: l.cost,
+        quantity: l.quantity,
+        discount: l.discount,
+        lineDiscount: r.discount,
+        promoDiscount: r.promoDiscount,
+        promoId: r.promoDiscount > 0 ? (priced.promoByLine[l.key] ?? null) : null,
+        note: l.note,
+      });
+      if (l.modifiers.length) {
+        await tx.insert(orderItemModifiers).values(l.modifiers.map((m) => ({ id: newId(), orderItemId: id, optionId: m.optionId, name: m.name, price: m.price })));
+      }
+    }
+  };
+
+  const totalsColumns = (t: PricedOrder["totals"]) => ({
+    subtotal: t.subtotal,
+    discountTotal: t.discountTotal,
+    base: t.base,
+    net: t.net,
+    gratuity: t.gratuity,
+    tax: t.tax,
+    rounding: t.rounding,
+    total: t.total,
+  });
+
+  const lockOrder = async (tx: Db, businessId: string, outletId: string, id: string): Promise<OrderRow> => {
+    const [row] = await tx
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, id), eq(orders.businessId, businessId), eq(orders.outletId, outletId)))
+      .limit(1)
+      .for("update");
+    if (!row) throw new AppError("not_found");
+    return row;
+  };
+
+  const presentOrder = async (d: Db, o: OrderRow) => {
+    const lines = await d.select().from(orderItems).where(eq(orderItems.orderId, o.id)).orderBy(asc(orderItems.position));
+    const mods = lines.length ? await d.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, lines.map((l) => l.id))) : [];
+    const pays = await d.select().from(payments).where(eq(payments.orderId, o.id)).orderBy(asc(payments.createdAt));
+    return {
+      id: o.id,
+      status: o.status,
+      receiptNumber: o.receiptNumber,
+      salesTypeId: o.salesTypeId,
+      label: o.label,
+      note: o.note,
+      pax: o.pax,
+      openedAt: iso(o.openedAt),
+      paidAt: iso(o.paidAt),
+      voidedAt: iso(o.voidedAt),
+      voidReason: o.voidReason,
+      orderDiscount: o.orderDiscount,
+      snapshot: o.pricingSnapshot,
+      totals: {
+        subtotal: o.subtotal,
+        discountTotal: o.discountTotal,
+        base: o.base,
+        net: o.net,
+        gratuity: o.gratuity,
+        tax: o.tax,
+        rounding: o.rounding,
+        total: o.total,
+        paid: o.paidTotal,
+        change: o.changeGiven,
+      },
+      lines: lines.map((l) => ({
+        id: l.id,
+        itemId: l.itemId,
+        variantId: l.variantId,
+        bundleId: l.bundleId,
+        name: l.name,
+        sku: l.sku,
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+        discount: l.discount,
+        lineDiscount: l.lineDiscount,
+        promoDiscount: l.promoDiscount,
+        note: l.note,
+        modifiers: mods.filter((m) => m.orderItemId === l.id).map((m) => ({ name: m.name, price: m.price })),
+      })),
+      payments: pays.map((p) => ({ id: p.id, method: p.method, tendered: p.tendered, applied: p.applied, change: p.change, reference: p.reference, at: iso(p.createdAt) })),
+    };
+  };
+
+  session.post("/orders", validate("json", cartSchema), async (c) => {
+    const pos = c.get("pos");
+    const cart = c.req.valid("json");
+    if (cart.lines.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
+    const shift = await requireShift(db, pos.userId, pos.outletId);
+    const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+    const r = await priceCart(cart, ctx, hasDiscountPrivilege(c));
+    const id = newId();
+    await db.transaction(async (t) => {
+      const tx = t as unknown as Db;
+      await tx.insert(orders).values({
+        id,
+        businessId: pos.businessId,
+        outletId: pos.outletId,
+        shiftId: shift.id,
+        userId: pos.userId,
+        deviceId: pos.deviceId,
+        salesTypeId: cart.salesTypeId,
+        label: cart.label ?? null,
+        note: cart.note ?? null,
+        pax: cart.pax ?? null,
+        orderDiscount: r.orderDiscount,
+        pricingSnapshot: r.priced.snapshot,
+        ...totalsColumns(r.priced.totals),
+      });
+      await persistLines(tx, { id, businessId: pos.businessId }, r.lines, r.priced);
+    });
+    const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    return c.json({ order: await presentOrder(db, row!) }, 201);
+  });
+
+  // Mengganti isi bill yang masih terbuka (tambah/ubah/hapus baris). Harga dihitung ulang dari katalog.
+  session.put("/orders/:id", validate("param", idParam), validate("json", cartSchema), async (c) => {
+    const pos = c.get("pos");
+    const { id } = c.req.valid("param");
+    const cart = c.req.valid("json");
+    if (cart.lines.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
+    await requireShift(db, pos.userId, pos.outletId);
+    const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+    const r = await priceCart(cart, ctx, hasDiscountPrivilege(c));
+    await db.transaction(async (t) => {
+      const tx = t as unknown as Db;
+      const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+      if (order.status !== "open") return conflict("pos.orderNotOpen");
+      await tx
+        .update(orders)
+        .set({
+          salesTypeId: cart.salesTypeId,
+          label: cart.label ?? null,
+          note: cart.note ?? null,
+          pax: cart.pax ?? null,
+          orderDiscount: r.orderDiscount,
+          pricingSnapshot: r.priced.snapshot,
+          ...totalsColumns(r.priced.totals),
+        })
+        .where(eq(orders.id, id));
+      await persistLines(tx, { id, businessId: pos.businessId }, r.lines, r.priced);
+    });
+    const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    return c.json({ order: await presentOrder(db, row!) });
+  });
+
+  session.get("/orders", validate("query", z.object({ status: z.enum(["open", "paid", "void"]).default("open"), limit: z.coerce.number().int().min(1).max(200).default(50) })), async (c) => {
+    const pos = c.get("pos");
+    const { status, limit } = c.req.valid("query");
+    const rows = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId), eq(orders.status, status)))
+      .orderBy(desc(orders.openedAt))
+      .limit(limit);
+    return c.json({
+      items: rows.map((o) => ({ id: o.id, status: o.status, receiptNumber: o.receiptNumber, label: o.label, total: o.total, openedAt: iso(o.openedAt), paidAt: iso(o.paidAt), userId: o.userId })),
+    });
+  });
+
+  session.get("/orders/:id", validate("param", idParam), async (c) => {
+    const pos = c.get("pos");
+    const [row] = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, c.req.valid("param").id), eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId)))
+      .limit(1);
+    if (!row) throw new AppError("not_found");
+    return c.json({ order: await presentOrder(db, row) });
+  });
+
+  // Membatalkan bill yang belum dibayar. Pembatalan/refund transaksi LUNAS belum ada (butuh jejak kas dan persetujuan).
+  session.post("/orders/:id/void", validate("param", idParam), validate("json", z.object({ reason: z.string().trim().min(1).max(255) })), async (c) => {
+    const pos = c.get("pos");
+    const { id } = c.req.valid("param");
+    await db.transaction(async (t) => {
+      const tx = t as unknown as Db;
+      const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+      if (order.status !== "open") return conflict("pos.orderNotOpen");
+      await tx.update(orders).set({ status: "void", voidedAt: new Date(), voidReason: c.req.valid("json").reason }).where(eq(orders.id, id));
+    });
+    const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    return c.json({ order: await presentOrder(db, row!) });
+  });
+
+  // ------------------------------------------------------------------ pembayaran
+  session.post(
+    "/orders/:id/pay",
+    validate("param", idParam),
+    validate(
+      "json",
+      z.object({
+        payments: z
+          .array(z.object({ method: z.enum(methods), amount: z.number().int().min(1).max(1_000_000_000_000), reference: z.string().trim().max(120).nullish() }))
+          .max(10),
+      }),
+    ),
+    async (c) => {
+      const pos = c.get("pos");
+      const { id } = c.req.valid("param");
+      const input = c.req.valid("json").payments;
+      const shift = await requireShift(db, pos.userId, pos.outletId);
+
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+        if (order.status !== "open") return conflict("pos.orderNotOpen");
+        const lineCount = await tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, id)).limit(1);
+        if (lineCount.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
+
+        let result;
+        try {
+          result = settle(order.total, input.map((p) => ({ method: p.method, amount: p.amount })));
+        } catch (e) {
+          if (e instanceof PaymentError) throw new AppError("validation", { fields: { payments: "pos.paymentInvalid" } });
+          throw e;
+        }
+        if (!result.fullyPaid) throw new AppError("validation", { fields: { payments: "pos.paymentShort" } });
+
+        // Nomor struk berurutan tanpa celah: baris penghitung dikunci sampai transaksi selesai.
+        await tx
+          .insert(counters)
+          .values({ outletId: pos.outletId, kind: "receipt", value: 1 })
+          .onDuplicateKeyUpdate({ set: { value: sql`${counters.value} + 1` } });
+        const [counter] = await tx
+          .select({ value: counters.value })
+          .from(counters)
+          .where(and(eq(counters.outletId, pos.outletId), eq(counters.kind, "receipt")))
+          .limit(1);
+
+        await tx
+          .update(orders)
+          .set({ status: "paid", receiptNumber: counter!.value, paidAt: new Date(), paidTotal: result.paid, changeGiven: result.change })
+          .where(eq(orders.id, id));
+        for (const [i, p] of result.payments.entries()) {
+          await tx.insert(payments).values({
+            id: newId(),
+            businessId: pos.businessId,
+            orderId: id,
+            shiftId: shift.id,
+            method: p.method,
+            tendered: p.tendered,
+            applied: p.applied,
+            change: p.change,
+            reference: input[i]!.reference ?? null,
+            createdBy: pos.userId,
+          });
+        }
+      });
+      const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      return c.json({ order: await presentOrder(db, row!) });
+    },
+  );
+
+  // ------------------------------------------------------------------ pisah bill
+  session.post(
+    "/orders/:id/split",
+    validate("param", idParam),
+    validate("json", z.object({ selection: z.array(z.object({ lineId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1).max(200) })),
+    async (c) => {
+      const pos = c.get("pos");
+      const { id } = c.req.valid("param");
+      const { selection } = c.req.valid("json");
+      const shift = await requireShift(db, pos.userId, pos.outletId);
+      const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+      let newOrderId = "";
+
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+        if (order.status !== "open") return conflict("pos.orderNotOpen");
+
+        const rows = await tx.select().from(orderItems).where(eq(orderItems.orderId, id)).orderBy(asc(orderItems.position));
+        const mods = rows.length ? await tx.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, rows.map((r) => r.id))) : [];
+        const resolved = new Map<string, ResolvedLine>(
+          rows.map((r) => [
+            r.id,
+            {
+              key: r.id,
+              itemId: r.itemId,
+              variantId: r.variantId,
+              bundleId: r.bundleId,
+              categoryId: r.categoryId,
+              name: r.name,
+              sku: r.sku,
+              unitPrice: r.unitPrice,
+              basePrice: r.basePrice,
+              cost: r.cost,
+              quantity: r.quantity,
+              discount: r.discount as StoredDiscount | null,
+              note: r.note,
+              modifiers: mods.filter((m) => m.orderItemId === r.id).map((m) => ({ optionId: m.optionId, name: m.name, price: m.price })),
+            },
+          ]),
+        );
+        const inputs: OrderLineInput[] = rows.map((r) => ({ id: r.id, unitPrice: r.unitPrice, quantity: r.quantity, discount: toDiscountInput(r.discount as StoredDiscount | null) }));
+        let parts;
+        try {
+          parts = splitLines(inputs, selection);
+        } catch (e) {
+          if (e instanceof SplitError) throw new AppError("validation", { fields: { selection: "pos.splitInvalid" } });
+          throw e;
+        }
+        const back = (l: OrderLineInput): ResolvedLine => ({
+          ...resolved.get(l.id)!,
+          quantity: l.quantity,
+          discount: fromDiscountInput(l.discount, (resolved.get(l.id)!.discount as StoredDiscount | null)?.discountId ?? null),
+        });
+        const keptLines = parts.kept.map(back);
+        const movedLines = parts.moved.map(back);
+
+        const [rates, promoDefs] = await Promise.all([loadRates(tx, ctx, order.salesTypeId), loadPromos(tx, ctx)]);
+        const keptPriced = priceLines(keptLines, order.orderDiscount, ctx, rates, promoDefs, order.salesTypeId);
+        const movedPriced = priceLines(movedLines, null, ctx, rates, promoDefs, order.salesTypeId);
+
+        newOrderId = newId();
+        await tx.update(orders).set({ pricingSnapshot: keptPriced.snapshot, ...totalsColumns(keptPriced.totals) }).where(eq(orders.id, id));
+        await persistLines(tx, { id, businessId: pos.businessId }, keptLines, keptPriced);
+        await tx.insert(orders).values({
+          id: newOrderId,
+          businessId: pos.businessId,
+          outletId: pos.outletId,
+          shiftId: shift.id,
+          userId: pos.userId,
+          deviceId: pos.deviceId,
+          salesTypeId: order.salesTypeId,
+          label: order.label ? `${order.label} (2)` : null,
+          pricingSnapshot: movedPriced.snapshot,
+          ...totalsColumns(movedPriced.totals),
+        });
+        await persistLines(tx, { id: newOrderId, businessId: pos.businessId }, movedLines, movedPriced);
+      });
+
+      const [a] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      const [b] = await db.select().from(orders).where(eq(orders.id, newOrderId)).limit(1);
+      return c.json({ order: await presentOrder(db, a!), moved: await presentOrder(db, b!) }, 201);
+    },
+  );
+
+  // ------------------------------------------------------------------ shift dan kas
+  const shiftSummary = async (d: Db, shiftRow: typeof shifts.$inferSelect) => {
+    const [cashRow] = await d
+      .select({ total: sql<string>`COALESCE(SUM(${payments.applied}), 0)` })
+      .from(payments)
+      .where(and(eq(payments.shiftId, shiftRow.id), eq(payments.method, "cash")));
+    const [allRow] = await d
+      .select({ total: sql<string>`COALESCE(SUM(${payments.applied}), 0)`, n: sql<string>`COUNT(DISTINCT ${payments.orderId})` })
+      .from(payments)
+      .where(eq(payments.shiftId, shiftRow.id));
+    const moves = await d.select().from(cashMovements).where(eq(cashMovements.shiftId, shiftRow.id)).orderBy(asc(cashMovements.createdAt));
+    const cashIn = moves.filter((m) => m.kind === "in").reduce((a, m) => a + m.amount, 0);
+    const cashOut = moves.filter((m) => m.kind === "out").reduce((a, m) => a + m.amount, 0);
+    const cashSales = Number(cashRow?.total ?? 0);
+    return {
+      id: shiftRow.id,
+      openedAt: iso(shiftRow.openedAt),
+      closedAt: iso(shiftRow.closedAt),
+      openingCash: shiftRow.openingCash,
+      cashSales,
+      nonCashSales: Number(allRow?.total ?? 0) - cashSales,
+      orderCount: Number(allRow?.n ?? 0),
+      cashIn,
+      cashOut,
+      expectedCash: shiftRow.closedAt ? shiftRow.expectedCash : expectedCash({ openingCash: shiftRow.openingCash, cashSales, cashRefunds: 0, cashIn, cashOut }),
+      actualCash: shiftRow.actualCash,
+      difference: shiftRow.difference,
+      movements: moves.map((m) => ({ id: m.id, kind: m.kind, amount: m.amount, description: m.description, at: iso(m.createdAt) })),
+    };
+  };
+
+  session.get("/shifts/current", async (c) => {
+    const pos = c.get("pos");
+    const s = await openShiftOf(db, pos.userId, pos.outletId);
+    return c.json({ shift: s ? await shiftSummary(db, s) : null });
+  });
+
+  session.post("/shifts/open", requirePosPrivilege("shift.manage"), validate("json", z.object({ openingCash: z.number().int().min(0).max(1_000_000_000_000) })), async (c) => {
+    const pos = c.get("pos");
+    const id = newId();
+    try {
+      await db.insert(shifts).values({ id, businessId: pos.businessId, outletId: pos.outletId, userId: pos.userId, deviceId: pos.deviceId, openingCash: c.req.valid("json").openingCash });
+    } catch (e) {
+      if (duplicateKey(e)) return conflict("pos.shiftOpen");
+      throw e;
+    }
+    const [s] = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+    return c.json({ shift: await shiftSummary(db, s!) }, 201);
+  });
+
+  session.post(
+    "/shifts/cash",
+    requirePosPrivilege("shift.manage"),
+    validate("json", z.object({ kind: z.enum(["in", "out"]), amount: z.number().int().min(1).max(1_000_000_000_000), description: z.string().trim().min(1).max(255) })),
+    async (c) => {
+      const pos = c.get("pos");
+      const body = c.req.valid("json");
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const [s] = await tx.select().from(shifts).where(and(eq(shifts.userId, pos.userId), eq(shifts.outletId, pos.outletId), isNull(shifts.closedAt))).limit(1).for("update");
+        if (!s) return conflict("pos.noShift");
+        if (body.kind === "out") {
+          const sum = await shiftSummary(tx, s);
+          if (body.amount > (sum.expectedCash ?? 0)) throw new AppError("validation", { fields: { amount: "pos.cashShort" } });
+        }
+        await tx.insert(cashMovements).values({ id: newId(), businessId: pos.businessId, shiftId: s.id, kind: body.kind, amount: body.amount, description: body.description, createdBy: pos.userId });
+      });
+      const s = await openShiftOf(db, pos.userId, pos.outletId);
+      return c.json({ shift: await shiftSummary(db, s!) }, 201);
+    },
+  );
+
+  session.post(
+    "/shifts/close",
+    requirePosPrivilege("shift.manage"),
+    validate("json", z.object({ actualCash: z.number().int().min(0).max(1_000_000_000_000), note: z.string().trim().max(500).nullish() })),
+    async (c) => {
+      const pos = c.get("pos");
+      const body = c.req.valid("json");
+      let id = "";
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const [s] = await tx.select().from(shifts).where(and(eq(shifts.userId, pos.userId), eq(shifts.outletId, pos.outletId), isNull(shifts.closedAt))).limit(1).for("update");
+        if (!s) return conflict("pos.noShift");
+        id = s.id;
+        const sum = await shiftSummary(tx, s);
+        const expected = sum.expectedCash ?? 0;
+        await tx
+          .update(shifts)
+          .set({ closedAt: new Date(), expectedCash: expected, actualCash: body.actualCash, difference: cashDifference(body.actualCash, expected), note: body.note ?? null })
+          .where(eq(shifts.id, s.id));
+      });
+      const [s] = await db.select().from(shifts).where(eq(shifts.id, id)).limit(1);
+      return c.json({ shift: await shiftSummary(db, s!) });
+    },
+  );
+
+  app.route("/", session);
+  return app;
+};

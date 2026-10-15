@@ -349,6 +349,17 @@
     "pinFormat": "PIN must be 4–6 digits",
     "pinWeak": "PIN is too easy to guess",
     "deviceInvalid": "Device not recognised or revoked",
-    "codeInvalid": "Activation code is invalid or expired"
+    "codeInvalid": "Activation code is invalid or expired",
+    "discountFixed": "This discount value cannot be changed",
+    "discountRange": "Percentage discount cannot exceed 100%",
+    "modifierLimit": "Modifier selection does not match the rules",
+    "noShift": "No shift is open",
+    "shiftOpen": "A shift is already open",
+    "orderNotOpen": "This bill is no longer open",
+    "emptyOrder": "The order is empty",
+    "paymentInvalid": "Invalid payment",
+    "paymentShort": "Payment is less than the amount due",
+    "splitInvalid": "Invalid split selection",
+    "cashShort": "Not enough cash in the drawer"
   }
 }
