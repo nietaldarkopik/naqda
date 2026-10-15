@@ -259,8 +259,49 @@ Batas Bagian C (jangan dianggap ada):
 - Diuji dengan simulasi ketikan di Chromium, **belum dengan scanner fisik**. Scanner yang dikonfigurasi tanpa Enter, atau dengan awalan/akhiran lain, tidak akan terdeteksi; atur scanner agar mengirim Enter di akhir.
 - Dua perangkat memakai barcode berbeda untuk produk yang sama tidak didukung (satu barcode per varian, sesuai keputusan).
 
-## Fase 9 (opsional). Integrasi
-Moka Order-style storefront, integrasi pembayaran sungguhan, GoFood/GrabFood, SMS/email nyata, printer ESC/POS.
+## Fase 9 (opsional). Integrasi — DITUNDA (diputuskan 15 Okt 2026): untuk sekarang hanya TUNAI
+
+Naqdi akan dipakai pelanggan di Indonesia **dan** toko di luar negeri, dan penyedia pembayaran berbeda per negara. Karena itu
+integrasi pembayaran digital sengaja **belum dikerjakan**; yang berlaku sekarang:
+- **Hanya tunai yang diproses sistem.** Metode non-tunai bawaan (kartu, QRIS, e-wallet, transfer) dan metode kustom hanya
+  **mencatat pilihan kasir**: sistem tidak memeriksa uang masuk dan tidak terhubung ke penyedia mana pun. Peringatan ini tampil di
+  Pengaturan > Metode Pembayaran. **Matikan metode non-tunai yang tidak Anda verifikasi sendiri** (bawaan semuanya aktif).
+- Item lain di fase ini (storefront online, GoFood/GrabFood, SMS/email nyata, printer ESC/POS) tetap opsional dan terpisah dari
+  pembayaran; tiap item butuh keputusan penyedia dan akun, dan **tidak ada yang dikerjakan**.
+
+**Kesiapan toko luar negeri (sudah ada dan teruji):**
+- Mata uang dan jumlah desimal per bisnis (`businesses.currency`, `currency_exponent`); semua uang disimpan sebagai bilangan bulat satuan
+  terkecil. Total USD (2 desimal) dengan pajak 8,25% di luar harga dan pembulatan tunai 5 sen diuji tepat dalam sen (`apps/api/test/currency.test.ts`).
+- Pajak, service charge, harga termasuk/tanpa pajak, dan pembulatan (kelipatan dan arah) diatur **per outlet**; zona waktu per outlet.
+- Tombol uang tunai cepat memakai pecahan umum mata uang bisnis (`quickCashAmounts`; IDR, USD, EUR, GBP, JPY, dan lain-lain, cadangan
+  generik untuk yang belum terdaftar). Sebelumnya pecahan rupiah tertanam dan salah untuk mata uang berdesimal.
+- Bahasa antarmuka: Indonesia, Inggris, Arab (RTL).
+
+**Belum ada untuk toko luar negeri** (jangan dianggap ada):
+- **Mata uang tidak bisa diubah dari UI**: ditetapkan saat bisnis dibuat (bawaan IDR, 0 desimal). Mengubahnya setelah ada transaksi merusak
+  semua angka lama, jadi memang sebaiknya tidak dibuka tanpa migrasi data. Sampai ada alur pembuatan bisnis di UI, mata uang diatur lewat
+  data awal (`createBusinessWithRoles`) atau langsung di database sebelum transaksi pertama.
+- Aturan pajak/struk/privasi negara lain (mis. nomor pajak di struk, e-invoicing, GDPR) **belum ditinjau**; yang dipetakan baru Indonesia.
+- Satu bisnis memakai satu mata uang (tidak ada multi-mata-uang atau kurs). Bahasa selain tiga di atas belum ada.
+
+**Catatan desain untuk metode pembayaran di kemudian hari** (agar penambahan tidak merombak yang sudah ada):
+1. **Pola penyedia (adapter)** per negara/penyedia dengan antarmuka kecil: `createCharge`, `getStatus`, `refund`, dan penerima `webhook`.
+   Tambahkan penyedia tanpa mengubah mesin hitung (`packages/domain`) atau struktur `payments`.
+2. **Kolom `payments` sudah cukup menampung**: `method` (kunci metode), `tendered`/`applied`, `reference` (id transaksi penyedia). Yang perlu
+   ditambah nanti: `provider`, `status` (`pending|succeeded|failed|refunded`), `provider_payload` (JSON), dan tabel kejadian webhook.
+3. **Status "menunggu" pada order**: pembayaran digital bersifat asinkron. Bill tidak boleh menjadi `paid` (dan nomor struk resmi tidak boleh
+   diberikan) sebelum penyedia mengonfirmasi; pembayaran tunai tetap seketika seperti sekarang.
+4. **Idempoten dan rekonsiliasi**: setiap permintaan ke penyedia membawa kunci idempoten (id order + percobaan); webhook diverifikasi tanda tangannya
+   dan diproses sekali; ada laporan rekonsiliasi (pembayaran di Naqdi vs catatan penyedia) dan penanganan webhook yang terlambat/ganda.
+5. **Offline**: pembayaran elektronik **butuh online**. Saat ini jalur offline (fase 8) mengizinkan metode apa pun yang aktif di outlet, dan
+   non-tunai hanya dicatat manual. Begitu ada penyedia nyata, metode elektronik **harus dinonaktifkan otomatis saat offline** (hanya tunai
+   dan pencatatan manual yang tersisa), kalau tidak penjualan offline akan mencatat "dibayar" tanpa konfirmasi penyedia.
+6. **Refund** lewat penyedia (bukan hanya mencatat): refund sekarang mengembalikan uang lewat metode yang dipakai saat membayar dan, untuk non-tunai,
+   hanya mencatat. Perlu langkah "minta refund ke penyedia" dan statusnya.
+7. **Konfigurasi per bisnis/outlet**: kunci API penyedia disimpan terenkripsi di server (bukan di klien), dipilih per negara/mata uang; metode hanya
+   tampil bila penyedianya mendukung mata uang bisnis.
+8. **Hukum dan izin**: QRIS dan e-wallet di Indonesia hanya lewat penyedia berizin (PJP/Bank Indonesia); negara lain punya aturan berbeda (PCI-DSS untuk
+   kartu: jangan pernah menyimpan nomor kartu; gunakan token penyedia). Konfirmasi dengan konsultan sebelum memproses uang sungguhan.
 
 ## Fase 10. Desktop (2–3 sesi)
 - Bungkus kasir dengan Tauri: jendela layar penuh, auto-start, pembaruan otomatis.
@@ -314,7 +355,7 @@ Status per 14 Okt 2026:
 | Penghitungan pajak/gratuity/pembulatan di keranjang sesuai aturan setempat, diverifikasi dengan akuntan | Belum | 2 |
 | Pembaruan sebagian (PATCH) tidak menimpa data lain | Selesai, ada tes regresi | 1 |
 | Struk memenuhi ketentuan setempat (NPWP, nomor struk berurutan tanpa celah) | Belum | 2 |
-| Pembayaran digital sungguhan (QRIS/e-wallet) lewat penyedia berizin | Belum; saat ini simulasi | 9 |
+| Pembayaran digital sungguhan (QRIS/e-wallet) lewat penyedia berizin | **Ditunda sengaja; tunai dulu.** Non-tunai hanya pencatatan manual (diperingatkan di UI); rancangan penyedia ada di Fase 9 | 9 |
 | Perlindungan data pribadi pelanggan (UU PDP): persetujuan, hak hapus, retensi | Belum | 6–7 |
 | Ketentuan layanan, kebijakan privasi, dan rencana dukungan | Belum | di luar kode |
 | Uji beban dan uji keamanan oleh pihak yang tidak menulis kodenya | Belum | 8 |

@@ -90,3 +90,52 @@ export const settle = (total: Minor, payments: readonly PaymentInput[]): Settlem
     payments: applied,
   };
 };
+
+// ---------------------------------------------------------------------------------------------
+// Tombol uang tunai cepat di kasir.
+
+/**
+ * Pecahan uang kertas yang umum (satuan utama mata uang, bukan satuan terkecil). Hanya untuk SARAN tombol cepat di kasir,
+ * bukan aturan: mata uang yang belum terdaftar memakai deret generik berdasarkan besar tagihan.
+ */
+const commonNotes: Record<string, readonly number[]> = {
+  IDR: [5000, 10000, 20000, 50000, 100000],
+  USD: [1, 5, 10, 20, 50, 100],
+  CAD: [5, 10, 20, 50, 100],
+  AUD: [5, 10, 20, 50, 100],
+  NZD: [5, 10, 20, 50, 100],
+  SGD: [2, 5, 10, 50, 100],
+  MYR: [1, 5, 10, 20, 50, 100],
+  EUR: [5, 10, 20, 50, 100, 200],
+  GBP: [5, 10, 20, 50],
+  JPY: [1000, 2000, 5000, 10000],
+  CNY: [5, 10, 20, 50, 100],
+  INR: [10, 20, 50, 100, 200, 500],
+  THB: [20, 50, 100, 500, 1000],
+  PHP: [20, 50, 100, 200, 500, 1000],
+  SAR: [5, 10, 50, 100, 200, 500],
+  AED: [5, 10, 20, 50, 100, 200, 500],
+};
+
+/**
+ * Jumlah tunai yang disarankan untuk tagihan `total` (satuan terkecil): tagihan pas, lalu pembulatan ke atas ke kelipatan
+ * pecahan umum mata uang itu. Urut naik, tanpa duplikat, paling banyak `max` (tagihan pas selalu pertama).
+ */
+export const quickCashAmounts = (total: Minor, currency: string, exponent: number, max = 5): Minor[] => {
+  const unit = 10 ** exponent;
+  let notes = commonNotes[currency.toUpperCase()];
+  if (!notes) {
+    // Generik: 1, 2, 5, 10, 20, 50, 100 kali 10^(digit-2) dari tagihan (dalam satuan utama).
+    const major = Math.max(1, total / unit);
+    const base = 10 ** Math.max(0, Math.floor(Math.log10(major)) - 1);
+    notes = [1, 2, 5, 10, 20, 50, 100].map((n) => n * base);
+  }
+  const out = new Set<Minor>([total]);
+  for (const note of notes) {
+    const step = Math.round(note * unit);
+    if (step <= 0) continue;
+    const v = Math.ceil(total / step) * step;
+    if (v > total) out.add(v);
+  }
+  return [...out].sort((a, b) => a - b).slice(0, max);
+};

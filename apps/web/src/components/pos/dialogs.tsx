@@ -3,6 +3,7 @@
 import { Printer } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
+import { quickCashAmounts } from "@naqdi/domain";
 import { Badge, Button, Field, Input, Modal, Select, useToast } from "@/components/ui";
 import { parseMajor } from "@/lib/money";
 import {
@@ -254,15 +255,9 @@ export function PayDialog({
   const nonCashOver = nonCash > total;
   const ready = !invalid && sum >= total && !nonCashOver && (total === 0 || sum > 0) && (change === 0 || cashIn >= change);
 
-  const quick = useMemo(() => {
-    const steps = [5000, 10000, 20000, 50000, 100000].map((s) => s * (unit / 1)).map((s) => (ctx.exponent === 0 ? s / 1 : s));
-    const out = new Set<number>([total]);
-    for (const s of steps) {
-      const v = Math.ceil(total / s) * s;
-      if (v > total) out.add(v);
-    }
-    return [...out].slice(0, 5);
-  }, [total, unit, ctx.exponent]);
+  // Saran uang tunai: pecahan umum mata uang bisnis ini (bukan rupiah tertanam), jadi benar juga untuk toko berdesimal.
+  const currency = ctx.session.business.currency;
+  const quick = useMemo(() => quickCashAmounts(total, currency, ctx.exponent), [total, currency, ctx.exponent]);
 
   const setRow = (i: number, patch: Partial<PayRow>) => setRows((cur) => cur.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const fillRemaining = (i: number) => {

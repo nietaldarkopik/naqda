@@ -1336,6 +1336,7 @@
     },
     "payments": {
       "title": "Metode Pembayaran",
+      "manualNote": "Hanya tunai yang diproses sistem. Metode non-tunai (kartu, QRIS, e-wallet, transfer, dan metode kustom) hanya mencatat metode yang dipilih kasir: sistem TIDAK memeriksa apakah uang benar-benar masuk dan belum terhubung ke penyedia pembayaran. Matikan metode yang belum Anda verifikasi sendiri.",
       "subtitle": "Metode yang bisa dipilih kasir. Tunai selalu aktif karena menentukan kembalian.",
       "add": "Tambah metode",
       "availability": "Tersedia di",

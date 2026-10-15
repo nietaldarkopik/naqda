@@ -3,6 +3,7 @@ import {
   formatMoney,
   hasAppAccess,
   hasBackofficeAccess,
+  quickCashAmounts,
   isPrivilege,
   privileges,
   roundTo,
@@ -52,5 +53,34 @@ describe("hak akses", () => {
     expect(hasAppAccess(cashier.accessType)).toBe(true);
     expect(hasAppAccess(investor.accessType)).toBe(false);
     expect(hasBackofficeAccess(investor.accessType)).toBe(true);
+  });
+});
+
+describe("quickCashAmounts (tombol uang tunai cepat)", () => {
+  it("rupiah: tagihan pas lalu pembulatan ke pecahan umum", () => {
+    expect(quickCashAmounts(62370, "IDR", 0)).toEqual([62370, 65000, 70000, 80000, 100000]);
+    expect(quickCashAmounts(100000, "IDR", 0)).toEqual([100000]); // sudah pas di pecahan terbesar: tak ada saran lain
+  });
+  it("dolar (2 desimal): pecahan dalam dolar, bukan ribuan dolar", () => {
+    // 12,37 dolar = 1237 sen
+    expect(quickCashAmounts(1237, "USD", 2)).toEqual([1237, 1300, 1500, 2000, 5000]);
+    expect(Math.max(...quickCashAmounts(1237, "USD", 2))).toBeLessThanOrEqual(10_000);
+  });
+  it("euro dan yen memakai pecahannya sendiri", () => {
+    expect(quickCashAmounts(1237, "EUR", 2)).toEqual([1237, 1500, 2000, 5000, 10000]);
+    expect(quickCashAmounts(2350, "JPY", 0)).toEqual([2350, 3000, 4000, 5000, 10000]);
+  });
+  it("mata uang yang belum terdaftar memakai deret generik berskala tagihan", () => {
+    const q = quickCashAmounts(4500, "XYZ", 2); // 45,00
+    expect(q[0]).toBe(4500);
+    expect(q.every((v, i) => i === 0 || v > q[i - 1]!)).toBe(true);
+    expect(q.length).toBeGreaterThan(2);
+    expect(q.at(-1)!).toBeLessThanOrEqual(20_000); // tidak melompat ke ribuan satuan utama
+  });
+  it("tanpa duplikat, selalu naik, dan dipotong sesuai max; total 0 aman", () => {
+    const q = quickCashAmounts(62370, "IDR", 0, 3);
+    expect(q).toEqual([62370, 65000, 70000]);
+    expect(new Set(q).size).toBe(3);
+    expect(quickCashAmounts(0, "IDR", 0)).toEqual([0]);
   });
 });

@@ -88,6 +88,9 @@ export default function PaymentSettingsPage() {
           <Plus size={16} aria-hidden /> {t("settings.payments.add")}
         </Button>
       </PageHeader>
+      <p role="note" className="rounded-lg bg-warn-soft p-3 text-sm" data-testid="manual-note">
+        {t("settings.payments.manualNote")}
+      </p>
       <Card>
         <table className="w-full" data-testid="method-table">
           <thead className="bg-surface-2 text-xs uppercase tracking-wide text-muted">

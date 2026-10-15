@@ -1336,6 +1336,7 @@
     },
     "payments": {
       "title": "Payment Methods",
+      "manualNote": "Only cash is processed by the system. Non-cash methods (card, QRIS, e-wallet, transfer, and custom methods) only record the method the cashier picks: the system does NOT check that money was actually received and is not connected to any payment provider yet. Turn off methods you do not verify yourself.",
       "subtitle": "Methods the cashier can choose. Cash is always on because it drives change.",
       "add": "Add method",
       "availability": "Available at",
