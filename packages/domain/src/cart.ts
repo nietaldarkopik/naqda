@@ -120,7 +120,7 @@ export interface OfflineCatalog {
     id: string;
     name: string;
     categoryId: string | null;
-    variants: { id: string; name: string; sku: string | null; basePrice: number; prices: Record<string, number> }[];
+    variants: { id: string; name: string; sku: string | null; barcode?: string | null; basePrice: number; prices: Record<string, number> }[];
     modifierSets: { id: string; name: string; minSelect: number; maxSelect: number | null; options: { id: string; name: string; price: number }[] }[];
   }[];
   bundles: { id: string; name: string; price: number; prices: Record<string, number> }[];

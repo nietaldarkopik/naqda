@@ -9,6 +9,7 @@ import { Button, Input, Select, useToast } from "@/components/ui";
 import { getEngine, loadRef, saveRef, useOfflineStatus } from "@/lib/offline/engine";
 import { newUuid, offlineOrderView } from "@/lib/offline/receipt";
 import { useFullscreen, useWakeLock } from "@/lib/useDevice";
+import { beep, useBarcodeScanner } from "@/lib/useScanner";
 import {
   cartFromOrder,
   getOnline,
@@ -57,6 +58,7 @@ export function Sell({
   const t = useTranslations("cashier");
   const to = useTranslations("offline");
   const td = useTranslations("device");
+  const ts = useTranslations("scan");
   const locale = useLocale();
   const fullscreen = useFullscreen();
   useWakeLock(true);
@@ -231,6 +233,44 @@ export function Sell({
       if (at >= 0) return { ...c, lines: c.lines.map((l, i) => (i === at ? ({ ...l, quantity: l.quantity + line.quantity } as CartLine) : l)) };
       return { ...c, lines: [...c.lines, line] };
     });
+
+  // Pencocokan kode hasil scan: barcode dulu, lalu SKU (tidak peka huruf besar-kecil).
+  const codeIndex = useMemo(() => {
+    const byBarcode = new Map<string, { item: CatalogItem; variant: CatalogItem["variants"][number] }>();
+    const bySku = new Map<string, { item: CatalogItem; variant: CatalogItem["variants"][number] }>();
+    for (const item of catalog?.items ?? []) {
+      for (const variant of item.variants) {
+        if (variant.barcode) byBarcode.set(variant.barcode.toLowerCase(), { item, variant });
+        if (variant.sku) bySku.set(variant.sku.toLowerCase(), { item, variant });
+      }
+    }
+    return { byBarcode, bySku };
+  }, [catalog]);
+  const findCode = (raw: string) => {
+    const code = raw.trim().toLowerCase();
+    return code ? (codeIndex.byBarcode.get(code) ?? codeIndex.bySku.get(code)) : undefined;
+  };
+
+  const handleScan = (raw: string) => {
+    const hit = findCode(raw);
+    setSearch("");
+    if (!hit) {
+      beep("bad");
+      toast(ts("unknown", { code: raw.trim() }), "error");
+      return;
+    }
+    const label = hit.item.variants.length > 1 ? `${hit.item.name} (${hit.variant.name})` : hit.item.name;
+    beep("ok");
+    // Item dengan modifier wajib tidak bisa langsung ditambahkan: buka pilihan opsinya.
+    if (hit.item.modifierSets.some((m) => m.minSelect > 0)) {
+      toast(ts("needOptions", { name: label }));
+      setItemDialog({ item: hit.item, index: null });
+      return;
+    }
+    addLine({ kind: "item", variantId: hit.variant.id, quantity: 1, modifierOptionIds: [] });
+    toast(ts("added", { name: label }));
+  };
+  useBarcodeScanner(handleScan, Boolean(catalog));
 
   const pickItem = (item: CatalogItem) => {
     if (item.variants.length === 1 && item.modifierSets.length === 0) addLine({ kind: "item", variantId: item.variants[0]!.id, quantity: 1, modifierOptionIds: [] });
@@ -438,7 +478,23 @@ export function Sell({
           <div className="space-y-2 border-b border-line bg-surface p-3">
             <div className="relative max-w-sm">
               <Search size={15} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-              <Input type="search" className="ps-9" placeholder={t("searchItems")} aria-label={t("searchItems")} value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input
+                type="search"
+                className="ps-9"
+                placeholder={t("searchItems")}
+                aria-label={t("searchItems")}
+                value={search}
+                data-scan-ok
+                data-testid="search-items"
+                onChange={(e) => setSearch(e.target.value)}
+                // Kode diketik manual lalu Enter: bila persis cocok barcode/SKU, tambahkan ke keranjang.
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && findCode(search)) {
+                    e.preventDefault();
+                    handleScan(search);
+                  }
+                }}
+              />
             </div>
             <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label={t("categories")}>
               {[{ id: "all", name: t("all") }, ...(catalog?.categories ?? []), ...(catalog?.bundles.length ? [{ id: "bundles", name: t("bundles") }] : [])].map((c) => (

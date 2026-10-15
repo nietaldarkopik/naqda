@@ -340,7 +340,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         imageUrl: item.imageUrl,
         variants: variants
           .filter((v) => v.itemId === item.id)
-          .map((v) => ({ id: v.id, name: v.name, sku: v.sku, basePrice: v.basePrice, prices: priceMap(vPrices.filter((p) => p.variantId === v.id)), stock: trackedItems.has(item.id) ? (stockOf.get(v.id) ?? 0) : null })),
+          .map((v) => ({ id: v.id, name: v.name, sku: v.sku, barcode: v.barcode, basePrice: v.basePrice, prices: priceMap(vPrices.filter((p) => p.variantId === v.id)), stock: trackedItems.has(item.id) ? (stockOf.get(v.id) ?? 0) : null })),
         modifierSets: links
           .filter((l) => l.itemId === item.id)
           .flatMap((l) => {

@@ -269,6 +269,11 @@
   },
   "catalog": {
     "skuDuplicate": "SKU sudah dipakai produk lain",
+    "barcodeDuplicate": "Barcode sudah dipakai produk lain",
+    "barcodeInvalid": "Barcode hanya boleh karakter tanpa spasi, maksimal 64",
+    "barcodeChecksum": "Barcode 13 digit ini bukan EAN-13 yang sah (digit pemeriksa salah)",
+    "barcodeLabel": "Barcode",
+    "barcodeHint": "EAN-13 pabrik atau kode sendiri. Satu barcode per varian. Scan di kasir mencocokkan barcode, lalu SKU.",
     "categories": {
       "title": "Kategori",
       "create": "Tambah kategori",
@@ -362,6 +367,8 @@
         "cost_invalid": "Modal harus bilangan bulat: {value}",
         "status_invalid": "Status harus active atau inactive: {value}",
         "sku_duplicate_in_file": "SKU muncul dua kali di berkas: {value}",
+        "barcode_invalid": "Barcode tidak valid: {value}",
+        "barcode_duplicate_in_file": "Barcode muncul dua kali di berkas: {value}",
         "variant_duplicate": "Varian ganda untuk item yang sama: {value}",
         "reference_invalid": "Rujukan tidak valid: {value}",
         "write_failed": "Gagal menyimpan; tidak ada perubahan yang dibuat",
@@ -541,6 +548,11 @@
       "expired": "Kode kedaluwarsa",
       "revoked": "Dicabut"
     }
+  },
+  "scan": {
+    "added": "{name} ditambahkan",
+    "unknown": "Kode {code} tidak dikenal",
+    "needOptions": "{name}: pilih opsi dulu"
   },
   "device": {
     "fullscreen": "Layar penuh",

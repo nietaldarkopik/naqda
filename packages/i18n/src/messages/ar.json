@@ -269,6 +269,11 @@
   },
   "catalog": {
     "skuDuplicate": "رمز SKU مستخدم بالفعل في منتج آخر",
+    "barcodeDuplicate": "الباركود مستخدم لمنتج آخر",
+    "barcodeInvalid": "يجب أن يحتوي الباركود على أحرف دون مسافات وبحد أقصى 64",
+    "barcodeChecksum": "هذا الباركود المكوّن من 13 رقمًا ليس EAN-13 صالحًا (رقم التحقق خاطئ)",
+    "barcodeLabel": "الباركود",
+    "barcodeHint": "EAN-13 من المصنّع أو رمز خاص بك. باركود واحد لكل نوع. يطابق المسح في الكاشير الباركود أولًا ثم SKU.",
     "categories": {
       "title": "الفئات",
       "create": "إضافة فئة",
@@ -362,6 +367,8 @@
         "cost_invalid": "يجب أن تكون التكلفة عددًا صحيحًا: {value}",
         "status_invalid": "يجب أن تكون الحالة active أو inactive: {value}",
         "sku_duplicate_in_file": "رمز SKU مكرر في الملف: {value}",
+        "barcode_invalid": "باركود غير صالح: {value}",
+        "barcode_duplicate_in_file": "الباركود مكرر في الملف: {value}",
         "variant_duplicate": "متغير مكرر لنفس الصنف: {value}",
         "reference_invalid": "مرجع غير صالح: {value}",
         "write_failed": "فشل الحفظ؛ لم تُجرَ أي تغييرات",
@@ -541,6 +548,11 @@
       "expired": "انتهى الرمز",
       "revoked": "ملغى"
     }
+  },
+  "scan": {
+    "added": "تمت إضافة {name}",
+    "unknown": "رمز غير معروف {code}",
+    "needOptions": "{name}: اختر الخيارات أولًا"
   },
   "device": {
     "fullscreen": "ملء الشاشة",

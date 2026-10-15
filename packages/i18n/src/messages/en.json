@@ -269,6 +269,11 @@
   },
   "catalog": {
     "skuDuplicate": "This SKU is already used by another product",
+    "barcodeDuplicate": "Barcode is already used by another product",
+    "barcodeInvalid": "Barcode may only contain characters without spaces, up to 64",
+    "barcodeChecksum": "This 13-digit barcode is not a valid EAN-13 (wrong check digit)",
+    "barcodeLabel": "Barcode",
+    "barcodeHint": "Manufacturer EAN-13 or your own code. One barcode per variant. Scanning at the till matches barcode first, then SKU.",
     "categories": {
       "title": "Categories",
       "create": "Add category",
@@ -362,6 +367,8 @@
         "cost_invalid": "Cost must be a whole number: {value}",
         "status_invalid": "Status must be active or inactive: {value}",
         "sku_duplicate_in_file": "SKU appears twice in the file: {value}",
+        "barcode_invalid": "Invalid barcode: {value}",
+        "barcode_duplicate_in_file": "Barcode appears twice in the file: {value}",
         "variant_duplicate": "Duplicate variant for the same item: {value}",
         "reference_invalid": "Invalid reference: {value}",
         "write_failed": "Saving failed; no changes were made",
@@ -541,6 +548,11 @@
       "expired": "Code expired",
       "revoked": "Revoked"
     }
+  },
+  "scan": {
+    "added": "{name} added",
+    "unknown": "Unknown code {code}",
+    "needOptions": "{name}: choose options first"
   },
   "device": {
     "fullscreen": "Full screen",

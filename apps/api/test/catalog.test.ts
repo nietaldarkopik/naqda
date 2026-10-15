@@ -356,7 +356,7 @@ describe("impor dan ekspor CSV", () => {
     const bytes = new Uint8Array(await res.clone().arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]); // BOM UTF-8 agar Excel membaca huruf dengan benar
     const lines = (await res.text()).split("\r\n"); // text() membuang BOM
-    expect(lines[0]).toBe(`name,category,brand,variant,sku,price,cost,status,description,modifiers,track_stock,price:${dineName},price:Take Away`);
+    expect(lines[0]).toBe(`name,category,brand,variant,sku,barcode,price,cost,status,description,modifiers,track_stock,price:${dineName},price:Take Away`);
     expect(lines.filter((l) => l.startsWith("Ekspor Uji"))).toHaveLength(2);
     expect(lines.find((l) => l.includes("EX-S"))).toContain(",1100,");
   });

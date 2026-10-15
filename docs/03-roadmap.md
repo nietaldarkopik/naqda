@@ -245,6 +245,20 @@ Batas Bagian C (jangan dianggap ada):
 
 **Selesai bila**: kasir bisa menjual 20 transaksi tanpa internet lalu sinkron tanpa duplikat. **Tercapai untuk penjualan langsung** (lihat `tools/verify_phase8.mjs`); fase 8 secara keseluruhan baru bisa dinyatakan selesai setelah **uji di perangkat nyata** (bagian C) dan tugas operator di bagian B.
 
+## Tambahan setelah Fase 8: barcode produk dan scan di kasir — SELESAI 15 Okt 2026 (scanner keyboard)
+
+**Berjalan dan teruji** (411 tes otomatis; `tools/verify_barcode.mjs` di browser):
+- **Satu barcode per varian**, kolom terpisah dari SKU, unik per bisnis (tidak peka huruf besar-kecil, dijaga indeks unik di database; varian yang dihapus melepaskan barcode-nya). Bisnis lain boleh memakai kode yang sama.
+- **EAN-13 pabrik dan kode sendiri** sama-sama bisa. Kode berupa **tepat 13 digit dianggap EAN-13 dan harus lolos digit pemeriksa** (menangkap salah ketik); karena itu **kode buatan sendiri jangan berupa tepat 13 digit**. Karakter: ASCII tanpa spasi, maks. 64.
+- **Back Office**: kolom Barcode per varian di form item (Enter dari scanner tidak mengirim formulir), pencarian item/varian lewat barcode, kolom `barcode` di ekspor dan impor CSV. Impor **tanpa** kolom barcode atau dengan sel kosong **tidak menghapus** barcode yang ada. API `PATCH` varian tanpa field barcode membiarkannya (null menghapus).
+- **Kasir**: scanner USB/Bluetooth mode keyboard (ketikan cepat + Enter, jeda < 40 ms; mengetik manual tidak dianggap scan). Scan menambah 1 unit, scan berulang menambah jumlah; pencocokan barcode dulu lalu SKU; bunyi dan pesan; kode tidak dikenal tidak mengubah keranjang. Item dengan modifier wajib membuka dialog pilihan. Scan **diabaikan saat ada dialog terbuka** (mis. sedang membayar) dan di kolom isian selain kolom cari. Bekerja **offline** (katalog tersimpan di perangkat; katalog lama yang belum memuat barcode tetap bisa lewat SKU).
+
+**Batas** (jangan dianggap ada):
+- **Belum ada scan dengan kamera** (butuh HTTPS dan pustaka/BarcodeDetector) dan belum ada **cetak label barcode**.
+- Tiap scan menambah 1 unit; belum ada kuantitas lewat barcode berawalan, atau barcode kemasan/berat (EAN timbangan).
+- Diuji dengan simulasi ketikan di Chromium, **belum dengan scanner fisik**. Scanner yang dikonfigurasi tanpa Enter, atau dengan awalan/akhiran lain, tidak akan terdeteksi; atur scanner agar mengirim Enter di akhir.
+- Dua perangkat memakai barcode berbeda untuk produk yang sama tidak didukung (satu barcode per varian, sesuai keputusan).
+
 ## Fase 9 (opsional). Integrasi
 Moka Order-style storefront, integrasi pembayaran sungguhan, GoFood/GrabFood, SMS/email nyata, printer ESC/POS.
 

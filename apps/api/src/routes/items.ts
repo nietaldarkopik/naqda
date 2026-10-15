@@ -2,7 +2,7 @@ import { and, asc, eq, isNull, like, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { itemVariants, items } from "@naqdi/db";
-import { parseCsvTable, toCsv, CsvError } from "@naqdi/domain";
+import { barcodeProblem, parseCsvTable, toCsv, CsvError } from "@naqdi/domain";
 import { contains } from "../repo/generic";
 import { AppError, duplicateKey } from "../errors";
 import { iso, patchSchema, requirePrivilege, validate, type AppEnv } from "../http";
@@ -35,6 +35,17 @@ const variantSchema = z.object({
     .max(64)
     .nullish()
     .transform((v) => (v ? v : null)),
+  /** Barcode: satu per varian. Kosong = tanpa barcode; tidak dikirim = biarkan yang ada (PATCH aman untuk klien lama). */
+  barcode: z
+    .string()
+    .trim()
+    .max(64)
+    .nullish()
+    .superRefine((v, ctx) => {
+      const problem = v ? barcodeProblem(v) : null;
+      if (problem) ctx.addIssue({ code: "custom", message: problem === "ean13_checksum" ? "catalog.barcodeChecksum" : "catalog.barcodeInvalid" });
+    })
+    .transform((v) => (v === undefined ? undefined : v ? v : null)),
   basePrice: money,
   cost: money.default(0),
   prices: z
@@ -52,7 +63,11 @@ const variantsSchema = z
   .refine((list) => {
     const skus = list.map((v) => v.sku).filter(Boolean);
     return new Set(skus).size === skus.length;
-  }, "SKU ganda");
+  }, "SKU ganda")
+  .refine((list) => {
+    const codes = list.map((v) => v.barcode?.toLowerCase()).filter(Boolean);
+    return new Set(codes).size === codes.length;
+  }, "catalog.barcodeDuplicate");
 
 const itemBody = z.object({
   name: z.string().trim().min(1).max(191),
@@ -121,7 +136,7 @@ export const itemRoutes = () => {
       const bid = c.get("auth").businessId;
       const rows = await c
         .get("db")
-        .select({ id: itemVariants.id, itemId: items.id, itemName: items.name, name: itemVariants.name, sku: itemVariants.sku, basePrice: itemVariants.basePrice })
+        .select({ id: itemVariants.id, itemId: items.id, itemName: items.name, name: itemVariants.name, sku: itemVariants.sku, barcode: itemVariants.barcode, basePrice: itemVariants.basePrice })
         .from(itemVariants)
         .innerJoin(items, eq(itemVariants.itemId, items.id))
         .where(
@@ -129,7 +144,7 @@ export const itemRoutes = () => {
             eq(itemVariants.businessId, bid),
             isNull(itemVariants.deletedAt),
             isNull(items.deletedAt),
-            q ? or(like(items.name, contains(q)), like(itemVariants.name, contains(q)), like(itemVariants.sku, contains(q))) : undefined,
+            q ? or(like(items.name, contains(q)), like(itemVariants.name, contains(q)), like(itemVariants.sku, contains(q)), like(itemVariants.barcode, contains(q))) : undefined,
           ),
         )
         .orderBy(asc(items.name), asc(itemVariants.position))
@@ -183,7 +198,7 @@ export const itemRoutes = () => {
       });
     } catch (error) {
       if (error instanceof RefError) throw new AppError("validation", { fields: error.fields });
-      if (duplicateKey(error)) throw new AppError("conflict", { fields: { variants: "catalog.skuDuplicate" } });
+      if (duplicateKey(error)) throw new AppError("conflict", { fields: { variants: (duplicateKey(error) ?? "").includes("barcode") ? "catalog.barcodeDuplicate" : "catalog.skuDuplicate" } });
       throw error;
     }
     return c.json(present((await getItem(db, auth.businessId, id))!), 201);
@@ -220,7 +235,7 @@ export const itemRoutes = () => {
         });
       } catch (error) {
         if (error instanceof RefError) throw new AppError("validation", { fields: error.fields });
-        if (duplicateKey(error)) throw new AppError("conflict", { fields: { variants: "catalog.skuDuplicate" } });
+        if (duplicateKey(error)) throw new AppError("conflict", { fields: { variants: (duplicateKey(error) ?? "").includes("barcode") ? "catalog.barcodeDuplicate" : "catalog.skuDuplicate" } });
         throw error;
       }
       return c.json(present((await getItem(db, auth.businessId, id))!));

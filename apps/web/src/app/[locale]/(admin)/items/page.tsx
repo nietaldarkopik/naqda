@@ -25,6 +25,7 @@ interface FullVariant {
   id: string;
   name: string;
   sku: string | null;
+  barcode: string | null;
   basePrice: number;
   cost: number;
   prices: Array<{ salesTypeId: string; price: number }>;
@@ -50,6 +51,7 @@ interface VariantForm {
   id?: string;
   name: string;
   sku: string;
+  barcode: string;
   basePrice: string;
   cost: string;
   prices: Record<string, string>;
@@ -77,7 +79,7 @@ interface ImportReport {
   errors: Array<{ line: number; code: string; field?: string; value?: string }>;
 }
 
-const emptyVariant = (name: string): VariantForm => ({ name, sku: "", basePrice: "", cost: "", prices: {} });
+const emptyVariant = (name: string): VariantForm => ({ name, sku: "", barcode: "", basePrice: "", cost: "", prices: {} });
 
 export default function ItemsPage() {
   const t = useTranslations();
@@ -147,6 +149,7 @@ export default function ItemsPage() {
           id: v.id,
           name: v.name,
           sku: v.sku ?? "",
+          barcode: v.barcode ?? "",
           basePrice: toMajorInput(v.basePrice, exponent),
           cost: toMajorInput(v.cost, exponent),
           prices: Object.fromEntries(v.prices.map((p) => [p.salesTypeId, toMajorInput(p.price, exponent)])),
@@ -182,7 +185,7 @@ export default function ItemsPage() {
         if (p === null) bad[`variants.${i}.prices`] = t("common.invalidNumber");
         else prices.push({ salesTypeId, price: p });
       }
-      return { ...(v.id ? { id: v.id } : {}), name: v.name.trim(), sku: v.sku.trim() || null, basePrice: base ?? 0, cost: cost ?? 0, prices };
+      return { ...(v.id ? { id: v.id } : {}), name: v.name.trim(), sku: v.sku.trim() || null, barcode: v.barcode.trim() || null, basePrice: base ?? 0, cost: cost ?? 0, prices };
     });
     if (Object.keys(bad).length) {
       setErrors(bad);
@@ -451,6 +454,25 @@ export default function ItemsPage() {
                     <Field label={t("catalog.items.sku")} error={errors[`variants.${i}.sku`]}>
                       {(id) => <Input id={id} dir="ltr" className="text-start" value={v.sku} onChange={(e) => patchVariant(i, { sku: e.target.value })} invalid={Boolean(errors[`variants.${i}.sku`])} maxLength={64} />}
                     </Field>
+                    <div className="sm:col-span-2">
+                      <Field label={t("catalog.barcodeLabel")} error={errors[`variants.${i}.barcode`]} hint={t("catalog.barcodeHint")}>
+                        {(id) => (
+                          <Input
+                            id={id}
+                            dir="ltr"
+                            className="text-start"
+                            value={v.barcode}
+                            onChange={(e) => patchVariant(i, { barcode: e.target.value })}
+                            // Scanner mengakhiri kode dengan Enter: jangan sampai itu mengirim formulir item.
+                            onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+                            invalid={Boolean(errors[`variants.${i}.barcode`])}
+                            maxLength={64}
+                            autoComplete="off"
+                            data-testid={`barcode-${i}`}
+                          />
+                        )}
+                      </Field>
+                    </div>
                     <Field label={t("catalog.items.basePrice")} error={errors[`variants.${i}.basePrice`]}>
                       {(id) => <Input id={id} inputMode="decimal" dir="ltr" className="text-start" value={v.basePrice} onChange={(e) => patchVariant(i, { basePrice: e.target.value })} invalid={Boolean(errors[`variants.${i}.basePrice`])} />}
                     </Field>

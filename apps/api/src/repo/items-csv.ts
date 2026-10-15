@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { brands, categories, items, itemVariants, modifierSets, newId, salesTypes, type DbHandle } from "@naqdi/db";
-import { parseCsvTable, toCsv } from "@naqdi/domain";
+import { barcodeProblem, parseCsvTable, toCsv } from "@naqdi/domain";
 import type { AuthContext } from "../auth/tokens";
 import { writeAudit } from "./audit";
 import { assertItemRefs, createItem, getItem, snapshotItem, updateItem, type ItemInput, type VariantInput } from "./items";
@@ -50,7 +50,7 @@ export const exportItemsCsv = async (db: Db, businessId: string): Promise<string
   );
 
   const out: Array<Array<string | number | null>> = [
-    ["name", "category", "brand", "variant", "sku", "price", "cost", "status", "description", "modifiers", "track_stock", ...sales.map((s) => `${SALES_PREFIX}${s.name}`)],
+    ["name", "category", "brand", "variant", "sku", "barcode", "price", "cost", "status", "description", "modifiers", "track_stock", ...sales.map((s) => `${SALES_PREFIX}${s.name}`)],
   ];
   for (const { id } of rows) {
     const item = await getItem(db, businessId, id);
@@ -62,6 +62,7 @@ export const exportItemsCsv = async (db: Db, businessId: string): Promise<string
         item.brandId ? (brs.get(item.brandId) ?? "") : "",
         v.name,
         v.sku ?? "",
+        v.barcode ?? "",
         v.basePrice,
         v.cost,
         item.status,
@@ -84,6 +85,8 @@ interface ParsedRow {
   brand: string;
   variant: string;
   sku: string | null;
+  /** undefined = kolom tidak ada di berkas (jangan diubah); null = sel kosong (biarkan yang ada). */
+  barcode: string | null | undefined;
   price: number;
   cost: number | null;
   status: "active" | "inactive" | null;
@@ -136,6 +139,8 @@ export const importItemsCsv = async (db: Db, auth: AuthContext, csv: string, dry
 
   const rows: ParsedRow[] = [];
   const seenSku = new Map<string, number>();
+  const seenBarcode = new Map<string, number>();
+  const hasBarcodeCol = headers.includes("barcode");
   const seenKey = new Set<string>();
   for (const { line, values: v } of table) {
     const issue = (code: string, field?: string, value?: string) =>
@@ -176,6 +181,21 @@ export const importItemsCsv = async (db: Db, auth: AuthContext, csv: string, dry
         continue;
       }
       seenSku.set(sku, line);
+    }
+    let barcode: string | null | undefined;
+    if (hasBarcodeCol) {
+      barcode = (v.barcode ?? "").trim() || null;
+      if (barcode) {
+        if (barcodeProblem(barcode)) {
+          issue("barcode_invalid", "barcode", barcode);
+          continue;
+        }
+        if (seenBarcode.has(barcode.toLowerCase())) {
+          issue("barcode_duplicate_in_file", "barcode", barcode);
+          continue;
+        }
+        seenBarcode.set(barcode.toLowerCase(), line);
+      }
     }
     const key = `${name.toLowerCase()}|${variant.toLowerCase()}`;
     if (seenKey.has(key)) {
@@ -226,7 +246,7 @@ export const importItemsCsv = async (db: Db, auth: AuthContext, csv: string, dry
     if (bad) continue;
 
     rows.push({
-      line, name, category: (v.category ?? "").trim(), brand: (v.brand ?? "").trim(), variant, sku, price, cost, status,
+      line, name, category: (v.category ?? "").trim(), brand: (v.brand ?? "").trim(), variant, sku, barcode, price, cost, status,
       description: (v.description ?? "").trim() || null,
       hasCategory: headers.includes("category") && (v.category ?? "").trim() !== "",
       hasBrand: headers.includes("brand") && (v.brand ?? "").trim() !== "",
@@ -293,7 +313,7 @@ export const importItemsCsv = async (db: Db, auth: AuthContext, csv: string, dry
           trackStock: first.trackStock ?? false,
           ...(first.modifierSetIds ? { modifierSetIds: first.modifierSetIds } : {}),
           variants: group.map((r): VariantInput => ({
-            name: r.variant, sku: r.sku, basePrice: r.price, cost: r.cost ?? 0,
+            name: r.variant, sku: r.sku, barcode: r.barcode ?? null, basePrice: r.price, cost: r.cost ?? 0,
             prices: [...r.prices].map(([salesTypeId, price]) => ({ salesTypeId, price })),
           })),
         };
@@ -305,16 +325,16 @@ export const importItemsCsv = async (db: Db, auth: AuthContext, csv: string, dry
       }
 
       const before = (await getItem(tx, auth.businessId, targetId))!;
-      const merged: VariantInput[] = before.variants.map((v) => ({ id: v.id, name: v.name, sku: v.sku, basePrice: v.basePrice, cost: v.cost, prices: v.prices.map((p) => ({ ...p })) }));
+      const merged: VariantInput[] = before.variants.map((v) => ({ id: v.id, name: v.name, sku: v.sku, barcode: v.barcode, basePrice: v.basePrice, cost: v.cost, prices: v.prices.map((p) => ({ ...p })) }));
       for (const r of group) {
         const at = merged.findIndex((m) => (r.sku && m.sku === r.sku) || m.name.toLowerCase() === r.variant.toLowerCase());
         const overlay = (m: VariantInput): VariantInput => {
           const prices = new Map(m.prices.map((p) => [p.salesTypeId, p.price]));
           for (const [k, val] of r.prices) prices.set(k, val);
-          return { ...m, name: r.variant, sku: r.sku ?? m.sku, basePrice: r.price, cost: r.cost ?? m.cost, prices: [...prices].map(([salesTypeId, price]) => ({ salesTypeId, price })) };
+          return { ...m, name: r.variant, sku: r.sku ?? m.sku, barcode: r.barcode ?? m.barcode, basePrice: r.price, cost: r.cost ?? m.cost, prices: [...prices].map(([salesTypeId, price]) => ({ salesTypeId, price })) };
         };
         if (at >= 0) merged[at] = overlay(merged[at]!);
-        else merged.push(overlay({ name: r.variant, sku: null, basePrice: r.price, cost: 0, prices: [] }));
+        else merged.push(overlay({ name: r.variant, sku: null, barcode: null, basePrice: r.price, cost: 0, prices: [] }));
       }
       const input: ItemInput = {
         variants: merged,

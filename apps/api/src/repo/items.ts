@@ -22,6 +22,8 @@ export interface VariantInput {
   id?: string | undefined;
   name: string;
   sku: string | null;
+  /** undefined = biarkan nilai yang ada; null = hapus barcode. */
+  barcode?: string | null | undefined;
   basePrice: number;
   cost: number;
   prices: Array<{ salesTypeId: string; price: number }>;
@@ -52,7 +54,7 @@ export interface FullItem {
   status: "active" | "inactive";
   createdAt: Date;
   updatedAt: Date;
-  variants: Array<{ id: string; name: string; sku: string | null; basePrice: number; cost: number; prices: Array<{ salesTypeId: string; price: number }> }>;
+  variants: Array<{ id: string; name: string; sku: string | null; barcode: string | null; basePrice: number; cost: number; prices: Array<{ salesTypeId: string; price: number }> }>;
   modifierSetIds: string[];
   outletIds: string[];
 }
@@ -76,6 +78,7 @@ export const assertItemRefs = async (db: Db, businessId: string, data: ItemInput
     const saleIds = data.variants.flatMap((v) => v.prices.map((p) => p.salesTypeId));
     const badSales = new Set(await missingIn(db, salesTypes, businessId, saleIds));
     const skus = data.variants.map((v) => v.sku).filter((s): s is string => Boolean(s));
+    const barcodes = data.variants.map((v) => v.barcode).filter((s): s is string => Boolean(s));
 
     data.variants.forEach((v, i) => {
       if (v.prices.some((p) => badSales.has(p.salesTypeId))) fields[`variants.${i}.prices`] = "errors.notFound";
@@ -96,6 +99,25 @@ export const assertItemRefs = async (db: Db, businessId: string, data: ItemInput
       const taken = new Set(conflicts.map((c) => c.sku));
       data.variants.forEach((v, i) => {
         if (v.sku && taken.has(v.sku)) fields[`variants.${i}.sku`] = "catalog.skuDuplicate";
+      });
+    }
+
+    if (barcodes.length) {
+      // Pembandingan kolom MySQL tidak peka huruf besar-kecil, sama dengan indeks unik.
+      const conflicts = await db
+        .select({ barcode: itemVariants.barcode })
+        .from(itemVariants)
+        .where(
+          and(
+            eq(itemVariants.businessId, businessId),
+            isNull(itemVariants.deletedAt),
+            inArray(itemVariants.barcode, barcodes),
+            itemId ? ne(itemVariants.itemId, itemId) : undefined,
+          ),
+        );
+      const taken = new Set(conflicts.map((c) => (c.barcode ?? "").toLowerCase()));
+      data.variants.forEach((v, i) => {
+        if (v.barcode && taken.has(v.barcode.toLowerCase())) fields[`variants.${i}.barcode`] = "catalog.barcodeDuplicate";
       });
     }
 
@@ -149,6 +171,7 @@ export const getItem = async (db: Db, businessId: string, id: string): Promise<F
       id: v.id,
       name: v.name,
       sku: v.sku,
+      barcode: v.barcode,
       basePrice: v.basePrice,
       cost: v.cost,
       prices: prices.filter((p) => p.variantId === v.id).map((p) => ({ salesTypeId: p.salesTypeId, price: p.price })),
@@ -174,7 +197,7 @@ export const listItems = async (
             db
               .select({ id: itemVariants.itemId })
               .from(itemVariants)
-              .where(and(eq(itemVariants.businessId, businessId), isNull(itemVariants.deletedAt), like(itemVariants.sku, contains(p.q)))),
+              .where(and(eq(itemVariants.businessId, businessId), isNull(itemVariants.deletedAt), or(like(itemVariants.sku, contains(p.q)), like(itemVariants.barcode, contains(p.q))))),
           ),
         )
       : undefined,
@@ -258,7 +281,7 @@ export const createItem = async (db: Db, businessId: string, data: ItemInput): P
   });
   for (const [position, v] of (data.variants ?? []).entries()) {
     const variantId = newId();
-    await db.insert(itemVariants).values({ id: variantId, businessId, itemId: id, name: v.name, sku: v.sku, basePrice: v.basePrice, cost: v.cost, position });
+    await db.insert(itemVariants).values({ id: variantId, businessId, itemId: id, name: v.name, sku: v.sku, barcode: v.barcode ?? null, basePrice: v.basePrice, cost: v.cost, position });
     await writeVariantPrices(db, variantId, v.prices);
   }
   await writeModifierSets(db, id, data.modifierSetIds ?? []);
@@ -290,12 +313,12 @@ export const updateItem = async (db: Db, businessId: string, id: string, data: I
       if (v.id) {
         await db
           .update(itemVariants)
-          .set({ name: v.name, sku: v.sku, basePrice: v.basePrice, cost: v.cost, position })
+          .set({ name: v.name, sku: v.sku, ...(v.barcode !== undefined ? { barcode: v.barcode } : {}), basePrice: v.basePrice, cost: v.cost, position })
           .where(and(eq(itemVariants.id, v.id), eq(itemVariants.itemId, id)));
         await writeVariantPrices(db, v.id, v.prices);
       } else {
         const variantId = newId();
-        await db.insert(itemVariants).values({ id: variantId, businessId, itemId: id, name: v.name, sku: v.sku, basePrice: v.basePrice, cost: v.cost, position });
+        await db.insert(itemVariants).values({ id: variantId, businessId, itemId: id, name: v.name, sku: v.sku, barcode: v.barcode ?? null, basePrice: v.basePrice, cost: v.cost, position });
         await writeVariantPrices(db, variantId, v.prices);
       }
     }
@@ -324,6 +347,7 @@ export const snapshotItem = (item: FullItem) => ({
   variants: item.variants.map((v) => ({
     name: v.name,
     sku: v.sku,
+    barcode: v.barcode,
     basePrice: v.basePrice,
     cost: v.cost,
     prices: Object.fromEntries(v.prices.map((p) => [p.salesTypeId, p.price]).sort()),

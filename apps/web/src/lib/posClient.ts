@@ -180,6 +180,7 @@ export interface CatalogVariant {
   id: string;
   name: string;
   sku: string | null;
+  barcode?: string | null;
   basePrice: number;
   prices: Record<string, number>;
   /** Sisa stok outlet ini; null bila item tidak melacak stok. */

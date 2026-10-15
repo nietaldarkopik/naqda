@@ -192,6 +192,8 @@ export const itemVariants = mysqlTable(
     itemId: uuid("item_id").notNull().references(() => items.id),
     name: varchar("name", { length: 191 }).notNull(),
     sku: varchar("sku", { length: 64 }),
+    /** Barcode produk (EAN-13 pabrik atau kode sendiri): satu per varian, unik per bisnis. */
+    barcode: varchar("barcode", { length: 64 }),
     basePrice: money("base_price").notNull(),
     cost: money("cost").notNull().default(0),
     position: smallint("position", { unsigned: true }).notNull().default(0),
@@ -201,8 +203,17 @@ export const itemVariants = mysqlTable(
       sql`(IF(\`deleted_at\` IS NULL, \`sku\`, NULL))`,
       { mode: "stored" },
     ),
+    /** Barcode unik per bisnis di antara varian yang belum dihapus. */
+    activeBarcode: varchar("active_barcode", { length: 64 }).generatedAlwaysAs(
+      sql`(IF(\`deleted_at\` IS NULL, \`barcode\`, NULL))`,
+      { mode: "stored" },
+    ),
   },
-  (t) => [index("item_variants_item_idx").on(t.itemId), uniqueIndex("item_variants_sku_uq").on(t.businessId, t.activeSku)],
+  (t) => [
+    index("item_variants_item_idx").on(t.itemId),
+    uniqueIndex("item_variants_sku_uq").on(t.businessId, t.activeSku),
+    uniqueIndex("item_variants_barcode_uq").on(t.businessId, t.activeBarcode),
+  ],
 );
 
 export const itemVariantPrices = mysqlTable(
