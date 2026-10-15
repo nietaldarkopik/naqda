@@ -22,6 +22,9 @@ let disc20 = "";
 let potong5 = "";
 let general10 = "";
 let kopiItem = "";
+let adminId = "";
+const ADMIN_PIN = "739206";
+const approval = () => ({ userId: adminId, pin: ADMIN_PIN });
 let otherItemOption = "";
 
 const userId = async (email: string) => (await fx.handle.db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1))[0]!.id;
@@ -89,7 +92,8 @@ beforeAll(async () => {
   potong5 = d2.json.id;
 
   cashier = await pairAndLogin(A, fx.a.outletIds[0]!, fx.a.cashierEmail, "482615");
-  admin = await pairAndLogin(A, fx.a.outletIds[0]!, fx.a.adminEmail, "739206");
+  admin = await pairAndLogin(A, fx.a.outletIds[0]!, fx.a.adminEmail, ADMIN_PIN);
+  adminId = await userId(fx.a.adminEmail);
 });
 afterAll(async () => {
   await fx.handle.close();
@@ -220,7 +224,11 @@ describe("bill dan pembayaran", () => {
     expect(created.json.order.receiptNumber).toBeNull();
     expect(created.json.order.lines[0].modifiers[0]).toMatchObject({ name: "Boba", price: 3000 });
 
-    const edited = await pos(cashier, "PUT", `/orders/${id}`, cart(takeAway, [kopiLine(1)]));
+    // Mengurangi baris yang sudah tersimpan butuh persetujuan atasan (kasir tidak punya pos.void).
+    const denied = await pos(cashier, "PUT", `/orders/${id}`, cart(takeAway, [kopiLine(1)]));
+    expect(denied.status).toBe(403);
+    expect(denied.json.extra.required).toBe("pos.void");
+    const edited = await pos(cashier, "PUT", `/orders/${id}`, { ...cart(takeAway, [kopiLine(1)]), reason: "salah pesan", approval: approval() });
     expect(edited.json.order.totals.total).toBe(24420); // 22000 + 11%
     expect(edited.json.order.lines).toHaveLength(1);
 
@@ -238,7 +246,7 @@ describe("bill dan pembayaran", () => {
     // Bayar dua kali dan ubah setelah lunas ditolak.
     expect((await pos(cashier, "POST", `/orders/${id}/pay`, { payments: [{ method: "cash", amount: 30000 }] })).status).toBe(409);
     expect((await pos(cashier, "PUT", `/orders/${id}`, cart(takeAway, [kopiLine(5)]))).status).toBe(409);
-    expect((await pos(cashier, "POST", `/orders/${id}/void`, { reason: "salah" })).status).toBe(409);
+    expect((await pos(cashier, "POST", `/orders/${id}/void`, { reason: "salah", approval: approval() })).status).toBe(409);
   });
 
   it("pisah bayar: kartu + tunai", async () => {
@@ -257,7 +265,8 @@ describe("bill dan pembayaran", () => {
     expect((await pos(cashier, "POST", "/orders", cart(takeAway, []))).status).toBe(422);
     const created = await pos(cashier, "POST", "/orders", cart(takeAway, [kopiLine(1)]));
     const id = created.json.order.id as string;
-    expect((await pos(cashier, "POST", `/orders/${id}/void`, { reason: "pelanggan batal" })).json.order.status).toBe("void");
+    expect((await pos(cashier, "POST", `/orders/${id}/void`, { reason: "pelanggan batal" })).status).toBe(403);
+    expect((await pos(cashier, "POST", `/orders/${id}/void`, { reason: "pelanggan batal", approval: approval() })).json.order.status).toBe("void");
     expect((await pos(cashier, "POST", `/orders/${id}/pay`, { payments: [{ method: "cash", amount: 99999 }] })).status).toBe(409);
   });
 

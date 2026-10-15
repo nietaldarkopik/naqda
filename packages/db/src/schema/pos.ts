@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, index, int, json, mysqlTable, primaryKey, smallint, tinyint, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
-import { dt, idColumn } from "./columns";
+import { dt, idColumn, timestamps } from "./columns";
 import { itemVariants, items, modifierOptions, salesTypes } from "./catalog";
 import { businesses, outlets, users } from "./core";
 import { uuid } from "../uuid";
@@ -89,6 +89,43 @@ export const cashMovements = mysqlTable(
   (t) => [index("cash_movements_shift_idx").on(t.shiftId)],
 );
 
+const activeNameCol = () =>
+  varchar("active_name", { length: 120 }).generatedAlwaysAs(sql`(IF(\`deleted_at\` IS NULL, \`name\`, NULL))`, { mode: "stored" });
+
+/** Area makan (mis. Indoor, Teras) per outlet. */
+export const tableGroups = mysqlTable(
+  "table_groups",
+  {
+    id: idColumn(),
+    businessId: businessRef(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    name: varchar("name", { length: 120 }).notNull(),
+    position: smallint("position", { unsigned: true }).notNull().default(0),
+    ...timestamps,
+    activeName: activeNameCol(),
+  },
+  (t) => [uniqueIndex("table_groups_name_uq").on(t.outletId, t.activeName)],
+);
+
+/** Meja. x/y adalah posisi pada denah (satuan kotak, 0 = kiri/atas). */
+export const tables = mysqlTable(
+  "tables",
+  {
+    id: idColumn(),
+    businessId: businessRef(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    groupId: uuid("group_id").references(() => tableGroups.id),
+    name: varchar("name", { length: 120 }).notNull(),
+    capacity: smallint("capacity", { unsigned: true }).notNull().default(2),
+    x: smallint("x", { unsigned: true }).notNull().default(0),
+    y: smallint("y", { unsigned: true }).notNull().default(0),
+    shape: varchar("shape", { length: 8 }).$type<"rect" | "round">().notNull().default("rect"),
+    ...timestamps,
+    activeName: activeNameCol(),
+  },
+  (t) => [uniqueIndex("tables_name_uq").on(t.outletId, t.activeName), index("tables_outlet_idx").on(t.outletId)],
+);
+
 export const orders = mysqlTable(
   "orders",
   {
@@ -101,7 +138,7 @@ export const orders = mysqlTable(
     deviceId: uuid("device_id").references(() => devices.id),
     salesTypeId: uuid("sales_type_id").notNull().references(() => salesTypes.id),
     /** Disiapkan untuk fase berikutnya (meja, pelanggan); belum ada tabelnya. */
-    tableId: uuid("table_id"),
+    tableId: uuid("table_id").references(() => tables.id),
     customerId: uuid("customer_id"),
     pax: smallint("pax", { unsigned: true }),
     label: varchar("label", { length: 80 }),
@@ -129,10 +166,13 @@ export const orders = mysqlTable(
     total: money("total").notNull().default(0),
     paidTotal: money("paid_total").notNull().default(0),
     changeGiven: money("change_given").notNull().default(0),
+    /** Total yang sudah dikembalikan lewat refund (<= total). */
+    refundedTotal: money("refunded_total").notNull().default(0),
   },
   (t) => [
     index("orders_outlet_status_idx").on(t.outletId, t.status, t.openedAt),
     index("orders_shift_idx").on(t.shiftId),
+    index("orders_table_idx").on(t.tableId, t.status),
     uniqueIndex("orders_receipt_uq").on(t.outletId, t.receiptNumber),
   ],
 );
@@ -158,6 +198,9 @@ export const orderItems = mysqlTable(
     quantity: int("quantity", { unsigned: true }).notNull(),
     discount: json("discount").$type<{ kind: "percent" | "amount"; value: number; discountId?: string | null } | null>(),
     lineDiscount: money("line_discount").notNull().default(0),
+    /** Bagian diskon pesanan yang dibebankan ke baris ini (dasar pembagian refund). */
+    orderDiscountShare: money("order_discount_share").notNull().default(0),
+    refundedQuantity: int("refunded_quantity", { unsigned: true }).notNull().default(0),
     promoDiscount: money("promo_discount").notNull().default(0),
     promoId: uuid("promo_id"),
     note: varchar("note", { length: 255 }),
@@ -210,4 +253,52 @@ export const receiptOutbox = mysqlTable(
     createdAt: dt("created_at").notNull().default(sql`CURRENT_TIMESTAMP(3)`),
   },
   (t) => [index("receipt_outbox_order_idx").on(t.orderId)],
+);
+
+export const refunds = mysqlTable(
+  "refunds",
+  {
+    id: idColumn(),
+    businessId: businessRef(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    /** Shift kasir yang mengeluarkan uang (refund tunai mengurangi laci shift ini). */
+    shiftId: uuid("shift_id").notNull().references(() => shifts.id),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    method: varchar("method", { length: 24 }).notNull(),
+    total: money("total").notNull(),
+    reason: varchar("reason", { length: 255 }).notNull(),
+    createdAt: dt("created_at").notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (t) => [index("refunds_order_idx").on(t.orderId), index("refunds_shift_idx").on(t.shiftId), index("refunds_outlet_idx").on(t.outletId, t.createdAt)],
+);
+
+export const refundItems = mysqlTable(
+  "refund_items",
+  {
+    id: idColumn(),
+    refundId: uuid("refund_id").notNull().references(() => refunds.id),
+    orderItemId: uuid("order_item_id").notNull().references(() => orderItems.id),
+    quantity: int("quantity", { unsigned: true }).notNull(),
+    amount: money("amount").notNull(),
+  },
+  (t) => [index("refund_items_refund_idx").on(t.refundId)],
+);
+
+/** Jejak aktivitas kasir (buat/ubah/batal bill, hapus item, refund, pindah meja, pisah bill). Hanya menambah. */
+export const orderActivities = mysqlTable(
+  "order_activities",
+  {
+    id: idColumn(),
+    businessId: businessRef(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    orderId: uuid("order_id").references(() => orders.id),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    approvedBy: uuid("approved_by").references(() => users.id),
+    kind: varchar("kind", { length: 24 }).notNull(),
+    detail: json("detail").$type<Record<string, unknown> | null>(),
+    createdAt: dt("created_at").notNull().default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (t) => [index("order_activities_outlet_idx").on(t.outletId, t.createdAt), index("order_activities_order_idx").on(t.orderId)],
 );

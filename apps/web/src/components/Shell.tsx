@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   BarChart3,
   Boxes,
   Carrot,
@@ -70,9 +71,10 @@ const nav: NavItem[] = [
   { key: "customers", icon: UserRound },
   { key: "outlets", href: "/outlets", icon: Store },
   { key: "employees", href: "/employees", icon: Users },
-  { key: "tableManagement", icon: Table2 },
+  { key: "tableManagement", href: "/tables", icon: Table2, privilege: "tables.manage" },
   { key: "payments", icon: CreditCard },
   { key: "accountSettings", icon: Settings },
+  { key: "activities", href: "/activities", icon: Activity, privilege: "reports.view" },
   { key: "devices", href: "/devices", icon: Tablet, privilege: "settings.manage" },
   { key: "audit", href: "/audit", icon: History, privilege: "settings.manage" },
 ];

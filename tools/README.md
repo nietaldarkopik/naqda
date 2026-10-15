@@ -4,6 +4,7 @@ Skrip bantu di luar aplikasi. Keluarannya ditulis ke `build/` (tidak masuk git).
 
 | Skrip | Fungsi | Prasyarat |
 |---|---|---|
+| `verify_phase3.mjs` | Uji browser: tambah/geser meja di denah Back Office, pilih meja di kasir, persetujuan atasan (PIN salah dan benar), refund, pembatalan bill, halaman aktivitas, RTL. Screenshot ke `build/web-shots-p3/` | Sama, dan database yang **bersih** |
 | `verify_phase2.mjs` | Uji browser kasir: PIN karyawan, pendaftaran perangkat, aktivasi, login PIN, buka shift, jual, bayar, struk, pisah bill, kas, tutup shift, RTL, pencabutan perangkat. Screenshot ke `build/web-shots-p2/` | Sama seperti di atas, dan database yang **bersih** (tes memeriksa total persis, termasuk pajak demo) |
 | `verify_phase1.mjs` | Uji regresi di browser sungguhan (login, katalog, impor CSV, wizard promo, audit, investor, Arab/RTL). Menulis screenshot ke `build/web-shots-p1/` | `npm run dev` berjalan, database demo bersih (`npm run db:reset -- --yes && npm run db:migrate && npm run db:seed`), dan Playwright (`npm i -D playwright && npx playwright install chromium`) |
 | `make_pdf.py` | Menyusun dokumen `docs/*.md` menjadi `build/kasirku.html` | Python 3 dengan `markdown` (`pip install markdown`) |

@@ -56,7 +56,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 ## Fase 2. Kasir inti (4–5 sesi) — SELESAI UNTUK ALUR UTAMA 15 Okt 2026 (dengan batas di bawah)
 
-**Berjalan dan teruji** (249 tes otomatis: 124 unit tanpa database + 125 API; 21 pemeriksaan di browser sungguhan):
+**Berjalan dan teruji** (pada akhir Fase 2: 249 tes otomatis; 23 pemeriksaan di browser sungguhan):
 - Mesin hitung total (`computeOrder`): diskon berlapis, service charge, pajak eksklusif/inklusif, pajak atas service, pembulatan; semua per pengaturan outlet (`pricesIncludeTax`, `pricesIncludeGratuity`, `taxOnGratuity`, `roundingStep`, `roundingMode`), kini juga diatur di formulir outlet.
 - Mesin promo (`applyPromos`), penyelesaian pembayaran (`settle`), pisah bill (`splitLines`), rekonsiliasi kas shift, kebijakan PIN.
 - **Perangkat kasir**: didaftarkan dari Back Office (kode aktivasi 8 karakter, berlaku 15 menit, sekali pakai), memakai token perangkat; dicabut atau dipasangkan ulang langsung memutus perangkat lama. Aktivasi dibatasi laju.
@@ -72,7 +72,7 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 **Catatan dan batas** (jangan dianggap ada):
 - Urutan hitung (diskon → service → pajak → pembulatan) **ditetapkan sementara** atas keputusan pemilik produk; pajak atas service charge dan dasar service charge tetap perlu dicek akuntan sebelum uang sungguhan.
 - **Diskon**: lingkup umum vs item/kategori, dan mode gabung per outlet (berurutan, kombinasi, salah satu); lihat doc 02 bagian 1h. Arti promo persen ("beli minimal N → semua unit memenuhi syarat didiskon") masih perlu disetujui pemilik toko.
-- Bill yang **sudah lunas** belum bisa dibatalkan atau di-refund (Fase 3); kas shift belum punya jalur refund.
+- (Diselesaikan di Fase 3) Bill lunas kini bisa di-refund dan refund tunai masuk hitungan kas shift.
 - Tab **Favorit/Custom** belum ada (hanya kategori dan pencarian). Metode pembayaran adalah daftar tetap (belum bisa diatur di Back Office; fase 7).
 - Struk dicetak lewat dialog cetak browser. **Belum ada** printer thermal/ESC-POS, laci kas otomatis, atau pengiriman struk email/SMS (tabel `receipt_outbox` sudah ada, belum ada endpoint).
 - **Belum offline**: kasir butuh koneksi ke server. Sesi kasir hanya di memori, jadi memuat ulang halaman meminta PIN lagi (perangkat tetap terdaftar).
@@ -82,10 +82,26 @@ Penyimpangan dari rencana dan alasannya: doc 02 bagian 1e.
 
 **Selesai bila**: satu hari penjualan bisa disimulasikan dari buka sampai tutup shift. Tercapai untuk alur utama (lihat `tools/verify_phase2.mjs`); belum dengan refund, offline, dan printer nyata.
 
-## Fase 3. Meja dan aktivitas (2–3 sesi)
-- Table group, table map (Back Office), denah di kasir, mulai bill dari meja.
-- Aktivitas, refund, kirim ulang struk, pembatalan bill/produk.
-- **Selesai bila**: alur dine-in lengkap termasuk refund berjalan.
+## Fase 3. Meja dan aktivitas — SELESAI 15 Okt 2026 (dengan batas di bawah)
+
+**Berjalan dan teruji** (266 tes otomatis: 130 unit + 136 API; 39 pemeriksaan browser di `tools/verify_phase2.mjs` dan `verify_phase3.mjs`):
+- **Grup meja dan meja per outlet** di Back Office (CRUD, nama unik per outlet, diaudit), **denah** dengan geser-dan-simpan (mouse/sentuh), dan hapus meja diblokir bila masih ada bill terbuka.
+- **Kasir**: pilih meja dari denah (warna menunjukkan meja berisi bill terbuka beserta totalnya), beberapa bill per meja, pindah meja, bill pisah ikut meja yang sama.
+- **Persetujuan atasan**: kasir tanpa hak `pos.void`/`pos.refund` tetap bisa bertindak bila seorang atasan di outlet itu memasukkan PIN-nya; PIN atasan memakai penguncian yang sama dengan login, dan PIN salah tidak mengeluarkan kasir dari sesinya.
+- **Pembatalan produk**: mengurangi atau menghapus item pada bill yang sudah tersimpan butuh alasan dan hak/persetujuan; pembatalan bill tersimpan juga. Menambah item tidak butuh persetujuan.
+- **Refund** bill lunas, sebagian atau seluruhnya, bertahap: jumlah dibagi per baris sebanding harga setelah diskon (termasuk service, pajak, pembulatan), dan bila semua unit di-refund jumlahnya **tepat** sama dengan total yang dibayar (diuji dengan sapuan). Metode refund harus salah satu yang dipakai saat bayar; refund tunai mengurangi uang yang seharusnya ada di laci shift dan ditolak bila laci tidak cukup.
+- **Aktivitas**: setiap buat/ubah/hapus item/batal/bayar/pisah/pindah meja/refund dicatat (siapa, kapan, alasan, penyetuju) dan bisa dilihat di Back Office (hanya baca, hak `reports.view`).
+- Perhitungan refund adalah fungsi murni `computeRefund` (`packages/domain`).
+
+**Catatan dan batas** (jangan dianggap ada):
+- **Kirim ulang struk** (email/SMS) **belum dikerjakan**: butuh penyedia email/SMS. Cetak ulang struk dari daftar bill sudah ada.
+- Refund dihitung dari total pesanan secara proporsional; **pajak dan service tidak dilaporkan terpisah per refund** (laporan di Fase 4 yang menentukan penyajiannya). Stok belum dikembalikan (Fase 5).
+- Refund ke metode berbeda dari yang dipakai saat bayar, dan refund pada bill yang dibayar di shift yang sudah lama, belum diatur khusus (batas waktu refund belum ada).
+- Tidak ada **gabung meja/bill** dan tidak ada reservasi. Denah memakai kisi tetap 24 x 14 sel dan meja berbentuk persegi/bulat saja.
+- Aktivitas belum bisa difilter menurut tanggal atau pengguna, dan belum ada ekspor.
+- Satu kasus uji browser sempat gagal sekali karena skrip membaca total sebelum harga selesai dihitung server (jeda 180 ms); skrip sudah diperbaiki dan lulus 6 kali berturut-turut. Aplikasi memang menampilkan harga setelah jeda singkat itu.
+
+**Selesai bila**: alur dine-in lengkap termasuk refund berjalan. Tercapai (lihat `tools/verify_phase3.mjs`).
 
 ## Fase 4. Laporan dan dashboard (3–4 sesi)
 - Dashboard (Summary dan Outlet Comparison).

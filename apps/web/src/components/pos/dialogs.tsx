@@ -391,7 +391,11 @@ export function BillsDialog({ ctx, onClose, onOpen }: { ctx: Ctx; onClose: () =>
           <li key={o.id}>
             <button type="button" onClick={() => onOpen(o.id)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-surface-2">
               <span>
-                <span className="block font-medium">{o.receiptNumber ? `#${o.receiptNumber}` : (o.label ?? t("unnamedBill"))}</span>
+                <span className="block font-medium">
+                  {o.receiptNumber ? `#${o.receiptNumber}` : (o.label ?? t("unnamedBill"))}
+                  {o.tableName ? <span className="ms-2 text-xs font-normal text-muted">{o.tableName}</span> : null}
+                  {o.refundedTotal ? <Badge tone="warn">{t("refunded")}</Badge> : null}
+                </span>
                 <span className="block text-xs text-muted">{new Date(o.openedAt).toLocaleString()}</span>
               </span>
               <span className="font-medium tabular-nums">{ctx.fmt(o.total)}</span>
@@ -622,6 +626,7 @@ function Summary({ ctx, view }: { ctx: Ctx; view: ShiftView }) {
     [t("nonCashSales"), view.nonCashSales],
     [t("cashIn"), view.cashIn],
     [t("cashOut"), -view.cashOut],
+    [t("cashRefunds"), -view.cashRefunds],
     [t("expectedCash"), view.expectedCash],
   ];
   return (
@@ -642,7 +647,7 @@ function Summary({ ctx, view }: { ctx: Ctx; view: ShiftView }) {
 
 // ------------------------------------------------------------------ struk
 
-export function ReceiptDialog({ ctx, order, onClose }: { ctx: Ctx; order: OrderView; onClose: () => void }) {
+export function ReceiptDialog({ ctx, order, onClose, onRefund }: { ctx: Ctx; order: OrderView; onClose: () => void; onRefund?: (() => void) | undefined }) {
   const t = useTranslations("cashier");
   const locale = useLocale();
   const s = order.snapshot;
@@ -654,6 +659,11 @@ export function ReceiptDialog({ ctx, order, onClose }: { ctx: Ctx; order: OrderV
       onClose={onClose}
       footer={
         <>
+          {paid && order.refundedTotal < order.totals.total && onRefund ? (
+            <Button variant="secondary" onClick={onRefund} data-testid="open-refund">
+              {t("refund")}
+            </Button>
+          ) : null}
           <Button variant="secondary" onClick={() => window.print()}>
             <Printer size={16} aria-hidden /> {t("print")}
           </Button>
@@ -710,6 +720,7 @@ export function ReceiptDialog({ ctx, order, onClose }: { ctx: Ctx; order: OrderV
           <R key={p.id} label={t(`methods.${p.method}` as never)} value={ctx.fmt(p.tendered)} />
         ))}
         {order.totals.change > 0 ? <R label={t("change")} value={ctx.fmt(order.totals.change)} /> : null}
+        {order.refundedTotal > 0 ? <R label={t("refunded")} value={`-${ctx.fmt(order.refundedTotal)}`} /> : null}
         {!paid ? <Badge tone="warn">{t("notPaid")}</Badge> : null}
       </div>
     </Modal>

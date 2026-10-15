@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, LogOut, Minus, Percent, Plus, Search, Split, Trash2, Wallet } from "lucide-react";
+import { ClipboardList, LayoutGrid, LogOut, Minus, Percent, Plus, Search, Split, Trash2, Wallet, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input, Select, useToast } from "@/components/ui";
@@ -13,12 +13,14 @@ import {
   type Catalog,
   type CatalogItem,
   type DiscountPick,
+  type FloorMap,
   type OrderView,
   type PriceResult,
   type ShiftView,
 } from "@/lib/posClient";
 import type { Ctx } from "./PosApp";
 import { BillsDialog, DiscountDialog, ItemDialog, PayDialog, ReceiptDialog, ShiftDialog, SplitDialog } from "./dialogs";
+import { ApprovalDialog, RefundDialog, TablesDialog, type ApprovalInput } from "./dialogs2";
 
 const sameLine = (a: CartLine, b: CartLine): boolean => {
   if (a.kind !== b.kind || a.note || b.note || a.discount || b.discount) return false;
@@ -59,6 +61,16 @@ export function Sell({
   const [splitOrder, setSplitOrder] = useState<OrderView | null>(null);
   const [receipt, setReceipt] = useState<OrderView | null>(null);
   const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
+  const [floor, setFloor] = useState<FloorMap | null>(null);
+  const [tablesOpen, setTablesOpen] = useState(false);
+  const [refunding, setRefunding] = useState<OrderView | null>(null);
+  const [approval, setApproval] = useState<{ privilege: "pos.void" | "pos.refund"; title: string; run: (input: ApprovalInput) => Promise<string | null>; done: (ok: boolean) => void } | null>(null);
+
+  /** Menunggu atasan/alasan: dialog tetap terbuka sampai permintaan berhasil atau dibatalkan. */
+  const requestApproval = (privilege: "pos.void" | "pos.refund", title: string, run: (input: ApprovalInput) => Promise<string | null>) =>
+    new Promise<boolean>((resolve) => setApproval({ privilege, title, run, done: resolve }));
+  const needsApprovalError = (e: unknown, privilege: string) =>
+    e instanceof PosError && ((e.status === 403 && e.extra?.required === privilege) || (e.status === 422 && Boolean(e.fields?.reason)));
 
   const dirty = JSON.stringify(cart) !== savedKey;
   const canDiscount = ctx.can("pos.discount");
@@ -74,6 +86,11 @@ export function Sell({
       })
       .catch((e) => toast(e instanceof PosError ? e.message : t("network"), "error"));
   }, [toast, t]);
+
+  // Denah dimuat sekali agar nama meja pada bill tersimpan bisa ditampilkan.
+  useEffect(() => {
+    posApi<FloorMap>("/tables").then(setFloor).catch(() => undefined);
+  }, []);
 
   // Harga SELALU dihitung server; klien hanya menampilkan.
   const seq = useRef(0);
@@ -147,14 +164,33 @@ export function Sell({
   const save = async (): Promise<OrderView | null> => {
     if (cart.lines.length === 0) return null;
     setBusy(true);
-    try {
-      const res = orderId
-        ? await posApi<{ order: OrderView }>(`/orders/${orderId}`, { method: "PUT", json: cart })
+    const send = async (extra: Record<string, unknown> = {}) =>
+      orderId
+        ? await posApi<{ order: OrderView }>(`/orders/${orderId}`, { method: "PUT", json: { ...cart, ...extra } })
         : await posApi<{ order: OrderView }>("/orders", { method: "POST", json: cart });
+    try {
+      const res = await send();
       load(res.order);
       return res.order;
     } catch (e) {
-      toast(e instanceof PosError ? e.message : t("network"), "error");
+      // Mengurangi/menghapus item yang sudah tersimpan: minta alasan dan (bila perlu) persetujuan atasan.
+      if (orderId && needsApprovalError(e, "pos.void")) {
+        let saved: OrderView | null = null;
+        const ok = await requestApproval("pos.void", t("removeItemsTitle"), async (input) => {
+          try {
+            saved = (await send({ reason: input.reason, approval: input.approval })).order;
+            return null;
+          } catch (err) {
+            return err instanceof PosError ? (err.fields ? Object.values(err.fields)[0]! : err.message) : t("network");
+          }
+        });
+        if (ok && saved) {
+          load(saved);
+          return saved;
+        }
+        return null;
+      }
+      toast(e instanceof PosError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : t("network"), "error");
       return null;
     } finally {
       setBusy(false);
@@ -186,12 +222,17 @@ export function Sell({
 
   const cancelBill = async () => {
     if (!orderId) return reset();
-    try {
-      await posApi(`/orders/${orderId}/void`, { method: "POST", json: { reason: t("voidReason") } });
+    const ok = await requestApproval("pos.void", t("cancelBill"), async (input) => {
+      try {
+        await posApi(`/orders/${orderId}/void`, { method: "POST", json: { reason: input.reason, approval: input.approval } });
+        return null;
+      } catch (err) {
+        return err instanceof PosError ? (err.fields ? Object.values(err.fields)[0]! : err.message) : t("network");
+      }
+    });
+    if (ok) {
       toast(t("billCancelled"));
       reset();
-    } catch (e) {
-      toast(e instanceof PosError ? e.message : t("network"), "error");
     }
   };
 
@@ -205,6 +246,7 @@ export function Sell({
     return all.filter((d) => d.scope === "item" && (d.itemIds.includes(item.id) || (item.categoryId !== null && d.categoryIds.includes(item.categoryId))));
   };
 
+  const tableName = cart.tableId ? (floor?.tables.find((x) => x.id === cart.tableId)?.name ?? null) : null;
   const totals = priced?.totals;
   const empty = cart.lines.length === 0;
   const lineView = (i: number) => priced?.lines[i];
@@ -292,6 +334,16 @@ export function Sell({
               ))}
             </Select>
             <div className="text-xs text-muted">{orderId ? t("savedBill") : t("newBill")}</div>
+          </div>
+          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+            <Button variant="secondary" onClick={() => setTablesOpen(true)} data-testid="open-tables">
+              <LayoutGrid size={15} aria-hidden /> {tableName ?? t("tables")}
+            </Button>
+            {cart.tableId ? (
+              <Button variant="ghost" onClick={() => setCart((c) => ({ ...c, tableId: null }))} aria-label={t("noTable")} title={t("noTable")}>
+                <X size={15} aria-hidden />
+              </Button>
+            ) : null}
           </div>
 
           <ul className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
@@ -438,7 +490,47 @@ export function Sell({
 
       {billsOpen ? <BillsDialog ctx={ctx} onClose={() => setBillsOpen(false)} onOpen={(id) => void openBill(id)} /> : null}
       {shiftOpen ? <ShiftDialog ctx={ctx} shift={shift} onShift={onShift} onClose={() => setShiftOpen(false)} onClosed={onShiftClosed} /> : null}
-      {receipt ? <ReceiptDialog ctx={ctx} order={receipt} onClose={() => setReceipt(null)} /> : null}
+      {receipt ? <ReceiptDialog ctx={ctx} order={receipt} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}
+      {refunding ? (
+        <RefundDialog
+          ctx={ctx}
+          order={refunding}
+          onClose={() => setRefunding(null)}
+          onDone={(o) => {
+            setRefunding(null);
+            setReceipt(o);
+            posApi<{ shift: ShiftView }>("/shifts/current").then((r) => onShift(r.shift)).catch(() => undefined);
+          }}
+        />
+      ) : null}
+      {tablesOpen ? (
+        <TablesDialog
+          ctx={ctx}
+          currentTableId={cart.tableId}
+          onLoaded={setFloor}
+          onClose={() => setTablesOpen(false)}
+          onPick={(tb) => {
+            setCart((c) => ({ ...c, tableId: tb?.id ?? null }));
+            setTablesOpen(false);
+          }}
+          onOpenBill={(id) => {
+            setTablesOpen(false);
+            void openBill(id);
+          }}
+        />
+      ) : null}
+      {approval ? (
+        <ApprovalDialog
+          ctx={ctx}
+          privilege={approval.privilege}
+          title={approval.title}
+          onRun={approval.run}
+          onClose={(ok) => {
+            approval.done(ok);
+            setApproval(null);
+          }}
+        />
+      ) : null}
       {splitOrder ? (
         <SplitDialog
           ctx={ctx}

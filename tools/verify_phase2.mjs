@@ -140,7 +140,8 @@ await pos.getByRole("button", { name: new RegExp(`Kopi ${run}`) }).click();
 await pos.getByRole("button", { name: new RegExp(`Teh ${run}`) }).click();
 await pos.getByRole("dialog").getByText("Boba").click();
 await pos.getByRole("dialog").getByRole("button", { name: /^Tambah ·/ }).click();
-await pos.waitForFunction(() => /Rp/.test(document.querySelector('[data-testid="cart-total"]')?.textContent ?? "") && !/Rp\s?0$/.test(document.querySelector('[data-testid="cart-total"]')?.textContent ?? ""));
+// Harga dihitung server setelah jeda singkat; tunggu sampai angka akhir muncul (atau 10 dtk) sebelum membandingkan.
+await pos.waitForFunction(() => /67\.337/.test(document.querySelector('[data-testid="cart-total"]')?.textContent ?? ""), null, { timeout: 10000 }).catch(() => undefined);
 // 2x20000 + (10000+3000) = 53000; pajak 11% = 5830; total 58830. Pajak dari run lain pada DB yang sama dapat menambah angka.
 const totalText = (await pos.locator('[data-testid="cart-total"]').textContent()).replace(/\s/g, " ");
 const digits = Number(totalText.replace(/\D/g, ""));

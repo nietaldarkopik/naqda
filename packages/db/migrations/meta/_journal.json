@@ -36,6 +36,13 @@
       "when": 1792039204317,
       "tag": "0004_left_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1792043237296,
+      "tag": "0005_lazy_maelstrom",
+      "breakpoints": true
     }
   ]
 }

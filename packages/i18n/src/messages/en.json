@@ -88,7 +88,8 @@
     "salesTypes": "Sales Types",
     "brands": "Brands",
     "audit": "Audit Trail",
-    "devices": "POS Devices"
+    "devices": "POS Devices",
+    "activities": "Cashier Activity"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -374,7 +375,10 @@
       "bundle": "Bundle",
       "promo": "Promo",
       "outlet": "Outlet",
-      "translation": "Translation"
+      "translation": "Translation",
+      "device": "Device",
+      "table": "Table",
+      "table_group": "Table group"
     }
   },
   "pos": {
@@ -395,7 +399,13 @@
     "paymentShort": "Payment is less than the amount due",
     "splitInvalid": "Invalid split selection",
     "cashShort": "Not enough cash in the drawer",
-    "discountScope": "This discount does not apply to that item/order"
+    "discountScope": "This discount does not apply to that item/order",
+    "approvalRequired": "Manager approval required",
+    "approverNotAllowed": "This account is not allowed to approve",
+    "notPaid": "This bill has not been paid",
+    "refundMethod": "Choose a method used when paying",
+    "refundInvalid": "Refund quantity is invalid or exceeds what remains",
+    "refundZero": "Refund amount is zero"
   },
   "devices": {
     "title": "POS Devices",
@@ -545,10 +555,74 @@
     "paymentDone": "Payment complete",
     "receipt": "Receipt",
     "print": "Print",
-    "notPaid": "UNPAID"
+    "notPaid": "UNPAID",
+    "tables": "Tables",
+    "tableBills": "Bills at {name}",
+    "noTable": "No table",
+    "noTables": "No tables yet. Set them up in Back Office > Table Management.",
+    "newBillAtTable": "New bill at this table",
+    "back": "Back",
+    "tablesLegend": "Green = free, yellow = open bill (total shown).",
+    "reason": "Reason",
+    "approvalTitle": "Manager approval",
+    "approvalHelp": "This action needs a manager approval. Pick the manager and ask for their PIN.",
+    "approver": "Manager",
+    "approverPin": "Manager PIN",
+    "noApprovers": "No manager with a PIN at this outlet.",
+    "confirm": "Confirm",
+    "removeItemsTitle": "Remove items from a saved bill",
+    "refund": "Refund",
+    "refundTitle": "Refund",
+    "refundHelp": "Choose the items and quantities to return.",
+    "refundAll": "Select all",
+    "refundable": "refundable",
+    "refundedQty": "{count} refunded",
+    "refundMethod": "Refund via",
+    "refundCashHint": "Cash is taken from this shift's drawer.",
+    "refundConfirm": "Refund",
+    "refundDone": "Refund of {amount} completed",
+    "refunded": "Refunded",
+    "cashRefunds": "Cash refunds"
   },
   "discounts": {
     "targetRequired": "Choose at least one target item or category",
     "targetNotAllowed": "A general discount cannot have target items or categories"
+  },
+  "tables": {
+    "duplicate": "Name already used in this outlet",
+    "hasOpenBills": "The table still has open bills",
+    "title": "Table Management",
+    "subtitle": "Set up table groups and the floor plan. Cashiers pick tables from this plan.",
+    "create": "Add table",
+    "edit": "Edit table",
+    "dragHint": "Drag tables to arrange the floor plan, then save. Double-click to edit.",
+    "saveLayout": "Save layout",
+    "empty": "No tables yet",
+    "group": "Group",
+    "capacity": "Capacity",
+    "shape": "Shape",
+    "rect": "Square",
+    "round": "Round",
+    "groups": "Table groups",
+    "groupName": "Group name",
+    "addGroup": "Add"
+  },
+  "activities": {
+    "title": "Cashier Activity",
+    "subtitle": "Trail of bills, cancellations and refunds (read-only)",
+    "kind": "Type",
+    "allKinds": "All types",
+    "bill": "Bill",
+    "approvedBy": "Approved by",
+    "kinds": {
+      "bill_created": "Bill created",
+      "bill_updated": "Bill updated",
+      "item_removed": "Item removed",
+      "bill_voided": "Bill cancelled",
+      "paid": "Paid",
+      "split": "Split bill",
+      "table_changed": "Table changed",
+      "refund": "Refund"
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -16,20 +16,30 @@ import {
   modifierOptions,
   modifierSets,
   newId,
+  orderActivities,
   orderItemModifiers,
   orderItems,
   orders,
   payments,
+  refundItems,
+  refunds,
+  roles,
   salesTypes,
   shifts,
+  tables,
+  tableGroups,
+  userOutlets,
+  users,
   type DbHandle,
 } from "@naqdi/db";
-import { PaymentError, SplitError, cashDifference, expectedCash, settle, splitLines, type OrderLineInput } from "@naqdi/domain";
+import { PaymentError, RefundError, SplitError, cashDifference, computeRefund, expectedCash, settle, splitLines, type OrderLineInput, type Privilege } from "@naqdi/domain";
+import type { PosAuthContext } from "../auth/tokens";
 import type { LoginLimiter } from "../auth/limiter";
 import type { Config } from "../config";
 import { AppError, duplicateKey } from "../errors";
 import { iso, validate } from "../http";
 import { requireDevice, requirePos, requirePosPrivilege, type PosEnv } from "../pos/context";
+import { privilegesOfRole, verifyPin } from "../pos/pin";
 import {
   cartSchema,
   fromDiscountInput,
@@ -81,6 +91,96 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     if (!s) return conflict("pos.noShift");
     return s;
   };
+
+  const approvalSchema = z.object({ userId: z.string().uuid(), pin: z.string().min(1).max(32) });
+  type Approval = z.infer<typeof approvalSchema>;
+
+  /**
+   * Hak khusus (batalkan, refund): dimiliki kasir sendiri, atau disetujui atasan yang memasukkan PIN-nya.
+   * PIN atasan salah dibalas 403 (bukan 401) agar kasir tidak ikut dikeluarkan dari sesinya.
+   */
+  const authorize = async (pos: PosAuthContext, privilege: Privilege, approval: Approval | null | undefined): Promise<{ approvedBy: string | null }> => {
+    if (pos.privileges.includes(privilege)) return { approvedBy: null };
+    if (!approval) throw new AppError("forbidden", { messageKey: "pos.approvalRequired", extra: { required: privilege } });
+    try {
+      const { user, role } = await verifyPin(db, { businessId: pos.businessId, outletId: pos.outletId }, approval.userId, approval.pin);
+      if (!(await privilegesOfRole(db, role.id)).includes(privilege)) throw new AppError("forbidden", { messageKey: "pos.approverNotAllowed" });
+      return { approvedBy: user.id };
+    } catch (e) {
+      if (e instanceof AppError && e.code === "unauthorized") throw new AppError("forbidden", { messageKey: "pos.pinInvalid", extra: { required: privilege } });
+      throw e;
+    }
+  };
+
+  const logActivity = async (tx: Db, pos: PosAuthContext, orderId: string | null, kind: string, detail: Record<string, unknown> | null, approvedBy: string | null = null) => {
+    await tx.insert(orderActivities).values({ id: newId(), businessId: pos.businessId, outletId: pos.outletId, orderId, userId: pos.userId, approvedBy, kind, detail });
+  };
+
+  const checkTable = async (d: Db, pos: PosAuthContext, tableId: string | null | undefined): Promise<{ id: string; name: string } | null> => {
+    if (!tableId) return null;
+    const [t] = await d
+      .select({ id: tables.id, name: tables.name })
+      .from(tables)
+      .where(and(eq(tables.id, tableId), eq(tables.businessId, pos.businessId), eq(tables.outletId, pos.outletId), isNull(tables.deletedAt)))
+      .limit(1);
+    if (!t) throw new AppError("validation", { fields: { tableId: "errors.notFound" } });
+    return t;
+  };
+
+  // Siapa saja di outlet ini yang boleh menyetujui (punya PIN dan hak yang diminta).
+  session.get("/approvers", validate("query", z.object({ privilege: z.enum(["pos.void", "pos.refund", "pos.discount"]) })), async (c) => {
+    const pos = c.get("pos");
+    const { privilege } = c.req.valid("query");
+    const rows = await db
+      .select({ id: users.id, name: users.name, roleId: users.roleId })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .innerJoin(userOutlets, and(eq(userOutlets.userId, users.id), eq(userOutlets.outletId, pos.outletId)))
+      .where(and(eq(users.businessId, pos.businessId), isNull(users.deletedAt), eq(users.status, "active"), isNotNull(users.pinHash), ne(roles.accessType, "backoffice_only")))
+      .orderBy(asc(users.name));
+    const cache = new Map<string, boolean>();
+    const out: { id: string; name: string }[] = [];
+    for (const r of rows) {
+      if (!cache.has(r.roleId)) cache.set(r.roleId, (await privilegesOfRole(db, r.roleId)).includes(privilege));
+      if (cache.get(r.roleId) && r.id !== pos.userId) out.push({ id: r.id, name: r.name });
+    }
+    return c.json({ items: out });
+  });
+
+  // Denah: meja per grup beserta ringkasan bill terbuka di tiap meja.
+  session.get("/tables", async (c) => {
+    const pos = c.get("pos");
+    const groups = await db
+      .select()
+      .from(tableGroups)
+      .where(and(eq(tableGroups.businessId, pos.businessId), eq(tableGroups.outletId, pos.outletId), isNull(tableGroups.deletedAt)))
+      .orderBy(asc(tableGroups.position), asc(tableGroups.name));
+    const rows = await db
+      .select()
+      .from(tables)
+      .where(and(eq(tables.businessId, pos.businessId), eq(tables.outletId, pos.outletId), isNull(tables.deletedAt)))
+      .orderBy(asc(tables.name));
+    const open = await db
+      .select({ tableId: orders.tableId, total: orders.total, openedAt: orders.openedAt })
+      .from(orders)
+      .where(and(eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId), eq(orders.status, "open"), isNotNull(orders.tableId)));
+    return c.json({
+      groups: groups.map((g) => ({ id: g.id, name: g.name })),
+      tables: rows.map((t) => {
+        const mine = open.filter((o) => o.tableId === t.id);
+        return {
+          id: t.id,
+          name: t.name,
+          groupId: t.groupId,
+          capacity: t.capacity,
+          x: t.x,
+          y: t.y,
+          shape: t.shape,
+          open: mine.length ? { count: mine.length, total: mine.reduce((a, o) => a + o.total, 0), since: iso(mine.map((o) => o.openedAt).sort((a, b) => a.getTime() - b.getTime())[0]!) } : null,
+        };
+      }),
+    });
+  });
 
   // ------------------------------------------------------------------ katalog
   session.get("/catalog", async (c) => {
@@ -190,6 +290,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         quantity: l.quantity,
         discount: l.discount,
         lineDiscount: r.discount,
+        orderDiscountShare: r.orderDiscountShare,
         promoDiscount: r.promoDiscount,
         promoId: r.promoDiscount > 0 ? (priced.promoByLine[l.key] ?? null) : null,
         note: l.note,
@@ -231,6 +332,8 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       status: o.status,
       receiptNumber: o.receiptNumber,
       salesTypeId: o.salesTypeId,
+      tableId: o.tableId,
+      refundedTotal: o.refundedTotal,
       label: o.label,
       note: o.note,
       pax: o.pax,
@@ -261,8 +364,10 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         sku: l.sku,
         unitPrice: l.unitPrice,
         quantity: l.quantity,
+        refundedQuantity: l.refundedQuantity,
         discount: l.discount,
         lineDiscount: l.lineDiscount,
+        orderDiscountShare: l.orderDiscountShare,
         promoDiscount: l.promoDiscount,
         note: l.note,
         modifiers: mods.filter((m) => m.orderItemId === l.id).map((m) => ({ optionId: m.optionId, name: m.name, price: m.price })),
@@ -271,11 +376,15 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     };
   };
 
+  const lineKey = (variantId: string | null, bundleId: string | null, modifierIds: (string | null)[]) =>
+    `${variantId ?? bundleId ?? ""}|${modifierIds.filter(Boolean).sort().join(",")}`;
+
   session.post("/orders", validate("json", cartSchema), async (c) => {
     const pos = c.get("pos");
     const cart = c.req.valid("json");
     if (cart.lines.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
     const shift = await requireShift(db, pos.userId, pos.outletId);
+    const table = await checkTable(db, pos, cart.tableId);
     const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
     const r = await priceCart(cart, ctx, hasDiscountPrivilege(c));
     const id = newId();
@@ -289,6 +398,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         userId: pos.userId,
         deviceId: pos.deviceId,
         salesTypeId: cart.salesTypeId,
+        tableId: table?.id ?? null,
         label: cart.label ?? null,
         note: cart.note ?? null,
         pax: cart.pax ?? null,
@@ -297,55 +407,118 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
         ...totalsColumns(r.priced.totals),
       });
       await persistLines(tx, { id, businessId: pos.businessId }, r.lines, r.priced);
+      await logActivity(tx, pos, id, "bill_created", { total: r.priced.totals.total, lines: r.lines.length, table: table?.name ?? null });
     });
     const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
     return c.json({ order: await presentOrder(db, row!) }, 201);
   });
 
   // Mengganti isi bill yang masih terbuka (tambah/ubah/hapus baris). Harga dihitung ulang dari katalog.
-  session.put("/orders/:id", validate("param", idParam), validate("json", cartSchema), async (c) => {
-    const pos = c.get("pos");
-    const { id } = c.req.valid("param");
-    const cart = c.req.valid("json");
-    if (cart.lines.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
-    await requireShift(db, pos.userId, pos.outletId);
-    const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
-    const r = await priceCart(cart, ctx, hasDiscountPrivilege(c));
-    await db.transaction(async (t) => {
-      const tx = t as unknown as Db;
-      const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
-      if (order.status !== "open") return conflict("pos.orderNotOpen");
-      await tx
-        .update(orders)
-        .set({
-          salesTypeId: cart.salesTypeId,
-          label: cart.label ?? null,
-          note: cart.note ?? null,
-          pax: cart.pax ?? null,
-          orderDiscount: r.orderDiscount,
-          pricingSnapshot: r.priced.snapshot,
-          ...totalsColumns(r.priced.totals),
-        })
-        .where(eq(orders.id, id));
-      await persistLines(tx, { id, businessId: pos.businessId }, r.lines, r.priced);
-    });
-    const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-    return c.json({ order: await presentOrder(db, row!) });
-  });
+  // Mengurangi atau menghapus baris yang SUDAH tersimpan butuh hak pos.void (atau persetujuan atasan) dan alasan.
+  session.put(
+    "/orders/:id",
+    validate("param", idParam),
+    validate("json", cartSchema.extend({ reason: z.string().trim().max(255).nullish(), approval: approvalSchema.nullish() })),
+    async (c) => {
+      const pos = c.get("pos");
+      const { id } = c.req.valid("param");
+      const { reason, approval, ...cart } = c.req.valid("json");
+      if (cart.lines.length === 0) throw new AppError("validation", { fields: { lines: "pos.emptyOrder" } });
+      await requireShift(db, pos.userId, pos.outletId);
+      const table = await checkTable(db, pos, cart.tableId);
+      const ctx = await loadOutletContext(db, pos.businessId, pos.outletId);
+      const r = await priceCart(cart, ctx, hasDiscountPrivilege(c));
 
-  session.get("/orders", validate("query", z.object({ status: z.enum(["open", "paid", "void"]).default("open"), limit: z.coerce.number().int().min(1).max(200).default(50) })), async (c) => {
-    const pos = c.get("pos");
-    const { status, limit } = c.req.valid("query");
-    const rows = await db
-      .select()
-      .from(orders)
-      .where(and(eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId), eq(orders.status, status)))
-      .orderBy(desc(orders.openedAt))
-      .limit(limit);
-    return c.json({
-      items: rows.map((o) => ({ id: o.id, status: o.status, receiptNumber: o.receiptNumber, label: o.label, total: o.total, openedAt: iso(o.openedAt), paidAt: iso(o.paidAt), userId: o.userId })),
-    });
-  });
+      // Baris tersimpan yang berkurang/hilang dibanding keranjang baru.
+      const removedOf = async (d: Db): Promise<{ name: string; quantity: number }[]> => {
+        const stored = await d.select().from(orderItems).where(eq(orderItems.orderId, id));
+        const mods = stored.length ? await d.select().from(orderItemModifiers).where(inArray(orderItemModifiers.orderItemId, stored.map((x) => x.id))) : [];
+        const want = new Map<string, number>();
+        for (const l of cart.lines) {
+          const k = l.kind === "item" ? lineKey(l.variantId, null, [...new Set(l.modifierOptionIds)]) : lineKey(null, l.bundleId, []);
+          want.set(k, (want.get(k) ?? 0) + l.quantity);
+        }
+        const have = new Map<string, { name: string; quantity: number }>();
+        for (const x of stored) {
+          const k = lineKey(x.variantId, x.bundleId, mods.filter((m) => m.orderItemId === x.id).map((m) => m.optionId));
+          const cur = have.get(k);
+          have.set(k, { name: x.name, quantity: (cur?.quantity ?? 0) + x.quantity });
+        }
+        const out: { name: string; quantity: number }[] = [];
+        for (const [k, v] of have) {
+          const diff = v.quantity - (want.get(k) ?? 0);
+          if (diff > 0) out.push({ name: v.name, quantity: diff });
+        }
+        return out;
+      };
+
+      let approvedBy: string | null = null;
+      let authorized = false;
+      if ((await removedOf(db)).length > 0) {
+        ({ approvedBy } = await authorize(pos, "pos.void", approval));
+        authorized = true;
+        if (!reason) throw new AppError("validation", { fields: { reason: "common.required" } });
+      }
+
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+        if (order.status !== "open") return conflict("pos.orderNotOpen");
+        const removed = await removedOf(tx);
+        if (removed.length > 0 && !authorized) throw new AppError("forbidden", { messageKey: "pos.approvalRequired", extra: { required: "pos.void" } });
+        await tx
+          .update(orders)
+          .set({
+            salesTypeId: cart.salesTypeId,
+            tableId: table?.id ?? null,
+            label: cart.label ?? null,
+            note: cart.note ?? null,
+            pax: cart.pax ?? null,
+            orderDiscount: r.orderDiscount,
+            pricingSnapshot: r.priced.snapshot,
+            ...totalsColumns(r.priced.totals),
+          })
+          .where(eq(orders.id, id));
+        await persistLines(tx, { id, businessId: pos.businessId }, r.lines, r.priced);
+        if (removed.length > 0) await logActivity(tx, pos, id, "item_removed", { items: removed, reason }, approvedBy);
+        if ((order.tableId ?? null) !== (table?.id ?? null)) await logActivity(tx, pos, id, "table_changed", { from: order.tableId, to: table?.id ?? null, name: table?.name ?? null });
+        await logActivity(tx, pos, id, "bill_updated", { total: r.priced.totals.total, lines: r.lines.length });
+      });
+      const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      return c.json({ order: await presentOrder(db, row!) });
+    },
+  );
+
+  session.get(
+    "/orders",
+    validate("query", z.object({ status: z.enum(["open", "paid", "void"]).default("open"), tableId: z.string().uuid().optional(), limit: z.coerce.number().int().min(1).max(200).default(50) })),
+    async (c) => {
+      const pos = c.get("pos");
+      const { status, limit, tableId } = c.req.valid("query");
+      const rows = await db
+        .select({ o: orders, tableName: tables.name })
+        .from(orders)
+        .leftJoin(tables, eq(orders.tableId, tables.id))
+        .where(and(eq(orders.businessId, pos.businessId), eq(orders.outletId, pos.outletId), eq(orders.status, status), tableId ? eq(orders.tableId, tableId) : undefined))
+        .orderBy(desc(orders.openedAt))
+        .limit(limit);
+      return c.json({
+        items: rows.map(({ o, tableName }) => ({
+          id: o.id,
+          status: o.status,
+          receiptNumber: o.receiptNumber,
+          label: o.label,
+          tableId: o.tableId,
+          tableName,
+          total: o.total,
+          refundedTotal: o.refundedTotal,
+          openedAt: iso(o.openedAt),
+          paidAt: iso(o.paidAt),
+          userId: o.userId,
+        })),
+      });
+    },
+  );
 
   session.get("/orders/:id", validate("param", idParam), async (c) => {
     const pos = c.get("pos");
@@ -358,19 +531,108 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
     return c.json({ order: await presentOrder(db, row) });
   });
 
-  // Membatalkan bill yang belum dibayar. Pembatalan/refund transaksi LUNAS belum ada (butuh jejak kas dan persetujuan).
-  session.post("/orders/:id/void", validate("param", idParam), validate("json", z.object({ reason: z.string().trim().min(1).max(255) })), async (c) => {
-    const pos = c.get("pos");
-    const { id } = c.req.valid("param");
-    await db.transaction(async (t) => {
-      const tx = t as unknown as Db;
-      const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
-      if (order.status !== "open") return conflict("pos.orderNotOpen");
-      await tx.update(orders).set({ status: "void", voidedAt: new Date(), voidReason: c.req.valid("json").reason }).where(eq(orders.id, id));
-    });
-    const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-    return c.json({ order: await presentOrder(db, row!) });
-  });
+  // Membatalkan bill yang belum dibayar: butuh hak pos.void atau persetujuan atasan. Bill lunas dibatalkan lewat refund.
+  session.post(
+    "/orders/:id/void",
+    validate("param", idParam),
+    validate("json", z.object({ reason: z.string().trim().min(1).max(255), approval: approvalSchema.nullish() })),
+    async (c) => {
+      const pos = c.get("pos");
+      const { id } = c.req.valid("param");
+      const { reason, approval } = c.req.valid("json");
+      const { approvedBy } = await authorize(pos, "pos.void", approval);
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+        if (order.status !== "open") return conflict("pos.orderNotOpen");
+        await tx.update(orders).set({ status: "void", voidedAt: new Date(), voidReason: reason }).where(eq(orders.id, id));
+        await logActivity(tx, pos, id, "bill_voided", { reason, total: order.total }, approvedBy);
+      });
+      const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      return c.json({ order: await presentOrder(db, row!) });
+    },
+  );
+
+  // Refund bill lunas (sebagian atau seluruhnya): butuh hak pos.refund atau persetujuan atasan, alasan, dan shift terbuka.
+  // Uang kembali lewat salah satu metode yang dipakai saat membayar; refund tunai keluar dari laci shift ini.
+  session.post(
+    "/orders/:id/refund",
+    validate("param", idParam),
+    validate(
+      "json",
+      z.object({
+        lines: z.array(z.object({ lineId: z.string().uuid(), quantity: z.number().int().min(1) })).min(1).max(200),
+        method: z.enum(methods),
+        reason: z.string().trim().min(1).max(255),
+        approval: approvalSchema.nullish(),
+      }),
+    ),
+    async (c) => {
+      const pos = c.get("pos");
+      const { id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      const shift = await requireShift(db, pos.userId, pos.outletId);
+      const { approvedBy } = await authorize(pos, "pos.refund", body.approval);
+      const refundId = newId();
+
+      await db.transaction(async (t) => {
+        const tx = t as unknown as Db;
+        const order = await lockOrder(tx, pos.businessId, pos.outletId, id);
+        if (order.status !== "paid") return conflict("pos.notPaid");
+        const paidWith = await tx.select({ method: payments.method }).from(payments).where(eq(payments.orderId, id));
+        if (!paidWith.some((p) => p.method === body.method)) throw new AppError("validation", { fields: { method: "pos.refundMethod" } });
+
+        const rows = await tx.select().from(orderItems).where(eq(orderItems.orderId, id)).orderBy(asc(orderItems.position));
+        let result;
+        try {
+          result = computeRefund(
+            order.total,
+            rows.map((r) => ({
+              id: r.id,
+              weight: Math.max(0, r.unitPrice * r.quantity - r.lineDiscount - r.promoDiscount - r.orderDiscountShare),
+              quantity: r.quantity,
+              refundedQuantity: r.refundedQuantity,
+            })),
+            body.lines,
+          );
+        } catch (e) {
+          if (e instanceof RefundError) throw new AppError("validation", { fields: { lines: "pos.refundInvalid" } });
+          throw e;
+        }
+        if (result.total <= 0) throw new AppError("validation", { fields: { lines: "pos.refundZero" } });
+        if (order.refundedTotal + result.total > order.total) throw new AppError("validation", { fields: { lines: "pos.refundInvalid" } });
+
+        if (body.method === "cash") {
+          const [s] = await tx.select().from(shifts).where(eq(shifts.id, shift.id)).limit(1).for("update");
+          const sum = await shiftSummary(tx, s!);
+          if (result.total > (sum.expectedCash ?? 0)) throw new AppError("validation", { fields: { method: "pos.cashShort" } });
+        }
+
+        await tx.insert(refunds).values({
+          id: refundId,
+          businessId: pos.businessId,
+          outletId: pos.outletId,
+          orderId: id,
+          shiftId: shift.id,
+          userId: pos.userId,
+          approvedBy,
+          method: body.method,
+          total: result.total,
+          reason: body.reason,
+        });
+        for (const l of result.lines) {
+          await tx.insert(refundItems).values({ id: newId(), refundId, orderItemId: l.lineId, quantity: l.quantity, amount: l.amount });
+          await tx.update(orderItems).set({ refundedQuantity: sql`${orderItems.refundedQuantity} + ${l.quantity}` }).where(eq(orderItems.id, l.lineId));
+        }
+        await tx.update(orders).set({ refundedTotal: sql`${orders.refundedTotal} + ${result.total}` }).where(eq(orders.id, id));
+        await logActivity(tx, pos, id, "refund", { total: result.total, method: body.method, reason: body.reason, lines: result.lines.length }, approvedBy);
+      });
+
+      const [row] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      const [rf] = await db.select().from(refunds).where(eq(refunds.id, refundId)).limit(1);
+      return c.json({ order: await presentOrder(db, row!), refund: { id: refundId, total: rf!.total, method: rf!.method } }, 201);
+    },
+  );
 
   // ------------------------------------------------------------------ pembayaran
   session.post(
@@ -421,6 +683,7 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           .update(orders)
           .set({ status: "paid", receiptNumber: counter!.value, paidAt: new Date(), paidTotal: result.paid, changeGiven: result.change })
           .where(eq(orders.id, id));
+        await logActivity(tx, pos, id, "paid", { total: order.total, receiptNumber: counter!.value, methods: result.payments.map((p) => p.method) });
         for (const [i, p] of result.payments.entries()) {
           await tx.insert(payments).values({
             id: newId(),
@@ -513,11 +776,13 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
           userId: pos.userId,
           deviceId: pos.deviceId,
           salesTypeId: order.salesTypeId,
+          tableId: order.tableId,
           label: order.label ? `${order.label} (2)` : null,
           pricingSnapshot: movedPriced.snapshot,
           ...totalsColumns(movedPriced.totals),
         });
         await persistLines(tx, { id: newOrderId, businessId: pos.businessId }, movedLines, movedPriced);
+        await logActivity(tx, pos, id, "split", { movedTo: newOrderId, moved: movedLines.length });
       });
 
       const [a] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
@@ -536,6 +801,11 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       .select({ total: sql<string>`COALESCE(SUM(${payments.applied}), 0)`, n: sql<string>`COUNT(DISTINCT ${payments.orderId})` })
       .from(payments)
       .where(eq(payments.shiftId, shiftRow.id));
+    const [refundRow] = await d
+      .select({ total: sql<string>`COALESCE(SUM(${refunds.total}), 0)` })
+      .from(refunds)
+      .where(and(eq(refunds.shiftId, shiftRow.id), eq(refunds.method, "cash")));
+    const cashRefunds = Number(refundRow?.total ?? 0);
     const moves = await d.select().from(cashMovements).where(eq(cashMovements.shiftId, shiftRow.id)).orderBy(asc(cashMovements.createdAt));
     const cashIn = moves.filter((m) => m.kind === "in").reduce((a, m) => a + m.amount, 0);
     const cashOut = moves.filter((m) => m.kind === "out").reduce((a, m) => a + m.amount, 0);
@@ -546,11 +816,12 @@ export const posRoutes = (db: Db, config: Config, limiter: LoginLimiter) => {
       closedAt: iso(shiftRow.closedAt),
       openingCash: shiftRow.openingCash,
       cashSales,
+      cashRefunds,
       nonCashSales: Number(allRow?.total ?? 0) - cashSales,
       orderCount: Number(allRow?.n ?? 0),
       cashIn,
       cashOut,
-      expectedCash: shiftRow.closedAt ? shiftRow.expectedCash : expectedCash({ openingCash: shiftRow.openingCash, cashSales, cashRefunds: 0, cashIn, cashOut }),
+      expectedCash: shiftRow.closedAt ? shiftRow.expectedCash : expectedCash({ openingCash: shiftRow.openingCash, cashSales, cashRefunds, cashIn, cashOut }),
       actualCash: shiftRow.actualCash,
       difference: shiftRow.difference,
       movements: moves.map((m) => ({ id: m.id, kind: m.kind, amount: m.amount, description: m.description, at: iso(m.createdAt) })),

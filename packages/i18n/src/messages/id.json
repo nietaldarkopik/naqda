@@ -88,7 +88,8 @@
     "salesTypes": "Tipe Penjualan",
     "brands": "Brand",
     "audit": "Jejak Audit",
-    "devices": "Perangkat Kasir"
+    "devices": "Perangkat Kasir",
+    "activities": "Aktivitas Kasir"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -374,7 +375,10 @@
       "bundle": "Bundle",
       "promo": "Promo",
       "outlet": "Outlet",
-      "translation": "Terjemahan"
+      "translation": "Terjemahan",
+      "device": "Perangkat",
+      "table": "Meja",
+      "table_group": "Grup meja"
     }
   },
   "pos": {
@@ -395,7 +399,13 @@
     "paymentShort": "Pembayaran kurang dari total tagihan",
     "splitInvalid": "Pilihan pisah bill tidak valid",
     "cashShort": "Kas di laci tidak cukup",
-    "discountScope": "Diskon ini tidak berlaku untuk item/pesanan tersebut"
+    "discountScope": "Diskon ini tidak berlaku untuk item/pesanan tersebut",
+    "approvalRequired": "Perlu persetujuan atasan",
+    "approverNotAllowed": "Akun ini tidak berhak memberi persetujuan",
+    "notPaid": "Bill ini belum dibayar",
+    "refundMethod": "Pilih metode yang dipakai saat membayar",
+    "refundInvalid": "Jumlah refund tidak valid atau melebihi sisa",
+    "refundZero": "Nilai refund nol"
   },
   "devices": {
     "title": "Perangkat Kasir",
@@ -545,10 +555,74 @@
     "paymentDone": "Pembayaran berhasil",
     "receipt": "Struk",
     "print": "Cetak",
-    "notPaid": "BELUM LUNAS"
+    "notPaid": "BELUM LUNAS",
+    "tables": "Meja",
+    "tableBills": "Bill di {name}",
+    "noTable": "Tanpa meja",
+    "noTables": "Belum ada meja. Atur di Back Office > Manajemen Meja.",
+    "newBillAtTable": "Bill baru di meja ini",
+    "back": "Kembali",
+    "tablesLegend": "Hijau = kosong, kuning = ada bill terbuka (total ditampilkan).",
+    "reason": "Alasan",
+    "approvalTitle": "Persetujuan atasan",
+    "approvalHelp": "Tindakan ini butuh persetujuan atasan. Pilih atasan dan minta PIN-nya.",
+    "approver": "Atasan",
+    "approverPin": "PIN atasan",
+    "noApprovers": "Tidak ada atasan dengan PIN di outlet ini.",
+    "confirm": "Konfirmasi",
+    "removeItemsTitle": "Hapus item dari bill tersimpan",
+    "refund": "Refund",
+    "refundTitle": "Refund",
+    "refundHelp": "Pilih item dan jumlah yang dikembalikan.",
+    "refundAll": "Pilih semua",
+    "refundable": "dapat di-refund",
+    "refundedQty": "{count} sudah di-refund",
+    "refundMethod": "Kembalikan lewat",
+    "refundCashHint": "Uang diambil dari laci shift ini.",
+    "refundConfirm": "Refund",
+    "refundDone": "Refund {amount} berhasil",
+    "refunded": "Di-refund",
+    "cashRefunds": "Refund tunai"
   },
   "discounts": {
     "targetRequired": "Pilih minimal satu item atau kategori sasaran",
     "targetNotAllowed": "Diskon umum tidak boleh punya item atau kategori sasaran"
+  },
+  "tables": {
+    "duplicate": "Nama sudah dipakai di outlet ini",
+    "hasOpenBills": "Meja masih punya bill terbuka",
+    "title": "Manajemen Meja",
+    "subtitle": "Atur grup meja dan denah. Kasir memilih meja dari denah ini.",
+    "create": "Tambah meja",
+    "edit": "Ubah meja",
+    "dragHint": "Geser meja untuk menata denah, lalu simpan. Klik dua kali untuk mengubah.",
+    "saveLayout": "Simpan tata letak",
+    "empty": "Belum ada meja",
+    "group": "Grup",
+    "capacity": "Kapasitas",
+    "shape": "Bentuk",
+    "rect": "Persegi",
+    "round": "Bulat",
+    "groups": "Grup meja",
+    "groupName": "Nama grup",
+    "addGroup": "Tambah"
+  },
+  "activities": {
+    "title": "Aktivitas Kasir",
+    "subtitle": "Jejak bill, pembatalan, dan refund (hanya baca)",
+    "kind": "Jenis",
+    "allKinds": "Semua jenis",
+    "bill": "Bill",
+    "approvedBy": "Disetujui oleh",
+    "kinds": {
+      "bill_created": "Bill dibuat",
+      "bill_updated": "Bill diubah",
+      "item_removed": "Item dihapus",
+      "bill_voided": "Bill dibatalkan",
+      "paid": "Dibayar",
+      "split": "Pisah bill",
+      "table_changed": "Pindah meja",
+      "refund": "Refund"
+    }
   }
 }

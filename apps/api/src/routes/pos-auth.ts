@@ -11,6 +11,7 @@ import type { Config } from "../config";
 import { AppError } from "../errors";
 import { clientIp, validate } from "../http";
 import { normalizeCode, requireDevice, sha256, type PosEnv } from "../pos/context";
+import { privilegesOfRole, verifyPin } from "../pos/pin";
 import { authQueries } from "../repo/tenant";
 
 type Db = DbHandle["db"];
@@ -117,40 +118,10 @@ export const posAuthRoutes = (db: Db, config: Config, limiter: LoginLimiter) => 
       const { userId, pin } = c.req.valid("json");
       const d = c.get("device");
 
-      const [row] = await db
-        .select({ user: users, role: roles })
-        .from(users)
-        .innerJoin(roles, eq(users.roleId, roles.id))
-        .innerJoin(userOutlets, and(eq(userOutlets.userId, users.id), eq(userOutlets.outletId, d.outletId)))
-        .where(and(eq(users.id, userId), eq(users.businessId, d.businessId), isNull(users.deletedAt), eq(users.status, "active"), ne(roles.accessType, "backoffice_only")))
-        .limit(1);
-
-      if (!row || !row.user.pinHash) {
-        await compare(pin, dummyHash);
-        throw new AppError("unauthorized", { messageKey: "pos.pinInvalid" });
-      }
-
-      const lockedUntil = row.user.pinLockedUntil;
-      if (lockedUntil && lockedUntil.getTime() > Date.now()) {
-        throw new AppError("locked", { extra: { retryAfterSeconds: Math.ceil((lockedUntil.getTime() - Date.now()) / 1000) } });
-      }
-
-      if (!(await compare(pin, row.user.pinHash))) {
-        // Penambahan atomik di SQL agar percobaan paralel tidak melewati batas.
-        await db.update(users).set({ pinFailures: sql`${users.pinFailures} + 1` }).where(eq(users.id, userId));
-        const [after] = await db.select({ failures: users.pinFailures }).from(users).where(eq(users.id, userId)).limit(1);
-        const seconds = lockoutSeconds(after?.failures ?? 0);
-        if (seconds > 0) {
-          await db.update(users).set({ pinLockedUntil: new Date(Date.now() + seconds * 1000) }).where(eq(users.id, userId));
-          throw new AppError("locked", { extra: { retryAfterSeconds: seconds } });
-        }
-        throw new AppError("unauthorized", { messageKey: "pos.pinInvalid" });
-      }
-
-      await db.update(users).set({ pinFailures: 0, pinLockedUntil: null, lastLoginAt: new Date() }).where(eq(users.id, userId));
-      const privileges = (await q.privilegesOf(row.role.id)).filter(isPrivilege);
+      const { user, role } = await verifyPin(db, { businessId: d.businessId, outletId: d.outletId }, userId, pin, { touchLogin: true });
+      const privileges = await privilegesOfRole(db, role.id);
       const accessToken = await signPosToken(
-        { userId, businessId: d.businessId, roleId: row.role.id, outletId: d.outletId, deviceId: d.id, privileges },
+        { userId, businessId: d.businessId, roleId: role.id, outletId: d.outletId, deviceId: d.id, privileges },
         config.jwtSecret,
         config.posTokenTtlSeconds,
       );
@@ -161,9 +132,9 @@ export const posAuthRoutes = (db: Db, config: Config, limiter: LoginLimiter) => 
         expiresIn: config.posTokenTtlSeconds,
         user: {
           id: userId,
-          name: row.user.name,
-          locale: row.user.locale,
-          role: { systemKey: row.role.systemKey, name: row.role.name, accessType: row.role.accessType },
+          name: user.name,
+          locale: user.locale,
+          role: { systemKey: role.systemKey, name: role.name, accessType: role.accessType },
           privileges,
         },
         outlet: outlet ? outletForPos(outlet) : null,

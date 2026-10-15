@@ -155,6 +155,7 @@ export type CartLine =
   | { kind: "bundle"; bundleId: string; quantity: number; note?: string | null; discount?: DiscountPick | null };
 export interface Cart {
   salesTypeId: string;
+  tableId?: string | null;
   lines: CartLine[];
   orderDiscount?: DiscountPick | null;
   label?: string | null;
@@ -199,8 +200,10 @@ export interface OrderLineView {
   name: string;
   unitPrice: number;
   quantity: number;
+  refundedQuantity: number;
   discount: { kind: "percent" | "amount"; value: number; discountId?: string | null } | null;
   lineDiscount: number;
+  orderDiscountShare: number;
   promoDiscount: number;
   note: string | null;
   modifiers: { optionId: string | null; name: string; price: number }[];
@@ -210,6 +213,8 @@ export interface OrderView {
   status: "open" | "paid" | "void";
   receiptNumber: number | null;
   salesTypeId: string;
+  tableId: string | null;
+  refundedTotal: number;
   label: string | null;
   note: string | null;
   openedAt: string;
@@ -225,8 +230,15 @@ export interface OrderSummary {
   status: string;
   receiptNumber: number | null;
   label: string | null;
+  tableId?: string | null;
+  tableName?: string | null;
   total: number;
+  refundedTotal?: number;
   openedAt: string;
+}
+export interface FloorMap {
+  groups: { id: string; name: string }[];
+  tables: { id: string; name: string; groupId: string | null; capacity: number; x: number; y: number; shape: "rect" | "round"; open: { count: number; total: number; since: string } | null }[];
 }
 export interface ShiftView {
   id: string;
@@ -234,6 +246,7 @@ export interface ShiftView {
   closedAt: string | null;
   openingCash: number;
   cashSales: number;
+  cashRefunds: number;
   nonCashSales: number;
   orderCount: number;
   cashIn: number;
@@ -247,6 +260,7 @@ export interface ShiftView {
 /** Mengubah bill yang tersimpan menjadi isi keranjang yang bisa diubah lagi. */
 export const cartFromOrder = (o: OrderView): Cart => ({
   salesTypeId: o.salesTypeId,
+  tableId: o.tableId,
   label: o.label,
   note: o.note,
   orderDiscount: o.orderDiscount?.discountId ? { discountId: o.orderDiscount.discountId, value: o.orderDiscount.value } : null,
