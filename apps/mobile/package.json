@@ -1,0 +1,21 @@
+{
+  "name": "naqdi-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pembungkus Android (Capacitor) untuk kasir Naqdi. Memuat aplikasi kasir dari server; kode kasir ada di apps/web.",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android",
+    "doctor": "cap doctor"
+  },
+  "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "7.5.0",
+    "@capacitor/android": "^7.6.0",
+    "@capacitor/core": "^7.6.0",
+    "capacitor-thermal-printer": "0.2.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1731,5 +1731,34 @@
       "statusLabel": "Status",
       "date": "Tanggal"
     }
+  },
+  "hardware": {
+    "title": "Printer struk",
+    "hint": "Pasangkan printer Bluetooth di pengaturan Bluetooth Android dulu, lalu cari di sini. Lebar kertas mengikuti Desain Struk ({paper} mm).",
+    "selected": "Printer terpilih",
+    "none": "Belum ada printer.",
+    "scan": "Cari printer",
+    "scanning": "Mencari…",
+    "noneFound": "Tidak ada printer ditemukan. Nyalakan printer dan dekatkan, lalu coba lagi.",
+    "choose": "Pilih",
+    "chosen": "Dipakai",
+    "forget": "Lepas",
+    "testPrint": "Tes cetak",
+    "printed": "Struk dicetak.",
+    "autoPrint": "Cetak otomatis setelah bayar",
+    "autoPrintHint": "Struk langsung dicetak saat pembayaran selesai.",
+    "openDrawer": "Buka laci kas saat cetak",
+    "openDrawerHint": "Hanya berfungsi bila laci terhubung ke printer.",
+    "done": "Selesai",
+    "scanCamera": "Pindai dengan kamera",
+    "scanFailed": "Pemindaian kamera gagal.",
+    "printerButton": "Printer",
+    "error": {
+      "permission_denied": "Izin Bluetooth ditolak. Izinkan di Pengaturan Android lalu coba lagi.",
+      "connect_failed": "Tidak bisa tersambung ke printer. Pastikan menyala, dekat, dan sudah dipasangkan.",
+      "write_failed": "Gagal mengirim struk ke printer. Coba lagi.",
+      "unsupported": "Fitur ini hanya ada di aplikasi Android Naqdi.",
+      "other": "Terjadi kesalahan pada printer."
+    }
   }
 }

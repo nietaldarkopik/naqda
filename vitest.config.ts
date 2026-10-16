@@ -16,6 +16,7 @@ export default defineConfig({
       "@naqdi/db": p("./packages/db/src/index.ts"),
       "@naqdi/domain": p("./packages/domain/src/index.ts"),
       "@naqdi/sync": p("./packages/sync/src/index.ts"),
+      "@naqdi/hardware": p("./packages/hardware/src/index.ts"),
       "@naqdi/i18n": p("./packages/i18n/src/index.ts"),
     },
   },

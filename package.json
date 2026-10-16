@@ -19,6 +19,8 @@
     "build": "npm run typecheck && npm --prefix apps/web run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node scripts/test.mjs",
+    "mobile:sync": "npm --prefix apps/mobile run sync",
+    "mobile:open": "npm --prefix apps/mobile run open",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx packages/db/src/cli/migrate.ts",
     "db:seed": "tsx packages/db/src/cli/seed.ts",

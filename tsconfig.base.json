@@ -26,6 +26,9 @@
       "@naqdi/sync": [
         "./packages/sync/src/index.ts"
       ],
+      "@naqdi/hardware": [
+        "./packages/hardware/src/index.ts"
+      ],
       "@naqdi/i18n": [
         "./packages/i18n/src/index.ts"
       ],

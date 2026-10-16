@@ -1731,5 +1731,34 @@
       "statusLabel": "Status",
       "date": "Date"
     }
+  },
+  "hardware": {
+    "title": "Receipt printer",
+    "hint": "Pair the Bluetooth printer in Android's Bluetooth settings first, then search here. Paper width follows Receipt Design ({paper} mm).",
+    "selected": "Selected printer",
+    "none": "No printer yet.",
+    "scan": "Search printers",
+    "scanning": "Searching…",
+    "noneFound": "No printers found. Turn the printer on, bring it close, and try again.",
+    "choose": "Choose",
+    "chosen": "In use",
+    "forget": "Remove",
+    "testPrint": "Test print",
+    "printed": "Receipt printed.",
+    "autoPrint": "Print automatically after payment",
+    "autoPrintHint": "The receipt prints as soon as payment completes.",
+    "openDrawer": "Open cash drawer when printing",
+    "openDrawerHint": "Works only if the drawer is connected to the printer.",
+    "done": "Done",
+    "scanCamera": "Scan with camera",
+    "scanFailed": "Camera scan failed.",
+    "printerButton": "Printer",
+    "error": {
+      "permission_denied": "Bluetooth permission denied. Allow it in Android Settings and try again.",
+      "connect_failed": "Cannot connect to the printer. Make sure it is on, nearby, and paired.",
+      "write_failed": "Failed to send the receipt to the printer. Try again.",
+      "unsupported": "This feature is only in the Naqdi Android app.",
+      "other": "A printer error occurred."
+    }
   }
 }

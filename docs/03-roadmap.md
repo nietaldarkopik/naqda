@@ -348,6 +348,8 @@ integrasi pembayaran digital sengaja **belum dikerjakan**; yang berlaku sekarang
 - Distribusi: APK internal, lalu toko aplikasi.
 - **Selesai bila**: tablet Android menjual tanpa internet, mencetak via Bluetooth, dan sinkron tanpa duplikat.
 
+**Status (2026-10-16)**: kerangka Capacitor 7, adapter perangkat keras, cetak struk raster ESC/POS, pindai kamera, dan dialog printer sudah ada dan teruji di cangkang simulasi; **APK belum dibangun dan printer Bluetooth belum dicoba di perangkat nyata** (lihat docs/08-mobile.md bagian 5). `LocalStore` SQLite dan notifikasi pesanan belum dikerjakan.
+
 Catatan: fase 10 dan 11 hanya efisien bila aturan di doc 02 bagian 1a dipatuhi sejak fase 0
 (API token, paket `domain`/`sync`/`hardware` bebas dari React dan browser).
 

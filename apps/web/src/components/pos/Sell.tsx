@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, LayoutGrid, LogOut, Maximize, Minimize, Minus, Percent, Plus, Search, ShoppingCart, Split, Trash2, Wallet, X } from "lucide-react";
+import { ClipboardList, LayoutGrid, LogOut, Maximize, Minimize, Minus, Percent, Plus, Printer, ScanLine, Search, ShoppingCart, Split, Trash2, Wallet, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CartError, PaymentError, priceCartOffline, settle, type CartInput, type PricingPack } from "@naqdi/domain";
@@ -11,6 +11,8 @@ import { getEngine, loadRef, saveRef, useOfflineStatus } from "@/lib/offline/eng
 import { newUuid, offlineOrderView } from "@/lib/offline/receipt";
 import { useFullscreen, useWakeLock } from "@/lib/useDevice";
 import { beep, useBarcodeScanner } from "@/lib/useScanner";
+import { getHardware, isNativeApp } from "@/lib/hardware";
+import { PrinterDialog } from "./PrinterDialog";
 import {
   cartFromOrder,
   getOnline,
@@ -87,6 +89,11 @@ export function Sell({
   const [discountOpen, setDiscountOpen] = useState<{ line: number | "order" } | null>(null);
   const [splitOrder, setSplitOrder] = useState<OrderView | null>(null);
   const [receipt, setReceipt] = useState<OrderView | null>(null);
+  const [printerOpen, setPrinterOpen] = useState(false);
+  /** Di aplikasi Android: tombol printer dan pemindai kamera. Ditentukan setelah mount agar prarender server sama dengan klien. */
+  const [native, setNative] = useState(false);
+  useEffect(() => setNative(isNativeApp()), []);
+  const th = useTranslations("hardware");
   const [confirmLeave, setConfirmLeave] = useState<(() => void) | null>(null);
   const [floor, setFloor] = useState<FloorMap | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
@@ -272,6 +279,14 @@ export function Sell({
     toast(ts("added", { name: label }));
   };
   useBarcodeScanner(handleScan, Boolean(catalog));
+  const scanWithCamera = async () => {
+    try {
+      const code = await (await getHardware()).scanBarcode();
+      if (code) handleScan(code);
+    } catch {
+      toast(th("scanFailed"), "error");
+    }
+  };
 
   const pickItem = (item: CatalogItem) => {
     if (item.variants.length === 1 && item.modifierSets.length === 0) addLine({ kind: "item", variantId: item.variants[0]!.id, quantity: 1, modifierOptionIds: [] });
@@ -460,6 +475,11 @@ export function Sell({
           <Button className="h-11 min-w-11 sm:h-9" variant="secondary" onClick={() => setShiftOpen(true)} disabled={!offline.online} title={!offline.online ? to("needNetwork") : t("shift")} aria-label={t("shift")}>
             <Wallet size={16} aria-hidden /> <span className="hidden md:inline">{t("shift")}</span>
           </Button>
+          {native ? (
+            <Button className="h-11 min-w-11 sm:h-9" variant="ghost" onClick={() => setPrinterOpen(true)} aria-label={th("printerButton")} title={th("printerButton")} data-testid="printer-open">
+              <Printer size={16} aria-hidden />
+            </Button>
+          ) : null}
           {fullscreen.supported ? (
             <Button className="h-11 min-w-11 sm:h-9" variant="ghost" onClick={() => void fullscreen.toggle()} aria-label={fullscreen.active ? td("exitFullscreen") : td("fullscreen")} title={fullscreen.active ? td("exitFullscreen") : td("fullscreen")} data-testid="fullscreen-toggle">
               {fullscreen.active ? <Minimize size={16} aria-hidden /> : <Maximize size={16} aria-hidden />}
@@ -480,7 +500,8 @@ export function Sell({
       <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_400px]">
         <section className="flex min-h-0 flex-col border-line lg:border-e" aria-label={t("catalog")}>
           <div className="space-y-2 border-b border-line bg-surface p-3">
-            <div className="relative max-w-sm">
+            <div className="flex items-center gap-2">
+            <div className="relative max-w-sm flex-1">
               <Search size={15} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
               <Input
                 type="search"
@@ -499,6 +520,12 @@ export function Sell({
                   }
                 }}
               />
+            </div>
+            {native ? (
+              <Button className="h-11 sm:h-9" variant="secondary" onClick={() => void scanWithCamera()} data-testid="scan-camera">
+                <ScanLine size={16} aria-hidden /> <span className="hidden sm:inline">{th("scanCamera")}</span>
+              </Button>
+            ) : null}
             </div>
             <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label={t("categories")}>
               {[{ id: "all", name: t("all") }, ...(catalog?.categories ?? []), ...(catalog?.bundles.length ? [{ id: "bundles", name: t("bundles") }] : [])].map((c) => (
@@ -806,6 +833,7 @@ export function Sell({
       {syncOpen ? <SyncDialog ctx={ctx} status={offline} onClose={() => setSyncOpen(false)} /> : null}
       {billsOpen ? <BillsDialog ctx={ctx} onClose={() => setBillsOpen(false)} onOpen={(id) => void openBill(id)} /> : null}
       {shiftOpen ? <ShiftDialog ctx={ctx} shift={shift} onShift={onShift} onClose={() => setShiftOpen(false)} onClosed={onShiftClosed} /> : null}
+      {printerOpen ? <PrinterDialog paperMm={settings?.receipt.paperMm ?? 80} onClose={() => setPrinterOpen(false)} /> : null}
       {receipt ? <ReceiptDialog ctx={ctx} order={receipt} settings={settings} tableName={floor?.tables.find((x) => x.id === receipt.tableId)?.name ?? null} onClose={() => setReceipt(null)} onRefund={() => setRefunding(receipt)} /> : null}
       {refunding ? (
         <RefundDialog

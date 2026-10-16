@@ -2,7 +2,7 @@
 
 import { Printer } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { quickCashAmounts } from "@naqdi/domain";
 import { Badge, Button, Field, Input, Modal, Select, useToast } from "@/components/ui";
 import { parseMajor } from "@/lib/money";
@@ -21,6 +21,10 @@ import {
 import type { Ctx } from "./PosApp";
 import { FeedbackPanel } from "./dialogs3";
 import { ReceiptView, defaultReceiptSettings, type ReceiptData } from "@/components/ReceiptView";
+import { getHardware, isNativeApp } from "@/lib/hardware";
+import { loadPrinterPrefs } from "@/lib/hardware/printerStore";
+import { renderReceiptJob } from "@/lib/hardware/receiptRaster";
+import { PrinterDialog, hardwareErrorKey } from "./PrinterDialog";
 
 const errText = (e: unknown, fallback: string) => (e instanceof PosError ? (e.fields ? Object.values(e.fields)[0]! : e.message) : fallback);
 
@@ -665,7 +669,14 @@ export function ReceiptDialog({
 }) {
   const t = useTranslations("cashier");
   const to = useTranslations("offline");
+  const th = useTranslations("hardware");
+  const toast = useToast();
   const tx = t as unknown as (k: string) => string;
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [printerOpen, setPrinterOpen] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const autoPrinted = useRef(false);
+  const paperMm = settings?.receipt.paperMm ?? 80;
   const snap = order.snapshot;
   const paid = order.status === "paid";
   const provisional = Boolean(order.offlineRef);
@@ -692,6 +703,38 @@ export function ReceiptDialog({
     pointsEarned: order.pointsEarned,
     paid,
   };
+
+  /** Di aplikasi native: cetak langsung ke printer Bluetooth terpilih; di browser: dialog cetak. */
+  const print = async () => {
+    if (!isNativeApp()) {
+      window.print();
+      return;
+    }
+    const prefs = loadPrinterPrefs();
+    if (!prefs.printer || !receiptRef.current) {
+      setPrinterOpen(true);
+      return;
+    }
+    setPrinting(true);
+    try {
+      const job = await renderReceiptJob(receiptRef.current, paperMm, { openDrawer: prefs.openDrawer });
+      await (await getHardware()).printReceipt(prefs.printer, job);
+      toast(th("printed"));
+    } catch (e) {
+      toast(th(`error.${hardwareErrorKey(e)}` as never), "error");
+    } finally {
+      setPrinting(false);
+    }
+  };
+  // Cetak otomatis sekali saat struk pembayaran lunas terbuka (bila diaktifkan di perangkat ini).
+  useEffect(() => {
+    if (autoPrinted.current || !paid || !isNativeApp() || !loadPrinterPrefs().autoPrint) return;
+    autoPrinted.current = true;
+    const id = setTimeout(() => void print(), 400);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hanya sekali per struk
+  }, []);
+
   return (
     <Modal
       open
@@ -704,9 +747,14 @@ export function ReceiptDialog({
               {t("refund")}
             </Button>
           ) : null}
-          <Button variant="secondary" onClick={() => window.print()}>
+          <Button variant="secondary" disabled={printing} onClick={() => void print()} data-testid="receipt-print">
             <Printer size={16} aria-hidden /> {t("print")}
           </Button>
+          {isNativeApp() ? (
+            <Button variant="ghost" onClick={() => setPrinterOpen(true)} data-testid="receipt-printer-settings">
+              {th("title")}
+            </Button>
+          ) : null}
           <Button onClick={onClose} data-testid="receipt-close">
             {t("done")}
           </Button>
@@ -727,7 +775,10 @@ export function ReceiptDialog({
         </p>
       ) : null}
       {paid && !provisional ? <FeedbackPanel order={order} /> : null}
-      <ReceiptView data={data} settings={settings?.receipt ?? defaultReceiptSettings} fmt={ctx.fmt} />
+      <div ref={receiptRef}>
+        <ReceiptView data={data} settings={settings?.receipt ?? defaultReceiptSettings} fmt={ctx.fmt} />
+      </div>
+      {printerOpen ? <PrinterDialog paperMm={paperMm} onClose={() => setPrinterOpen(false)} /> : null}
     </Modal>
   );
 }
