@@ -1,6 +1,6 @@
 # Aplikasi mobile (Android): kasir Naqdi
 
-Status: **kerangka dan perangkat lunak sisi web selesai dan teruji; APK belum pernah dibangun atau dijalankan di perangkat.** Mesin pengembangan ini tidak punya JDK maupun Android SDK, jadi langkah yang butuh keduanya (membangun APK, menjalankan di tablet, mencoba printer Bluetooth) belum bisa diverifikasi. Bagian 5 menyebut persis apa yang sudah dan belum terbukti.
+Status: **APK debug berhasil dibangun (2026-10-16), tetapi belum pernah dijalankan di perangkat atau emulator.** Sisi web teruji di cangkang simulasi. Bagian 5 menyebut persis apa yang sudah dan belum terbukti.
 
 ## 1. Arsitektur
 
@@ -11,7 +11,20 @@ Status: **kerangka dan perangkat lunak sisi web selesai dan teruji; APK belum pe
 - **Pemindai**: scanner USB/Bluetooth mode keyboard tetap jalan (`useBarcodeScanner`); di aplikasi ada tombol **Pindai dengan kamera** (Google Code Scanner/ML Kit, tanpa izin kamera karena antarmukanya milik Google Play services; modul diunduh otomatis sekali).
 - **Plugin**: `capacitor-thermal-printer` 0.2.5 (hanya perlu menerima byte mentah lewat `raw()`; mudah diganti bila bermasalah, cukup ubah `apps/web/src/lib/hardware/capacitor.ts`) dan `@capacitor-mlkit/barcode-scanning` 7.5. Plugin printer mensyaratkan Capacitor 7, karena itu seluruh tumpukan memakai Capacitor 7, bukan 8.
 
-## 2. Membangun APK (di komputer yang punya Android Studio)
+## 2. Membangun APK
+
+**Di mesin pengembangan ini** JDK dan SDK dipasang tanpa Android Studio, di `C:/Users/Exist Code/android-dev/` (`jdk` = Temurin 21, `sdk` = cmdline-tools, platform-tools, platform android-35, build-tools 35.0.0; lisensi SDK diterima lewat `sdkmanager --licenses`). Membangun ulang dari Git Bash:
+
+```
+export JAVA_HOME="/c/Users/Exist Code/android-dev/jdk" ANDROID_HOME="/c/Users/Exist Code/android-dev/sdk"
+cd apps/mobile/android
+echo "sdk.dir=C:/Users/Exist Code/android-dev/sdk" > local.properties     # tidak masuk git; pakai garis miring biasa
+./gradlew.bat assembleDebug
+```
+
+Hasil: `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` (sekitar 27 MB; salinan di `build/naqdi-kasir-debug.apk`). Build pertama sekitar 9 menit (mengunduh Gradle 8.11.1 dan dependensi), berikutnya jauh lebih cepat. Pasang ke tablet: `adb install -r app-debug.apk` (`adb` ada di `sdk/platform-tools`), atau salin APK ke tablet dan izinkan pemasangan dari sumber tidak dikenal.
+
+**Di komputer lain (Android Studio)**
 
 1. Pasang **Android Studio** (membawa JDK 21) dan, dari SDK Manager, **Android SDK Platform 35** + Build-Tools.
 2. Pastikan server dapat diakses dari tablet lewat **HTTPS** (mis. `https://naqdi.excoder.site`); service worker offline tidak berjalan di HTTP.
@@ -50,7 +63,7 @@ Terbukti (otomatis, bisa diulang):
 - Proyek Android dihasilkan oleh `cap add android` dan `cap sync` mengenali kedua plugin.
 
 **Belum terbukti dan harus dicoba di perangkat nyata sebelum dipakai toko:**
-1. Proyek Gradle benar-benar terbangun (belum pernah dikompilasi; JDK/SDK tidak ada di mesin ini).
+1. ~~Proyek Gradle terbangun~~ **Terbukti**: `assembleDebug` sukses; APK `id.naqdi.kasir`, minSdk 23, targetSdk 35, izin Bluetooth benar. Yang belum: menjalankannya (peluncuran, WebView memuat server) di perangkat atau emulator.
 2. `capacitor-thermal-printer` 0.2.5 (versi awal, satu pengelola) berhasil menyambung ke printer 58 mm yang umum (RPP02N, Xprinter) dan menerima byte raster mentah lewat `raw()`: kecepatan, pemotongan data besar, dan sambung ulang setelah printer tidur. Plugin harus meminta izin Bluetooth saat runtime di Android 12+; bila tidak, perlu ditambah permintaan izin sendiri.
 3. WebView memuat kasir dari server, service worker aktif, dan **kasir tetap berjalan setelah peluncuran dingin tanpa internet** (pemuatan pertama online lebih dulu).
 4. `html-to-image` merender struk benar di WebView Android (font, RTL).
