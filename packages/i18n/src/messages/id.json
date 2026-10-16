@@ -18,7 +18,8 @@
     "invoiceNotPayable": "Faktur ini sudah lunas atau dibatalkan.",
     "invoiceNotPending": "Faktur ini tidak sedang menunggu verifikasi.",
     "dateFuture": "Tanggal transfer tidak boleh di masa depan.",
-    "manage": "Kelola langganan"
+    "manage": "Kelola langganan",
+    "mailNotFailed": "Hanya email yang gagal yang bisa diulang."
   },
   "signup": {
     "disabled": "Pendaftaran belum dibuka.",
@@ -185,6 +186,9 @@
         "create": "Faktur dibuat",
         "approve": "Pembayaran disetujui",
         "reject": "Pembayaran ditolak"
+      },
+      "mail": {
+        "test": "Email uji dikirim"
       }
     },
     "navInvoices": "Pembayaran",
@@ -225,7 +229,37 @@
     "invInterval": "Siklus",
     "invoiceCreated": "Faktur {number} dibuat.",
     "invoices": "Faktur",
-    "viewAll": "Lihat semua"
+    "viewAll": "Lihat semua",
+    "navMail": "Email",
+    "mail": {
+      "driver": "Pengirim",
+      "logOnly": "Hanya dicatat (belum SMTP)",
+      "logOnlyNote": "SMTP belum diatur: email hanya dicatat dan TIDAK keluar. Isi SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_FROM di environment API lalu restart.",
+      "host": "Server SMTP",
+      "user": "Akun SMTP",
+      "from": "Pengirim (From)",
+      "operator": "Email pengelola",
+      "appUrl": "Alamat aplikasi",
+      "testTo": "Kirim email uji ke",
+      "sendTest": "Kirim uji",
+      "connection": "Koneksi dan login",
+      "delivery": "Pengiriman",
+      "retry": "Ulangi",
+      "status": {
+        "queued": "Antre",
+        "sending": "Dikirim",
+        "sent": "Terkirim",
+        "logged": "Dicatat",
+        "failed": "Gagal"
+      },
+      "col": {
+        "when": "Waktu",
+        "to": "Penerima",
+        "kind": "Jenis",
+        "subject": "Judul",
+        "status": "Status"
+      }
+    }
   },
   "common": {
     "save": "Simpan",

@@ -7,6 +7,7 @@ import { WindowLimiter } from "../auth/window";
 import type { Config } from "../config";
 import { AppError } from "../errors";
 import { clientIp, validate } from "../http";
+import { mailWelcome } from "../mail/notify";
 import { recordPlatformEvent } from "../platform/audit";
 
 type Db = DbHandle["db"];
@@ -82,6 +83,7 @@ export const publicRoutes = (db: Db, config: Config) => {
         adminPassword: b.password,
         bcryptCost: config.bcryptCost,
       });
+      await mailWelcome(db, config, made.businessId, TRIAL_DAYS);
       await recordPlatformEvent(db, null, "signup", made.businessId, { plan: "basic", country: b.country ?? null, currency: b.currency, locale: b.locale, termsVersion: TERMS_VERSION });
     } catch (e) {
       // Dua pendaftaran serentak dengan email sama: yang kalah mendapat pesan yang sama dengan pengecekan di atas.

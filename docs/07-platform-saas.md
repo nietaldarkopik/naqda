@@ -91,6 +91,26 @@ Belum dibuat. Desain 12D sengaja netral terhadap penyedia: tabel `invoices` puny
 4. Aturan Google: membeli langganan DI DALAM aplikasi Android umumnya wajib lewat Play Billing dengan potongan komisi Google (kebijakan dan besarnya berbeda per wilayah dan berubah; periksa kebijakan Payments Google Play terbaru dan perjanjian pengembang sebelum merancang harga). Pelanggan yang membayar lewat situs/transfer di luar aplikasi mengikuti jalur yang sudah ada. Satu bisnis boleh punya jalur campuran, tetapi hanya SATU sumber periode aktif pada satu waktu (hindari tagihan ganda: tampilkan jalur yang sedang dipakai di halaman langganan).
 5. Harga di Play per mata uang/negara (bukan hanya rupiah), jadi daftar harga non-rupiah muncul dari sini.
 
+## 5c. Email keluar (siap SMTP)
+
+Infrastruktur email sudah ada dan **siap dipakai begitu SMTP diisi**; tanpa SMTP, email hanya dicatat. Tidak terikat penyedia: Google (Gmail/Workspace), Zoho, Brevo, Mailgun, SES SMTP, atau server sendiri, cukup lewat variabel lingkungan API.
+
+| Variabel | Arti |
+|---|---|
+| `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_SECURE` (`true` untuk port 465 TLS langsung; `false` untuk STARTTLS di 587), `SMTP_USER`, `SMTP_PASS` | Server pengirim. Kosong `SMTP_HOST` = driver `log` (email dicatat saja dan **tidak keluar**) |
+| `MAIL_FROM` | Pengirim, mis. `Naqdi <no-reply@domain-anda>` (harus sah di penyedia SMTP) |
+| `MAIL_REPLY_TO` | Opsional, alamat balasan |
+| `OPERATOR_EMAIL` | Penerima pemberitahuan pengelola (bukti transfer masuk). Kosong = tidak ada |
+| `APP_URL` | Alamat publik web untuk tautan di email, mis. `https://naqdi.excoder.site` |
+
+Contoh Gmail/Google Workspace: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`, `SMTP_USER=akun@gmail.com`, `SMTP_PASS=<sandi aplikasi 16 karakter>` (verifikasi dua langkah harus aktif lalu buat App Password; sandi akun biasa ditolak). Batas kiriman akun Gmail biasa sekitar 500 email per hari: cukup untuk tahap awal, tetapi untuk ribuan pelanggan pindah ke penyedia email transaksional dan pasang SPF, DKIM, dan DMARC pada domain pengirim agar tidak masuk spam.
+
+Cara kerja: tindakan pengguna hanya **memasukkan email ke antrean** (`mail_queue`, dirender saat itu juga dalam id/en/ar sesuai bahasa bisnis), jadi SMTP yang lambat atau mati tidak menggagalkan tindakannya. Pekerja di proses API mengirim tiap 15 detik dengan klaim atomik (dua pekerja tidak mengirim ganda), percobaan ulang bertahap 1, 5, 30, dan 120 menit, lalu status `failed` (bisa diulang pengelola). Email selesai dihapus setelah 90 hari karena memuat nama dan alamat.
+
+Email yang sudah terhubung: selamat datang saat mendaftar, faktur terbit (termasuk perpanjangan otomatis dan faktur khusus), bukti transfer masuk (ke `OPERATOR_EMAIL`), pembayaran disetujui, dan bukti ditolak. Panel pengelola **Email** (`/platform/mail`) menampilkan pengaturan aktif (tanpa sandi), jumlah per status, daftar pesan, tombol ulangi, dan **Kirim uji** yang memeriksa koneksi/login SMTP lalu mengirim satu email. Setelah mengisi SMTP, pakai Kirim uji dulu.
+
+Belum ada: verifikasi alamat email saat mendaftar dan pemulihan kata sandi lewat email (keduanya membutuhkan SMTP aktif; keduanya pagar utama sebelum pendaftaran dibuka untuk publik), pengingat uji coba hampir habis, dan penanganan bounce/keluhan. Tabel `email_outbox` lama (pratinjau notifikasi di Pengaturan) belum dialihkan ke antrean ini.
+
 ## 6. Hal yang harus diputuskan sebelum 12B–12D
 
 1. **Verifikasi email pendaftaran.** Aplikasi **belum punya pengirim email** (email hanya dicatat). Pendaftaran mandiri tanpa verifikasi membuka penyalahgunaan uji coba berulang dan akun palsu. Perlu memilih penyedia email (mis. SES, Postmark, Resend) sebelum peluncuran.

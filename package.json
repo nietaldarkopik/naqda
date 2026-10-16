@@ -36,12 +36,14 @@
     "hono": "^4.13.13",
     "jose": "^6.2.12",
     "mysql2": "^3.24.6",
+    "nodemailer": "^10.1.1",
     "uuid": "^14.0.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

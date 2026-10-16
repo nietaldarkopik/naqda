@@ -2,11 +2,14 @@ import { compare } from "bcryptjs";
 import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { businesses, createBusiness, invoices, isValidTimezone, platformAdmins, platformAudit, users, type DbHandle } from "@naqdi/db";
+import { businesses, createBusiness, invoices, isValidTimezone, mailQueue, platformAdmins, platformAudit, users, type DbHandle } from "@naqdi/db";
 import { TRIAL_DAYS, accessOf, billingIntervals, businessStatuses, invoiceStatuses, isBusinessStatus, isPlanCode, isSupportedCurrency, limitsOf, selfServePrice, trialEndFrom, type BusinessStatus } from "@naqdi/domain";
 import { LoginLimiter } from "../auth/limiter";
 import { signPlatformToken, verifyPlatformToken } from "../auth/tokens";
 import { businessBilling, clearBillingCache, usageOf } from "../billing/access";
+import { mailInvoiceIssued, mailPaymentApproved, mailPaymentRejected } from "../mail/notify";
+import { enqueueMail, processMailQueue, retryMail } from "../mail/queue";
+import type { MailTransport } from "../mail/transport";
 import { activeInvoice, approveInvoice, createInvoice, invoiceView, latestProof, rejectInvoice } from "../billing/invoices";
 import type { Config } from "../config";
 import { AppError } from "../errors";
@@ -57,7 +60,7 @@ const createBody = z.object({
 });
 
 /** Panel pengelola platform: akun dan token terpisah dari toko. Peran owner boleh mengubah; support hanya melihat. */
-export const platformRoutes = (db: Db, config: Config) => {
+export const platformRoutes = (db: Db, config: Config, transport: MailTransport) => {
   const app = new Hono<PlatformEnv>();
   const limiter = new LoginLimiter(5, 15 * 60_000);
 
@@ -347,6 +350,7 @@ export const platformRoutes = (db: Db, config: Config) => {
     const admin = c.get("admin");
     const done = await approveInvoice(db, id, admin.id);
     await recordPlatformEvent(db, admin.id, "invoice.approve", done.businessId, { invoice: done.number, plan: done.plan, interval: done.interval, amount: done.amount, currency: done.currency, periodEndsAt: done.periodEnd.toISOString(), stillSuspended: done.stillSuspended, ...(c.req.valid("json").note ? { note: c.req.valid("json").note } : {}) });
+    await mailPaymentApproved(db, config, done.businessId, done.number, done.periodEnd);
     const row = await invoiceWithBusiness(id);
     return c.json({ invoice: { ...invoiceView(row.inv, await latestProof(db, id)), businessId: row.inv.businessId, business: row.business }, periodEndsAt: done.periodEnd.toISOString(), stillSuspended: done.stillSuspended });
   });
@@ -358,6 +362,7 @@ export const platformRoutes = (db: Db, config: Config) => {
     const before = await invoiceWithBusiness(id);
     await rejectInvoice(db, id, admin.id, reason);
     await recordPlatformEvent(db, admin.id, "invoice.reject", before.inv.businessId, { invoice: before.inv.number, reason });
+    await mailPaymentRejected(db, config, before.inv.businessId, before.inv.number, reason);
     const row = await invoiceWithBusiness(id);
     return c.json({ invoice: { ...invoiceView(row.inv, await latestProof(db, id)), businessId: row.inv.businessId, business: row.business } });
   });
@@ -382,9 +387,67 @@ export const platformRoutes = (db: Db, config: Config) => {
       if (existing) await db.update(invoices).set({ status: "void" }).where(eq(invoices.id, existing.id));
       const row = await createInvoice(db, { businessId: id, plan: body.plan, interval: body.interval, amount, currency: biz.currency, custom: body.amount !== undefined && body.amount !== listed, note: body.note ?? null });
       await recordPlatformEvent(db, admin.id, "invoice.create", id, { invoice: row.number, plan: body.plan, interval: body.interval, amount, currency: biz.currency, ...(body.note ? { note: body.note } : {}) });
+      await mailInvoiceIssued(db, config, id, row);
       return c.json({ invoice: invoiceView(row) }, 201);
     },
   );
+
+  // ------------------------------------------------------------------ email keluar
+  app.get("/mail/status", async (c) => {
+    const rows = await db.select({ status: mailQueue.status, n: sql<number>`COUNT(*)` }).from(mailQueue).groupBy(mailQueue.status);
+    const m = config.mail;
+    return c.json({
+      driver: transport.driver,
+      configured: m.driver === "smtp",
+      host: m.host || null,
+      port: m.port,
+      secure: m.secure,
+      user: m.user || null,
+      from: m.from,
+      replyTo: m.replyTo || null,
+      operatorEmail: m.operatorEmail || null,
+      appUrl: m.appUrl,
+      counts: Object.fromEntries(rows.map((r) => [r.status, Number(r.n)])),
+    });
+  });
+
+  app.get("/mail", validate("query", z.object({ status: z.enum(["queued", "sending", "sent", "logged", "failed"]).optional(), page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(25) })), async (c) => {
+    const q = c.req.valid("query");
+    const where = q.status ? eq(mailQueue.status, q.status) : undefined;
+    const rows = await db
+      .select({ id: mailQueue.id, to: mailQueue.recipient, kind: mailQueue.kind, subject: mailQueue.subject, status: mailQueue.status, attempts: mailQueue.attempts, lastError: mailQueue.lastError, sentAt: mailQueue.sentAt, createdAt: mailQueue.createdAt, nextAttemptAt: mailQueue.nextAttemptAt })
+      .from(mailQueue)
+      .where(where)
+      .orderBy(desc(mailQueue.createdAt))
+      .limit(q.pageSize)
+      .offset((q.page - 1) * q.pageSize);
+    const [{ n }] = (await db.select({ n: sql<number>`COUNT(*)` }).from(mailQueue).where(where)) as [{ n: number }];
+    return c.json({ items: rows.map((r) => ({ ...r, sentAt: iso(r.sentAt), createdAt: iso(r.createdAt), nextAttemptAt: iso(r.nextAttemptAt) })), total: Number(n), page: q.page, pageSize: q.pageSize });
+  });
+
+  /** Memeriksa koneksi SMTP lalu mengirim satu email uji ke alamat yang diberikan, dan melaporkan hasilnya langsung. */
+  app.post("/mail/test", owner, validate("json", z.object({ to: z.string().trim().toLowerCase().email().max(191) })), async (c) => {
+    const { to } = c.req.valid("json");
+    const admin = c.get("admin");
+    let verify: { ok: boolean; error?: string } = { ok: true };
+    try {
+      await transport.verify();
+    } catch (e) {
+      verify = { ok: false, error: (e instanceof Error ? e.message : String(e)).slice(0, 250) };
+    }
+    const id = await enqueueMail(db, { to, kind: "test", locale: "id", data: { to } });
+    if (!id) throw new AppError("server");
+    await processMailQueue(db, transport);
+    const [row] = await db.select().from(mailQueue).where(eq(mailQueue.id, id)).limit(1);
+    await recordPlatformEvent(db, admin.id, "mail.test", null, { to, status: row?.status ?? null });
+    return c.json({ verify, mail: { id, status: row?.status ?? "queued", attempts: row?.attempts ?? 0, lastError: row?.lastError ?? null } });
+  });
+
+  app.post("/mail/:id/retry", owner, validate("param", idParam), async (c) => {
+    const { id } = c.req.valid("param");
+    if (!(await retryMail(db, id))) throw new AppError("conflict", { messageKey: "billing.mailNotFailed" });
+    return c.json({ ok: true });
+  });
 
   // ------------------------------------------------------------------ jejak audit pengelola
   app.get(

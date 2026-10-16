@@ -7,6 +7,11 @@ const path = require("node:path");
 const root = __dirname;
 const webPort = process.env.WEB_PORT || "3100";
 
+// Email keluar: teruskan hanya variabel yang diisi (lihat docs/07-platform-saas.md bagian 5c).
+const mailEnv = Object.fromEntries(
+  ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "MAIL_REPLY_TO", "OPERATOR_EMAIL", "APP_URL"].filter((k) => process.env[k]).map((k) => [k, process.env[k]]),
+);
+
 module.exports = {
   apps: [
     {
@@ -17,7 +22,7 @@ module.exports = {
       // TRUST_PROXY_HOPS: jumlah proxy tepercaya di depan API (Apache + Next = 2); dipakai untuk alamat IP klien pada pembatas laju.
       // BILLING_BANK_INFO: petunjuk transfer di faktur (rekening resmi Naqdi; \n = baris baru). Kosong = pelanggan diminta menghubungi pengelola.
       // SIGNUP_ENABLED: pendaftaran mandiri mati di produksi sampai dinyalakan (jangan sebelum ada verifikasi email dan dokumen hukum).
-      env: { NODE_ENV: "production", TRUST_PROXY_HOPS: process.env.TRUST_PROXY_HOPS || "2", SIGNUP_ENABLED: process.env.SIGNUP_ENABLED || "false", BILLING_BANK_INFO: process.env.BILLING_BANK_INFO || "" },
+      env: { NODE_ENV: "production", TRUST_PROXY_HOPS: process.env.TRUST_PROXY_HOPS || "2", SIGNUP_ENABLED: process.env.SIGNUP_ENABLED || "false", BILLING_BANK_INFO: process.env.BILLING_BANK_INFO || "", ...mailEnv },
       max_restarts: 10,
       min_uptime: "10s",
     },

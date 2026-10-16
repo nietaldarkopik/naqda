@@ -39,6 +39,7 @@ import { posRoutes } from "./routes/pos-session";
 import { platformRoutes } from "./routes/platform";
 import { publicRoutes } from "./routes/public";
 import { billingRoutes } from "./routes/billing";
+import { createTransport, type MailTransport } from "./mail/transport";
 
 const rootStatDir = process.cwd();
 
@@ -46,10 +47,12 @@ export interface AppDeps {
   handle: DbHandle;
   config: Config;
   limiter?: LoginLimiter;
+  /** Pengirim email; bawaannya mengikuti config (SMTP bila SMTP_HOST diisi, kalau tidak hanya dicatat). Tes menyuntikkan pengirim memori. */
+  transport?: MailTransport;
 }
 
 /** Membuat aplikasi Hono. Dipisah dari server agar bisa diuji tanpa membuka port. */
-export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppDeps) => {
+export const createApp = ({ handle, config, limiter = new LoginLimiter(), transport = createTransport(config) }: AppDeps) => {
   const { db } = handle;
   const app = new Hono();
 
@@ -103,7 +106,7 @@ export const createApp = ({ handle, config, limiter = new LoginLimiter() }: AppD
   v1.route("/files", fileRoutes(storage));
   v1.route("/pos", posRoutes(db, config, limiter));
   v1.route("/public", publicRoutes(db, config));
-  v1.route("/platform", platformRoutes(db, config));
+  v1.route("/platform", platformRoutes(db, config, transport));
 
   const secured = new Hono<AppEnv>();
   secured.use("*", authenticate(config.jwtSecret));

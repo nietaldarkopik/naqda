@@ -20,9 +20,21 @@ const envSchema = z.object({
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   /** Pendaftaran mandiri. Bawaan: aktif di dev/tes, MATI di produksi sampai pemilik menyalakannya (butuh verifikasi email sebelum dibuka ke publik). */
   SIGNUP_ENABLED: z.enum(["true", "false"]).optional(),
-  /** Petunjuk transfer bank yang ditampilkan di faktur (rekening resmi Naqdi). Pakai 
- untuk baris baru. Kosong = pelanggan diminta menghubungi pengelola. */
+  /** Petunjuk transfer bank yang ditampilkan di faktur (rekening resmi Naqdi). Pakai backslash-n untuk baris baru. Kosong = pelanggan diminta menghubungi pengelola. */
   BILLING_BANK_INFO: z.string().default(""),
+  /** Email keluar. Tanpa SMTP_HOST pesan hanya dicatat (driver "log"); isi SMTP_* untuk mengirim sungguhan (Google, Zoho, Brevo, dan lain-lain). */
+  SMTP_HOST: z.string().default(""),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  /** true = TLS langsung (port 465); false = STARTTLS bila server mendukung (port 587). */
+  SMTP_SECURE: z.enum(["true", "false"]).default("false"),
+  SMTP_USER: z.string().default(""),
+  SMTP_PASS: z.string().default(""),
+  MAIL_FROM: z.string().default("Naqdi <no-reply@localhost>"),
+  MAIL_REPLY_TO: z.string().default(""),
+  /** Penerima pemberitahuan untuk pengelola (mis. bukti transfer masuk). Kosong = tidak ada pemberitahuan. */
+  OPERATOR_EMAIL: z.string().default(""),
+  /** Alamat publik aplikasi web, dipakai untuk tautan di email. */
+  APP_URL: z.string().default("http://localhost:3000"),
 });
 
 export interface Config {
@@ -41,6 +53,18 @@ export interface Config {
   trustProxyHops: number;
   signupEnabled: boolean;
   billingBankInfo: string;
+  mail: {
+    driver: "smtp" | "log";
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    from: string;
+    replyTo: string;
+    operatorEmail: string;
+    appUrl: string;
+  };
 }
 
 const rootDir = fileURLToPath(new URL("../../../", import.meta.url));
@@ -75,6 +99,18 @@ export const parseConfig = (env: Record<string, string | undefined>): Config => 
     isProduction: e.NODE_ENV === "production",
     trustProxyHops: e.TRUST_PROXY_HOPS,
     billingBankInfo: e.BILLING_BANK_INFO.replace(/\\n/g, "\n").trim(),
+    mail: {
+      driver: e.SMTP_HOST ? "smtp" : "log",
+      host: e.SMTP_HOST,
+      port: e.SMTP_PORT,
+      secure: e.SMTP_SECURE === "true",
+      user: e.SMTP_USER,
+      pass: e.SMTP_PASS,
+      from: e.MAIL_FROM,
+      replyTo: e.MAIL_REPLY_TO,
+      operatorEmail: e.OPERATOR_EMAIL,
+      appUrl: e.APP_URL.replace(/\/+$/, ""),
+    },
     signupEnabled: e.SIGNUP_ENABLED ? e.SIGNUP_ENABLED === "true" : e.NODE_ENV !== "production",
   };
 };

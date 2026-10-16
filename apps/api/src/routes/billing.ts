@@ -5,6 +5,7 @@ import { businesses, invoiceProofs, invoices, newId, type DbHandle } from "@naqd
 import { billingIntervals, planPricesIdr, selfServePrice, type BillingInterval } from "@naqdi/domain";
 import { businessBilling } from "../billing/access";
 import { billingView } from "../billing/view";
+import { mailInvoiceIssued, mailProofReceived } from "../mail/notify";
 import { RENEWAL_LEAD_DAYS, activeInvoice, createInvoice, invoiceView, latestProof } from "../billing/invoices";
 import type { Config } from "../config";
 import { AppError } from "../errors";
@@ -39,7 +40,10 @@ export const billingRoutes = (db: Db, config: Config) => {
     const interval = biz.billingInterval as BillingInterval | null;
     if (!current && biz.status === "active" && interval && billing?.access.daysLeft != null && billing.access.daysLeft <= RENEWAL_LEAD_DAYS) {
       const price = selfServePrice(biz.plan, interval, biz.currency);
-      if (price !== null) current = await createInvoice(db, { businessId, plan: biz.plan, interval, amount: price, currency: biz.currency });
+      if (price !== null) {
+        current = await createInvoice(db, { businessId, plan: biz.plan, interval, amount: price, currency: biz.currency });
+        await mailInvoiceIssued(db, config, businessId, current);
+      }
     }
 
     const rows = await db.select().from(invoices).where(eq(invoices.businessId, businessId)).orderBy(desc(invoices.createdAt)).limit(30);
@@ -71,6 +75,7 @@ export const billingRoutes = (db: Db, config: Config) => {
     // Mengganti pilihan paket: faktur terbuka lama dibatalkan (belum ada bukti), diganti yang baru.
     if (current) await db.update(invoices).set({ status: "void" }).where(eq(invoices.id, current.id));
     const row = await createInvoice(db, { businessId, plan, interval, amount: price, currency: biz.currency });
+    await mailInvoiceIssued(db, config, businessId, row);
     return c.json({ invoice: invoiceView(row) }, 201);
   });
 
@@ -134,6 +139,7 @@ export const billingRoutes = (db: Db, config: Config) => {
       await tx.update(invoices).set({ status: "pending", rejectReason: null }).where(eq(invoices.id, id));
     });
     const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+    await mailProofReceived(db, config, businessId, row!);
     return c.json({ invoice: invoiceView(row!, await latestProof(db, id)) }, 201);
   });
 

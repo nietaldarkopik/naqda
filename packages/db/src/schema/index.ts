@@ -6,3 +6,4 @@ export * from "./crm";
 export * from "./settings";
 export * from "./platform";
 export * from "./billing";
+export * from "./mail";

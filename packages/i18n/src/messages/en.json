@@ -18,7 +18,8 @@
     "invoiceNotPayable": "This invoice is already paid or cancelled.",
     "invoiceNotPending": "This invoice is not awaiting verification.",
     "dateFuture": "The transfer date cannot be in the future.",
-    "manage": "Manage subscription"
+    "manage": "Manage subscription",
+    "mailNotFailed": "Only failed emails can be retried."
   },
   "signup": {
     "disabled": "Sign-up is not open yet.",
@@ -185,6 +186,9 @@
         "create": "Invoice created",
         "approve": "Payment approved",
         "reject": "Payment rejected"
+      },
+      "mail": {
+        "test": "Test email sent"
       }
     },
     "navInvoices": "Payments",
@@ -225,7 +229,37 @@
     "invInterval": "Cycle",
     "invoiceCreated": "Invoice {number} created.",
     "invoices": "Invoices",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "navMail": "Email",
+    "mail": {
+      "driver": "Sender",
+      "logOnly": "Log only (no SMTP yet)",
+      "logOnlyNote": "SMTP is not configured: emails are only logged and do NOT leave this machine. Set SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_FROM in the API environment and restart.",
+      "host": "SMTP server",
+      "user": "SMTP account",
+      "from": "Sender (From)",
+      "operator": "Operator email",
+      "appUrl": "App address",
+      "testTo": "Send a test email to",
+      "sendTest": "Send test",
+      "connection": "Connection and login",
+      "delivery": "Delivery",
+      "retry": "Retry",
+      "status": {
+        "queued": "Queued",
+        "sending": "Sending",
+        "sent": "Sent",
+        "logged": "Logged",
+        "failed": "Failed"
+      },
+      "col": {
+        "when": "Time",
+        "to": "Recipient",
+        "kind": "Type",
+        "subject": "Subject",
+        "status": "Status"
+      }
+    }
   },
   "common": {
     "save": "Save",
